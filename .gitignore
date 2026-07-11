@@ -1,0 +1,9 @@
+# claude code / anthropic assistant files
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+.claudeignore
+
+# os / editor cruft
+.DS_Store
+.vscode/
