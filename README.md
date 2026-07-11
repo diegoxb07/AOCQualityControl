@@ -14,10 +14,10 @@ It is a purpose-built QC tool that reuses selected pieces of the AOC Mission Vis
   - Late-start gaps: (a sensor quiet before takeoff) Flagged but not counted against the sensor's status, since warm-up on the ramp is normal ops.
   - In-flight sensor gaps: the real QC signal. These drive the GAP status, the summary counts, and the chart shading.
 - **Stacked family graphs**, one family per row with its difference sub-plot, in the script's panel order. Each panel has a Bokeh-style toolbar (pan, box zoom, reset, save png), wheel zoom, and double-click to reset, plus an always-visible issue strip listing that family's absent sensors and gaps. Clicking an issue chip or any point on a graph jumps the timeline and map to that second.
-- **Statistics**: takeoff / mid-flight / landing max, mean, median for any variable on request (Phase Stats panel, bottom right), whole-flight mean UWZ, and per-pair mean differences in each diff plot title. Takeoff and landing are auto-detected and editable (T/O and Land fields, then Apply).
+- **Statistics**: takeoff / mid-flight / landing max, mean, median for any variable on request (Phase Stats panel, bottom right), whole-flight mean UWZ, and each pair's max difference beside every diff plot (the cross-flight store still records the mean differences, matching the script's stats files). Takeoff and landing are auto-detected from the flight data.
 - **Derived surface pressure**: the Dr. Willoughby SLP block and standard SLP, ported verbatim from the script.
 - **Exports**: per-sensor Report CSV, the archive-format Gap Report, and the cross-flight difference-stats CSV. Every loaded flight is saved to the on-device cross-flight store automatically (no button needed); the store replaces the script's `N42/N43/N49_Stats.txt` files.
-- **Context on demand**: the flight-track map (2D or 3D) and the per-sensor report live in a sidebar that is hidden by default; the Show Context button opens it. Playback controls stay in the bottom bar either way.
+- **Context on demand**: the flight-track map (2D or 3D) and the per-sensor report live in a sidebar that is hidden by default; the Flight 2D/3D button opens it. Playback controls (play and the flight clock) live inside that sidebar.
 
 ## Moving the recon API host
 

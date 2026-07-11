@@ -55,12 +55,14 @@
         };
     }
 
-    // difference series between two redundant members, with its whole-flight mean (the script's
-    // "Avg Diff" that rides in each difference plot's title).
+    // difference series between two redundant members, with its whole-flight mean (kept for the
+    // cross-flight store, the script's semantics) and the signed value of its largest magnitude
+    // difference (shown in the ui as Max Diff: one big spike matters more than the flight average).
     function qcDiff(a, b) {
         const n = Math.min(a.length, b.length); const d = new Float32Array(n);
-        for (let i = 0; i < n; i++) d[i] = a[i] - b[i];
-        return { series: d, mean: qcRound(qcMean(d), 5) };
+        let mi = -1, mv = -1;
+        for (let i = 0; i < n; i++) { d[i] = a[i] - b[i]; const m = Math.abs(d[i]); if (m === m && m > mv) { mv = m; mi = i; } }
+        return { series: d, mean: qcRound(qcMean(d), 5), max: mi >= 0 ? qcRound(d[mi], 5) : NaN };
     }
 
     // isolated discontinuity: one second that jumps far and returns with no sloped transition
@@ -256,13 +258,13 @@
                 return { name: name, presence: presence, count: count, gaps: gaps, lateStart: lateStart, earlyStop: earlyStop, flags: [], series: arr || null, isRef: name === fam.ref, isDerived: isDerived };
             });
 
-            // redundant-member difference series + mean, and roll each mean into the cross-flight row
+            // redundant-member difference series + stats, and roll each mean into the cross-flight row
             const diffs = qcFamilyDiffs(fam, aircraft).map(([a, b], k) => {
                 const av = rawPlus[a], bv = rawPlus[b];
-                if (!av || !bv) return { id: a + ' ≠ ' + b, a: a, b: b, series: null, mean: NaN };
+                if (!av || !bv) return { id: a + ' ≠ ' + b, a: a, b: b, series: null, mean: NaN, max: NaN };
                 const d = qcDiff(av, bv);
                 crossFlightRow[fam.key + '_d' + (k + 1)] = d.mean;
-                return { id: a + ' ≠ ' + b, a: a, b: b, series: d.series, mean: d.mean };
+                return { id: a + ' ≠ ' + b, a: a, b: b, series: d.series, mean: d.mean, max: d.max };
             });
 
             const famOut = { key: fam.key, label: fam.label, unit: fam.unit, ref: fam.ref || null, derived: !!fam.derived, p3only: !!fam.p3only, members: members, diffs: diffs };

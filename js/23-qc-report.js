@@ -2,8 +2,8 @@
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   This owns the QC user surface: a full-page overlay (opened from the QC button in #topRightControls)
-   with a per-sensor presence/gap/flag report down the side and the family charts (js/22) filling the
+   This owns the QC user surface: the always-on full-page app shell, with a per-sensor
+   presence/gap/flag report down the side and the family charts (js/22) filling the
    rest. It also exports the current flight's report as CSV, keeps a cross-flight difference-stats
    store in IndexedDB (replacing the script's N42/N43/N49_Stats.txt files) with its own CSV export,
    and jumps the timeline (tracker, HUD, MMR, charts) to the exact second a sensor broke. */
@@ -48,11 +48,18 @@
         try { window.dispatchEvent(new Event('resize')); } catch (e) {}
     }
 
+    // called by resetAppToDefault (js/19-bootstrap.js) so reset all clears the qc surfaces too:
+    // report, charts, status bar, and clock all return to their waiting state.
+    function qcResetToEmpty() {
+        qcRawData = null; qcResult = null; qcOverride = null;
+        qcRenderEmpty(); qcRefreshTimeline();
+    }
+
     // ---- QC app is the primary, always-on view (not a dismissible overlay) -----------------------
     function qcRenderEmpty() {
         const rep = document.getElementById('qcReportPanel'), ch = document.getElementById('qcChartsPanel');
         if (rep) rep.innerHTML = '<div class="qc-empty">No flight loaded.</div>';
-        if (ch) ch.innerHTML = '';
+        if (ch) ch.innerHTML = '<div class="qc-empty qc-charts-empty">Waiting for flight file&hellip;</div>';
         const nm = document.getElementById('qcMissionName'); if (nm) nm.textContent = '';
         const sp = document.getElementById('qcSummaryPills'); if (sp) sp.innerHTML = '';
     }
@@ -115,9 +122,9 @@
                     '<span class="qc-row-name">' + m.name + (m.isRef ? ' <em>ref</em>' : '') + (m.isDerived ? ' <em>(deriv.)</em>' : '') + '</span>' +
                     '<span class="qc-row-detail">' + detail + '</span></div>';
             });
-            // difference means, the script's per-plot Avg Diff
+            // per-pair largest magnitude difference (the mean still feeds the cross-flight store)
             fam.diffs.forEach(d => {
-                if (d.series) html += '<div class="qc-row qc-row-diff"><span class="qc-row-name">' + d.id + '</span><span class="qc-row-detail">Avg Diff: ' + (Number.isNaN(d.mean) ? 'n/a' : d.mean) + '</span></div>';
+                if (d.series) html += '<div class="qc-row qc-row-diff"><span class="qc-row-name">' + d.id + '</span><span class="qc-row-detail">Max Diff: ' + (Number.isNaN(d.max) ? 'n/a' : d.max) + '</span></div>';
             });
             if (fam.phaseStat) Object.keys(fam.phaseStat).forEach(k => {
                 const st = fam.phaseStat[k], f = v => Number.isNaN(v) ? 'n/a' : qcRound(v, 1);
@@ -219,8 +226,8 @@
         }));
         // recorder-level gaps, one row each (sensor column marks them as the data system's)
         (qcResult.recordingGaps || []).forEach(g => rows.push([flightMetaData.id, qcResult.aircraft, '', 'recording', '', 'recording-gap', '', '', g.secs, '']));
-        // difference means as extra rows
-        qcResult.families.forEach(fam => fam.diffs.forEach(d => { if (d.series) rows.push([flightMetaData.id, qcResult.aircraft, fam.key, 'diff:' + d.id, '', 'diff', '', '', '', '', d.mean]); }));
+        // per-pair max differences as extra rows (matches the Max Diff shown in the ui)
+        qcResult.families.forEach(fam => fam.diffs.forEach(d => { if (d.series) rows.push([flightMetaData.id, qcResult.aircraft, fam.key, 'diff:' + d.id, '', 'diff', '', '', '', '', d.max]); }));
         qcDownloadCSV(rows, (flightMetaData.id || 'flight') + '_QC_report.csv');
     }
 
@@ -379,15 +386,18 @@
         app.id = 'qcApp'; app.className = 'qc-app';
         app.innerHTML =
             '<header class="qc-app-head">' +
-              '<div class="qc-brand">' +
-                '<img src="assets/noaa-emblem-72.png" alt="NOAA emblem" class="qc-brand-logo">' +
-                '<div class="qc-vdiv"></div>' +
-                '<div class="qc-brand-col">' +
-                  '<span class="qc-brand-txt">QC Tool<small>Aircraft Operations Center · Flight-Level Data Quality Control</small></span>' +
-                  '<div class="qc-brand-actions" id="qcBrandActions"></div>' +
+              // the corner border wraps only the emblem + title (.qc-brand); the flight library
+              // sits below it in the same column, outside the cornered area
+              '<div class="qc-brand-block">' +
+                '<div class="qc-brand">' +
+                  '<img src="assets/noaa-emblem-72.png" alt="NOAA emblem" class="qc-brand-logo">' +
+                  '<div class="qc-vdiv"></div>' +
+                  '<div class="qc-brand-col">' +
+                    '<span class="qc-brand-txt">QC Tool<small>Aircraft Operations Center · Science Branch</small></span>' +
+                  '</div>' +
                 '</div>' +
+                '<div class="qc-brand-actions" id="qcBrandActions"></div>' +
               '</div>' +
-              '<div class="qc-vdiv"></div>' +
               '<div class="qc-loader-slot" id="qcLoaderSlot"></div>' +
               '<div class="qc-head-controls" id="qcHeadControls"></div>' +
             '</header>' +
@@ -449,6 +459,34 @@
         document.getElementById('qcStatusModalClose').addEventListener('click', () => { sm.style.display = 'none'; });
         sm.addEventListener('click', e => { if (e.target === sm) sm.style.display = 'none'; });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') sm.style.display = 'none'; });
+
+        // help modal: the qc manual, opened from the reused top-right help button
+        const hm = document.createElement('div');
+        hm.id = 'qcHelpModal'; hm.className = 'modal-overlay';
+        hm.innerHTML =
+            '<div class="modal-card" style="max-height:82vh">' +
+              '<button id="qcHelpClose" class="qc-cmd-x" style="position:absolute;top:14px;right:14px" title="Close">✕</button>' +
+              '<h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">QC Tool Help</h2>' +
+              '<div class="help-body" style="overflow-y:auto;min-height:0">' +
+                '<p><b>Loading:</b> search the archive by year, storm, or mission id, or drop a <b>.txt</b> / <b>.nc</b> flight file on the upload zone. Flights you load are kept in your browser and reopen instantly from the already loaded missions list.</p>' +
+                '<ul>' +
+                  '<li><b>Scrub:</b> with the scrub tool, drag on any graph and the playhead follows. Arrow keys step 1 second (hold Shift for 10 seconds). Clicking a graph jumps the playhead and the map to that second.</li>' +
+                  '<li><b>Zoom and pan:</b> the wheel zooms the time axis, the pan tool drags the window, and select zoom draws a box. Double click or the reset scale button returns to the full flight. Ctrl+Z (Cmd+Z on Mac) steps one zoom back.</li>' +
+                  '<li><b>Variables:</b> click a variable box above a graph to select or unselect it. When a family mixes direct and GPS sensors, the group chips swap one kind for the other. The std band chip shades the mean plus or minus one standard deviation across the visible similar sensors.</li>' +
+                  '<li><b>Gaps:</b> yellow shading and the small carets on top mark data gaps. Hover one for its exact window, or click an issue chip above the graph to jump straight to it.</li>' +
+                  '<li><b>Statistics:</b> Max/Mean/Median opens takeoff, mid flight, and landing stats for any variable; View graph scrolls to it. Each difference plot lists its pair\'s max difference.</li>' +
+                  '<li><b>Flight track:</b> Flight 2D/3D opens the map and per-sensor report sidebar; playback controls live there.</li>' +
+                  '<li><b>Phases:</b> takeoff and landing are auto detected from the flight data and drive the phase statistics windows.</li>' +
+                  '<li><b>Export:</b> per-sensor Report CSV, the archive format Gap Report, the cross-flight stats CSV, and a self contained HTML report of the whole session.</li>' +
+                '</ul>' +
+              '</div>' +
+            '</div>';
+        document.body.appendChild(hm);
+        document.getElementById('qcHelpClose').addEventListener('click', () => { hm.style.display = 'none'; });
+        hm.addEventListener('click', e => { if (e.target === hm) hm.style.display = 'none'; });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') hm.style.display = 'none'; });
+        const hb = document.getElementById('helpBtn');
+        if (hb) { hb.onclick = () => { hm.style.display = hm.style.display === 'flex' ? 'none' : 'flex'; }; hb.title = 'Help and keyboard shortcuts'; }
 
         document.body.appendChild(app);
 

@@ -125,6 +125,7 @@
         allParsedData = []; filteredData = []; availableMetrics.clear(); currentIdx = 0; _lastStaticIdx = -1;
         customMarkers = []; tempBaseline = []; lastParseStats = null;
         flightMetaData = { id: 'Unknown', date: 'Unknown', aircraft: 'Unknown' };
+        if (typeof qcResetToEmpty === 'function') qcResetToEmpty();
         reconArchiveMeta = null; stormTrackPoints = []; stormTrackMeta = null;
         showStormTrack = false; hoveredStormIdx = -1; currentPointAnalysisData = null;
         window._appliedWindow = undefined;
