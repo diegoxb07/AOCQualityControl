@@ -566,7 +566,7 @@
                 '<label for="qcReportBody">Details</label>' +
                 '<textarea id="qcReportBody" rows="7"></textarea>' +
                 '<div class="qc-report-actions">' +
-                  '<span class="qc-report-note">The loaded mission id is attached automatically. Your draft is kept here until it is sent.</span>' +
+                  '<span class="qc-report-note">Sends as an email to <b class="text-muted" style="font-weight:600">diegoxiaobarbero@gmail.com</b>. The loaded mission id is attached automatically; your draft is kept here until it is sent.</span>' +
                   '<button id="qcReportSend" type="button" class="qc-ov-btn" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700">Send</button>' +
                 '</div>' +
               '</div>' +
@@ -579,7 +579,7 @@
         rc.id = 'qcReportConfirm'; rc.className = 'modal-overlay'; rc.style.zIndex = '5100';
         rc.innerHTML =
             '<div class="modal-card" style="max-width:420px">' +
-              '<p class="qc-report-confirm-text">Clicking \'Send\' again will redirect you to GMail, are you sure you want to do this?</p>' +
+              '<p class="qc-report-confirm-text">Clicking \'Send\' again will open Gmail with your report prefilled, addressed to diegoxiaobarbero@gmail.com. Are you sure you want to do this?</p>' +
               '<div class="qc-report-actions" style="justify-content:flex-end">' +
                 '<button id="qcReportBack" type="button" class="qc-ov-btn">Back</button>' +
                 // a real link, not a scripted navigation: a genuine user click is never blocked
@@ -595,13 +595,15 @@
         // escape peels one layer at a time: the confirm first, then the form
         document.addEventListener('keydown', e => {
             if (e.key !== 'Escape') return;
-            if (rc.style.display === 'flex') rcClose(); else rmClose();
+            if (rc.style.display === 'flex') rcClose();
+            else if (rm.style.display === 'flex') rmClose();
         });
         // opening the confirm bakes the draft into every send channel's target. the subject
         // names the tool, so reports are recognizable in the inbox.
         const qcReportDraft = () => {
             const subj = 'AOCQualityControl - ' + ((document.getElementById('qcReportSubject').value || '').trim() || 'feedback');
-            const meta = '\n\nMission: ' + ((typeof flightMetaData !== 'undefined' && flightMetaData.id) || 'none loaded') + ' · QC Tool';
+            const id = (typeof flightMetaData !== 'undefined' && flightMetaData.id && flightMetaData.id !== 'Unknown') ? flightMetaData.id : 'none loaded';
+            const meta = '\n\nMission: ' + id + ' · QC Tool';
             return { subj: subj, body: (document.getElementById('qcReportBody').value || '') + meta };
         };
         const qcReportClear = () => {

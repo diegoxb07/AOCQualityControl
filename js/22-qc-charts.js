@@ -604,13 +604,17 @@
         chart.data.datasets.forEach((d, k) => { if (!d.$qcIsRef && !d.$qcIsDerived && d.$full && chart.isDatasetVisible(k)) series.push(d.$full); });
         if (series.length < 2 || !qcTimeLabels) return null;
         const band = qcBandSeries(series, qcTimeLabels.length);
-        let sSum = 0, sN = 0, sMax = -1, sMaxI = -1;
+        let sSum = 0, sN = 0, sMax = -1, sMaxI = -1, mSum = 0;
         for (let i = 0; i < band.up.length; i++) {
             const sd = (band.up[i] - band.lo[i]) / 2;
-            if (sd === sd) { sSum += sd; sN++; if (sd > sMax) { sMax = sd; sMaxI = i; } }
+            if (sd === sd) { sSum += sd; sN++; mSum += (band.up[i] + band.lo[i]) / 2; if (sd > sMax) { sMax = sd; sMaxI = i; } }
         }
         if (!sN) return null;
-        return { mean: (sSum / sN).toFixed(2), max: sMax.toFixed(2), at: qcTimeLabels[sMaxI] || '' };
+        // coefficient of variation: mean sigma relative to the mean of the measured signal, as a
+        // percent. meaningless when the signal averages near zero (vertical wind), so n/a there.
+        const grand = Math.abs(mSum / sN);
+        const cv = grand > 1e-6 ? ((sSum / sN) / grand * 100).toFixed(2) : null;
+        return { mean: (sSum / sN).toFixed(2), max: sMax.toFixed(2), at: qcTimeLabels[sMaxI] || '', cv: cv };
     }
 
     function qcRenderHtmlLegend(chart, fam) {
@@ -683,9 +687,21 @@
         const st = qcBandStats(chart);
         if (st) {
             const info = document.createElement('span'); info.className = 'qc-lg-bandinfo';
-            info.textContent = 'Standard Deviation between Selected Sensors: mean σ ' + st.mean + ' · max σ ' + st.max + ' at ' + st.at;
+            const lbl = document.createElement('span'); lbl.textContent = 'Standard Deviation between Selected Sensors: ';
+            const val = document.createElement('span'); val.className = 'qc-lg-bandval';
+            val.textContent = 'mean σ ' + st.mean + ' · max σ ' + st.max + ' at ' + st.at;
+            info.appendChild(lbl); info.appendChild(val);
             info.title = 'Average disagreement (one standard deviation) across the flight between the selected similar sensors, and the worst moment';
             bandHost.appendChild(info);
+            // coefficient of variation rides right below: disagreement relative to the size of
+            // what is being measured, so sensors on big signals compare fairly with small ones
+            const cv = document.createElement('span'); cv.className = 'qc-lg-bandinfo';
+            const cl = document.createElement('span'); cl.textContent = 'Coefficient of Variation: ';
+            const cval = document.createElement('span'); cval.className = 'qc-lg-bandval';
+            cval.textContent = st.cv != null ? st.cv + '%' : 'n/a (mean near zero)';
+            cv.appendChild(cl); cv.appendChild(cval);
+            cv.title = 'Mean sigma divided by the mean value of the selected sensors, as a percent';
+            bandHost.appendChild(cv);
         }
         // the gap marker is defined ONCE here instead of a word under every caret on the plot
         if ((chart.$qcGapMarks && chart.$qcGapMarks.length) || (chart.$qcGapRanges && chart.$qcGapRanges.length)) {
@@ -698,13 +714,13 @@
     function qcBuildMainChart(canvas, fam, famModel) {
         const plotted = famModel.members.filter(m => m.series);              // only members with data
         const last = qcTimeLabels.length - 1, first = 0;
-        // when a family mixes direct sensors with their blended GPS counterparts (AccAZI.x vs
-        // AccZI-GPS.x, GsXI.x vs GsXGPS.x), start the GPS group unchecked so the graph opens
-        // readable; the reference always starts checked. one click on the legend brings them back.
+        // when a family splits into two sensor groups (explicit catalog groups like AccAZI vs
+        // AccZI or AltPaADDU vs AltBCADDU, or the direct-vs-GPS name heuristic), only the first
+        // group starts checked: two different measurements both lit on one graph read as one
+        // broken sensor set. the group chips swap between them; the reference always starts checked.
         const groupNames = plotted.filter(m => !m.isRef && !m.isDerived).map(m => m.name);
-        let startUnchecked = null;
-        if (groupNames.some(n => /I-GPS/.test(n)) && groupNames.some(n => !/I-GPS/.test(n))) startUnchecked = n => /I-GPS/.test(n);
-        else if (groupNames.some(n => /GPS/.test(n)) && groupNames.some(n => !/GPS/.test(n))) startUnchecked = n => /GPS/.test(n);
+        const legendGroups = qcFamilyLegendGroups(famModel, groupNames);
+        const startUnchecked = legendGroups ? (n => legendGroups[1].names.includes(n)) : null;
         // the ref linkage lives in the legend bar (source sequence chips + a live label that
         // follows the playhead), so the dataset label itself stays plain for tooltips
         const refInfo = famModel.refInfo;
@@ -736,7 +752,7 @@
         chart.$qcRefSegs = (refInfo && refInfo.segments) || [];
         chart.$qcFam = fam;
         if (QC_HTML_LEGEND) {
-            chart.$qcGroups = qcFamilyLegendGroups(famModel, groupNames);
+            chart.$qcGroups = legendGroups;
             chart.$qcLegendBar = document.createElement('div');
             chart.$qcLegendBar.className = 'qc-legend-bar';
             qcRenderHtmlLegend(chart, fam);

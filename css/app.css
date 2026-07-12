@@ -180,7 +180,8 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
 .loaded-pick-open { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; text-align: left; background: transparent; border: none; color: var(--text); font-size: 11.5px; padding: 6px 8px; border-radius: 4px; cursor: pointer; transition: background 0.12s, color 0.12s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .loaded-pick-open:hover { background: var(--panel-strip); }
 .loaded-pick-row.active .loaded-pick-open { color: var(--accent); font-weight: 700; }
-.loaded-pick-x { flex: none; width: 20px; height: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 4px; color: var(--danger); font-size: 16px; font-weight: 700; cursor: pointer; transition: background 0.12s, color 0.12s; }
+/* softened: quiet translucent red at rest, full danger only under the cursor */
+.loaded-pick-x { flex: none; width: 20px; height: 20px; line-height: 1; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 4px; color: color-mix(in oklab, var(--danger) 65%, transparent); font-size: 14px; font-weight: 400; cursor: pointer; transition: background 0.12s, color 0.12s; }
 .loaded-pick-x:hover { background: color-mix(in oklab, var(--danger) 16%, transparent); color: var(--danger); }
 .loaded-pick-empty { color: var(--text-faint); font-size: 11px; padding: 8px; }
 
@@ -766,7 +767,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    the corner lines */
 .qc-fam-bottom { display: flex; align-items: center; gap: 14px; }
 /* the always-on std dev readout rides the far right of the bottom strip */
-.qc-band-slot { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 8px; }
+.qc-band-slot { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; margin-left: auto; padding-right: 8px; }
 .qc-diff-title { font-weight: 700; font-size: 12.5px; color: var(--text); margin-right: 4px; }
 .qc-diff-sep { display: none; }
 /* warn-tinted badge (ref switched sources mid-flight) */
@@ -794,6 +795,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-lg-group .qc-lg-chip { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 70%, transparent); box-shadow: 0 0 7px color-mix(in oklab, var(--accent) 40%, transparent); }
 .qc-lg-group .qc-lg-chip.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); box-shadow: 0 0 9px color-mix(in oklab, var(--accent) 55%, transparent); }
 .qc-lg-bandinfo { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.qc-lg-bandval { color: var(--accent); }
 /* ref connector: the pipe chains the ref to every sensor it rode, in order. negative margins
    cancel the item's flex gap so pipes and names touch seamlessly. the pipe carries an accent
    pulse traveling back and forth, a live transfer between the ref and its source. */
