@@ -168,6 +168,9 @@
             e.preventDefault(); if (!playPauseBtn.disabled) playPauseBtn.click(); return;
         }
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            // the qc app owns arrow scrubbing (js/22 steps the raw-axis playhead); stepping the
+            // cleaned-row index here too would fight it and judder a held-key scrub
+            if (document.body.classList.contains('qc-app-on')) return;
             // Shift+arrow = jump 10 flight-minutes (same step as the satellite scan buttons).
             if (e.shiftKey) { e.preventDefault(); skipFlightMinutes(e.key === 'ArrowRight' ? 10 : -10); return; }
             e.preventDefault(); if (e.repeat) arrowSkipSpeed = Math.min(arrowSkipSpeed + 1, 50); else arrowSkipSpeed = 1;

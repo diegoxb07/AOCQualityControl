@@ -65,6 +65,40 @@
         return { series: d, mean: qcRound(qcMean(d), 5), max: mi >= 0 ? qcRound(d[mi], 5) : NaN };
     }
 
+    // erroneous-value detection ("Check"): physically implausible readings that mean the sensor
+    // itself is suspect, prioritized over gaps. flagged seconds merge into regions (anything
+    // within 60 s joins the same region) so one event is one mark, not a spray. rules so far:
+    //   relative humidity above 200 percent
+    //   wind speed or vertical wind changing 100 m/s or more within 15 seconds
+    //   vertical wind beyond 40 m/s either way
+    function qcDetectChecks(name, arr) {
+        if (!arr) return [];
+        const hum = /^HUM_REL/.test(name), vw = /^UWZ\.|^DPJ_WSZ/.test(name), ws = /^WS\./.test(name);
+        if (!hum && !vw && !ws) return [];
+        // wording matters: the wind rules are about SUDDENNESS (even an eye passage is gradual),
+        // the humidity rule is about physical absurdity
+        const marks = [];
+        for (let i = 0; i < arr.length; i++) {
+            const v = arr[i]; if (Number.isNaN(v)) continue;
+            if (hum && v > 200) { marks.push({ i: i, reason: 'physically absurd ' + name + ' above 200 percent' }); continue; }
+            if (vw && Math.abs(v) > 40) { marks.push({ i: i, reason: 'sudden ' + name + ' above 40 m/s detected' }); continue; }
+            if (vw || ws) {
+                for (let b = 1; b <= 15 && i - b >= 0; b++) {
+                    const p = arr[i - b]; if (Number.isNaN(p)) continue;
+                    if (Math.abs(v - p) >= 100) { marks.push({ i: i, reason: 'sudden ' + name + ' change of 100 m/s in under 15 seconds' }); break; }
+                }
+            }
+        }
+        if (!marks.length) return [];
+        const out = []; let s = marks[0].i, e = marks[0].i, reason = marks[0].reason;
+        for (let k = 1; k < marks.length; k++) {
+            if (marks[k].i - e <= 60) e = marks[k].i;
+            else { out.push({ fromIdx: s, toIdx: e, reason: reason }); s = marks[k].i; e = s; reason = marks[k].reason; }
+        }
+        out.push({ fromIdx: s, toIdx: e, reason: reason });
+        return out;
+    }
+
     // isolated discontinuity: one second that jumps far and returns with no sloped transition
     // (2 -> 200 -> 2 is a sensor fault, a ramp is not). the one erroneous-value check that needs
     // no per-regime baseline (see spec: general thresholds are deferred until a flight corpus lands).
@@ -176,6 +210,53 @@
         return out;
     }
 
+    // the script's per-flight stats line, column for column. order, rounding (5 places), the
+    // 'nan' spelling, and even the script's quirks are replicated so an exported file continues
+    // users' historical N42/N43/N49_Stats.txt seamlessly. known replicated quirks:
+    //   both airframes: the column labeled AltGPS.3-2 actually computes AltGPS.3 minus AltGPS.1
+    //   G-IV: acczi2 is read from AccZI.3, so both AccZI diff columns compute AccZI.1 minus AccZI.3
+    const QC_SCRIPT_PAIRS = {
+        HI: [
+            ['AccAXI.1','AccAXI.2'],['AccXI-GPS.1','AccXI-GPS.2'],['AccAYI.1','AccAYI.2'],['AccYI-GPS.1','AccYI-GPS.2'],
+            ['AccAZI.1','AccAZI.2'],['AccZI-GPS.1','AccZI-GPS.2'],['AccZfilterI-GPS.1','AccZfilterI-GPS.2'],
+            ['AltGPS.3','AltGPS.1'],['AltGPS.3','AltGPS.1'],['AltGPS.3','AltGPS.4'],['AltI-GPS.1','AltI-GPS.2'],
+            ['AltPaADDU.1','AltBCADDU.1'],['AltRa.1','AltRa.2'],['AltRa1.c','AltRa2.c'],
+            ['GsXI-GPS.1','GsXI-GPS.2'],['GsYI-GPS.1','GsYI-GPS.2'],['GsZI-GPS.1','GsZI-GPS.2'],
+            ['PDALPHA.1','PDALPHA.2'],['PDBETA.1','PDBETA.2'],
+            ['PQM.3','PQM.1'],['PQM.3','PQM.2'],['PQM.3','PQM.4'],['PSM.1','PSM.2'],
+            ['PitchI.1','PitchI.2'],['PitchRateI.1','PitchRateI.2'],['RollI.1','RollI.2'],['RollRateI.1','RollRateI.2'],
+            ['TTM.1','TTM.2'],['TDM.2','TDM.1'],['TDM.2','TDM.3'],
+            ['ASfmrWS.1','SfmrWS.1'],['ASfmrRainRate.1','SfmrRainRate.1']
+        ],
+        N: [
+            ['AccAXI.1','AccAXI.2'],['AccAXI.1','AccAXI.3'],['AccAYI.1','AccAYI.2'],['AccAYI.1','AccAYI.3'],
+            ['AccAZI.1','AccAZI.2'],['AccAZI.1','AccAZI.3'],['AccZI.1','AccZI.3'],['AccZI.1','AccZI.3'],
+            ['AltGPS.3','AltGPS.1'],['AltGPS.3','AltGPS.1'],['AltI.1','AltI.2'],['AltI.1','AltI.3'],
+            ['AltBCADDU.1','AltBCADDU.2'],['AltPaADDU.1','AltPaADDU.2'],
+            ['GsXI.1','GsXI.2'],['GsXI.1','GsXI.3'],['GsYI.1','GsYI.2'],['GsYI.1','GsYI.3'],['GsZI.1','GsZI.2'],['GsZI.1','GsZI.3'],
+            ['GsXGPS.1','GsXGPS.2'],['GsYGPS.1','GsYGPS.2'],['GsZGPS.1','GsZGPS.2'],['GsGPS.1','GsGPS.2'],
+            ['PDALPHA.1','PDALPHA.2'],['PDBETA.1','PDBETA.2'],['PQALPHA.1','PQALPHA.2'],['PQBETA.1','PQBETA.2'],
+            ['PQM.1','PQM.2'],['PSM.1','PSM.2'],['CasADDU.1','CasADDU.2'],['TasADDU.1','TasADDU.2'],
+            ['PitchI.1','PitchI.2'],['PitchI.1','PitchI.3'],['PitchRateI.1','PitchRateI.2'],['PitchRateI.1','PitchRateI.3'],
+            ['RollI.1','RollI.2'],['RollI.1','RollI.3'],['RollRateI.1','RollRateI.2'],['RollRateI.1','RollRateI.3'],
+            ['TTM.1','TTM.2'],['TTM.1','TTM.3'],['TTM.1','TTM.4'],['TDM.2','TDM.1']
+        ]
+    };
+    // means run from takeoff to the end of the recording, matching the script's [startdata:] slice
+    // (netCDF masked means skip missing samples, so NaNs are skipped here too)
+    function qcScriptStatsLine(rawPlus, n, fromIdx, aircraft, missionId) {
+        const pairs = aircraft === 'N' ? QC_SCRIPT_PAIRS.N : QC_SCRIPT_PAIRS.HI;
+        const start = Math.max(0, fromIdx || 0);
+        const vals = pairs.map(pr => {
+            const av = rawPlus[pr[0]], bv = rawPlus[pr[1]];
+            if (!av || !bv) return 'nan';
+            let s = 0, c = 0;
+            for (let i = start; i < n; i++) { const d = av[i] - bv[i]; if (d === d) { s += d; c++; } }
+            return c ? String(qcRound(s / c, 5)) : 'nan';
+        });
+        return missionId + ',' + vals.join(',');
+    }
+
     // which sensor is the ref channel actually carrying? a ref (ALTref, PSMref, ...) duplicates the
     // chosen sensor's values exactly, so equality-matching the series identifies the source. a full
     // match names it; several partial matches mean the operators switched the ref mid-flight.
@@ -194,11 +275,45 @@
             }
             return { name: c.name, both: both, eq: eq, frac: both ? eq / both : 0, firstEq: firstEq };
         }).filter(s => s.eq > 30).sort((p, q) => q.eq - p.eq);
-        if (!stats.length) return { source: null, switched: false, sources: [] };
+        if (!stats.length) return { source: null, switched: false, sources: [], segments: [] };
         const best = stats[0];
-        if (best.frac >= 0.995) return { source: best.name, switched: false, sources: [best.name] };
+
+        // per-second attribution: which candidate the ref is riding at each moment, as ordered
+        // segments. the running source keeps the tie when several sensors agree, and flickers
+        // under 20 s are absorbed so operator switches read clean, not noisy
+        const segs = [];
+        let cur = null, segStart = -1, lastSeen = -1;
+        for (let i = 0; i < n; i++) {
+            const r = refArr[i]; if (Number.isNaN(r)) continue;
+            const tol = Math.max(1e-9, Math.abs(r) * 1e-6);
+            let match = null;
+            if (cur) { const v = cur.series[i]; if (!Number.isNaN(v) && Math.abs(r - v) <= tol) match = cur; }
+            if (!match) for (let k = 0; k < candidates.length; k++) { const v = candidates[k].series[i]; if (!Number.isNaN(v) && Math.abs(r - v) <= tol) { match = candidates[k]; break; } }
+            if (!match) { lastSeen = i; continue; }
+            if (!cur || match.name !== cur.name) {
+                if (cur) segs.push({ source: cur.name, fromIdx: segStart, toIdx: lastSeen });
+                cur = match; segStart = i;
+            }
+            lastSeen = i;
+        }
+        if (cur) segs.push({ source: cur.name, fromIdx: segStart, toIdx: lastSeen });
+        const merged = [];
+        segs.forEach(s => {
+            const prev = merged[merged.length - 1];
+            if (prev && (s.toIdx - s.fromIdx + 1) < 20) { prev.toIdx = s.toIdx; return; }
+            if (prev && prev.source === s.source) { prev.toIdx = s.toIdx; return; }
+            merged.push({ source: s.source, fromIdx: s.fromIdx, toIdx: s.toIdx });
+        });
+        const segSources = []; merged.forEach(s => { if (!segSources.includes(s.source)) segSources.push(s.source); });
+
+        if (best.frac >= 0.995 && merged.length <= 1) return { source: best.name, switched: false, sources: [best.name], segments: merged };
         const parts = stats.filter(s => s.frac >= 0.02).sort((p, q) => p.firstEq - q.firstEq);
-        return { source: best.name, switched: parts.length > 1, sources: parts.map(p => p.name) };
+        return {
+            source: best.name,
+            switched: merged.length > 1 || parts.length > 1,
+            sources: segSources.length ? segSources : parts.map(p => p.name),
+            segments: merged
+        };
     }
 
     // top-level: turn a parseFlightRawQC result into the full QC report model. `aircraft` is the
@@ -215,7 +330,7 @@
         const rawPlus = Object.assign({}, raw, { DrWslp31: derived.DrWslp31, DrWslp348: derived.DrWslp348, slps: derived.slps });
 
         const fams = qcFamiliesFor(aircraft);
-        const summary = { total: 0, ok: 0, gap: 0, nodata: 0 };
+        const summary = { total: 0, ok: 0, gap: 0, nodata: 0, check: 0 };
         const crossFlightRow = { aircraft: aircraft, missionId: (flightMetaData && flightMetaData.id) || 'Unknown', date: (flightMetaData && flightMetaData.date) || 'Unknown' };
 
         const families = fams.map(fam => {
@@ -251,11 +366,16 @@
                         if (cov.lastAny - lastI > 5) earlyStop = { secs: cov.lastAny - lastI, at: t[lastI] };
                     }
                 }
+                // implausible-value regions outrank gaps: a sensor that reads impossible values is
+                // not ok even when it never dropped out
+                const checks = (arr && !isDerived) ? qcDetectChecks(name, arr) : [];
+                if (checks.length && presence !== 'nodata') presence = 'check';
                 summary.total++;
                 if (presence === 'ok') summary.ok++;
                 else if (presence === 'gap') summary.gap++;
+                else if (presence === 'check') summary.check++;
                 else summary.nodata++;
-                return { name: name, presence: presence, count: count, gaps: gaps, lateStart: lateStart, earlyStop: earlyStop, flags: [], series: arr || null, isRef: name === fam.ref, isDerived: isDerived };
+                return { name: name, presence: presence, count: count, gaps: gaps, lateStart: lateStart, earlyStop: earlyStop, checks: checks, flags: [], series: arr || null, isRef: name === fam.ref, isDerived: isDerived };
             });
 
             // redundant-member difference series + stats, and roll each mean into the cross-flight row
@@ -287,6 +407,9 @@
             }
             return famOut;
         });
+
+        // the exact stats line the script would have appended to N42/N43/N49_Stats.txt
+        crossFlightRow.scriptLine = qcScriptStatsLine(rawPlus, n, phases ? phases.toIdx : 0, aircraft, crossFlightRow.missionId);
 
         return {
             aircraft: aircraft, timeAxis: t, t0: qc.t0, t1: qc.t1, n: n,

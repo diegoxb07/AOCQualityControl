@@ -370,12 +370,17 @@
         // flown track: in QC Mode a single solid accent color so "already past this point" reads at a
         // glance against the faint-grey not-yet-flown track (the visualizer's metric gradient instead
         // blends into the plane). elsewhere keep the metric-colored path.
+        // sub-pixel segments are merged, not dropped: skipping each tiny segment on its own erased
+        // whole slow-flown stretches (the track looked like it vanished behind the plane)
         ctx.lineWidth = 2.5/mapScale; ctx.globalAlpha = window.QC_MODE ? 0.95 : 0.8;
+        let flx = null, fly = null;
         for (let i = 1; i <= idx; i++) {
             setSeg(i);
-            if (Math.abs(cp.x2 - cp.x1) < 1 && Math.abs(cp.y2 - cp.y1) < 1 && i !== idx) continue;
+            if (flx === null) { flx = cp.x1; fly = cp.y1; }
+            if (Math.abs(cp.x2 - flx) < 1 && Math.abs(cp.y2 - fly) < 1 && i !== idx) continue;
             ctx.beginPath(); ctx.strokeStyle = window.QC_MODE ? '#5b9dff' : getPathColorHex(filteredData[i], i);
-            ctx.moveTo(cp.x1, cp.y1); ctx.bezierCurveTo(cp.c1x, cp.c1y, cp.c2x, cp.c2y, cp.x2, cp.y2); ctx.stroke();
+            ctx.moveTo(flx, fly); ctx.bezierCurveTo(cp.c1x, cp.c1y, cp.c2x, cp.c2y, cp.x2, cp.y2); ctx.stroke();
+            flx = cp.x2; fly = cp.y2;
         }
 
         // Future (not-yet-flown) track, faint grey, same smooth curve. Normally one continuous path, but

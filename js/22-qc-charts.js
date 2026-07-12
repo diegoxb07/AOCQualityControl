@@ -78,8 +78,11 @@
 
     // distinct series colors that read on both the dark and light QC panels
     const QC_SERIES_COLORS = ['#5b9dff', '#28c76f', '#ff9f43', '#ea5455', '#a66bff', '#00cfe8', '#ff6fb5', '#c0ca33', '#8d99ae', '#f6c945'];
-    const QC_REF_COLOR = '#ffffff';
-    const QC_GAP_FILL = 'rgba(240, 190, 60, 0.16)';
+    // the ref line follows the theme: pure white vanishes on the light panel
+    const qcRefColor = () => document.documentElement.dataset.theme === 'light' ? '#0f172a' : '#ffffff';
+    // one opacity for every gap pillar, wide or one second thin, so no gap looks heavier than
+    // another; strong enough that a 2px line still reads down the whole panel
+    const QC_GAP_FILL = 'rgba(240, 190, 60, 0.26)';
 
     function qcAxisTickColor() { return document.documentElement.dataset.theme === 'light' ? '#475569' : '#94a3b8'; }
 
@@ -136,29 +139,64 @@
             const ctx = chart.ctx, xa = chart.scales.x;
             const area = chart.chartArea; if (!area) return;
             ctx.save();
-            // gap shading: seconds where no member of the panel carries data. a one second gap
-            // maps to under a pixel when zoomed out, so the pillar never draws thinner than 3px
+            // gap shading: seconds where no member of the panel carries data. every pillar shares
+            // one opacity; a one second gap draws as a thin 2px line (zooming in grows it to its
+            // true width)
             const gapRanges = chart.$qcGapRanges || [];
             ctx.fillStyle = QC_GAP_FILL;
             gapRanges.forEach(g => {
                 const x0 = xa.getPixelForValue(g.fromIdx), x1 = xa.getPixelForValue(g.toIdx);
-                if (x1 >= area.left && x0 <= area.right) {
-                    const left = Math.max(x0, area.left);
-                    ctx.fillRect(left, area.top, Math.max(3, Math.min(x1, area.right) - left), area.bottom - area.top);
+                if (x1 < area.left || x0 > area.right) return;
+                const left = Math.max(x0, area.left);
+                ctx.fillRect(left, area.top, Math.max(2, Math.min(x1, area.right) - left), area.bottom - area.top);
+            });
+            // red shading for Check regions: implausible values the engine flagged on this family
+            (chart.$qcCheckMarks || []).forEach(g => {
+                const x0 = xa.getPixelForValue(g.fromIdx), x1 = xa.getPixelForValue(g.toIdx);
+                if (x1 < area.left || x0 > area.right) return;
+                const left = Math.max(x0, area.left);
+                ctx.fillStyle = 'rgba(234, 84, 85, 0.14)';
+                ctx.fillRect(left, area.top, Math.max(4, Math.min(x1, area.right) - left), area.bottom - area.top);
+            });
+            // carets on top of each marked range. per-member gaps are marked too (the shading only
+            // covers seconds every member misses). EVERY range gets its caret, none skipped; when
+            // hundreds sit close they simply merge into a band. only the tiny word underneath is
+            // spaced out, so the labels stay legible instead of smearing
+            const drawCarets = (ranges, fill, word) => {
+                ctx.fillStyle = fill;
+                ctx.font = "8px 'IBM Plex Mono', monospace"; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+                let lastWordX = -Infinity;
+                ranges.forEach(g => {
+                    const x0 = Math.max(xa.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), area.right);
+                    if (x1 < x0) return;
+                    const cx = (x0 + x1) / 2;
+                    // the caret spans the whole range when it is wider than the default marker,
+                    // so the marker itself tells how wide the gap is; narrow gaps keep the default
+                    const hw = Math.max(5, (x1 - x0) / 2);
+                    ctx.beginPath();
+                    ctx.moveTo(cx - hw, area.top + 1); ctx.lineTo(cx + hw, area.top + 1); ctx.lineTo(cx, area.top + 9);
+                    ctx.closePath(); ctx.fill();
+                    if (cx - lastWordX >= 22) { ctx.fillText(word, cx, area.top + 11); lastWordX = cx; }
+                });
+                ctx.textAlign = 'left';
+            };
+            const light = document.documentElement.dataset.theme === 'light';
+            const gapCarets = gapRanges.concat(chart.$qcGapMarks || []).slice().sort((a, b) => a.fromIdx - b.fromIdx);
+            drawCarets(gapCarets, light ? 'rgba(170, 120, 20, 0.95)' : 'rgba(240, 190, 60, 0.95)', 'gap');
+            drawCarets(chart.$qcCheckMarks || [], light ? 'rgba(198, 40, 40, 0.95)' : 'rgba(234, 84, 85, 0.95)', 'check');
+            // a graph whose members carry zero finite samples says so in place, centered in the
+            // takeoff to landing window so the empty frame cannot be mistaken for a render bug
+            if (chart.$qcAllEmpty) {
+                ctx.fillStyle = light ? 'rgba(71, 85, 105, 0.7)' : 'rgba(148, 163, 184, 0.7)';
+                ctx.font = "700 26px 'IBM Plex Mono', monospace"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                let cx = (area.left + area.right) / 2;
+                if (qcPhaseMarks) {
+                    const x0 = xa.getPixelForValue(qcPhaseMarks.toIdx), x1 = xa.getPixelForValue(qcPhaseMarks.landIdx);
+                    if (x1 > x0) cx = Math.max(area.left + 40, Math.min(area.right - 40, (x0 + x1) / 2));
                 }
-            });
-            // a small yellow caret at the top of each gap. per-member gaps are marked too: the
-            // shading only covers seconds every member misses, so a single sensor dropout would
-            // otherwise show nothing up top
-            ctx.fillStyle = document.documentElement.dataset.theme === 'light' ? 'rgba(170, 120, 20, 0.95)' : 'rgba(240, 190, 60, 0.95)';
-            gapRanges.concat(chart.$qcGapMarks || []).forEach(g => {
-                const x0 = Math.max(xa.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), area.right);
-                if (x1 < x0) return;
-                const cx = (x0 + x1) / 2;
-                ctx.beginPath();
-                ctx.moveTo(cx - 5, area.top + 1); ctx.lineTo(cx + 5, area.top + 1); ctx.lineTo(cx, area.top + 9);
-                ctx.closePath(); ctx.fill();
-            });
+                ctx.fillText('NO DATA', cx, (area.top + area.bottom) / 2);
+                ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            }
             // takeoff / landing markers: a quiet dotted line with a tiny label, nothing louder
             if (qcPhaseMarks) {
                 const faint = document.documentElement.dataset.theme === 'light' ? 'rgba(71,85,105,0.45)' : 'rgba(148,163,184,0.4)';
@@ -311,17 +349,46 @@
         if (h.length > 60) h.shift();
     }
 
-    // reflect zoom state on the toolbar: the reset button lights up while the graph is zoomed
+    // the floating reset zoom button exists only while the graph is zoomed
     function qcZoomVisual(chart) {
         let zoomed = false;
         try { zoomed = chart.isZoomedOrPanned(); } catch (e) {}
-        if (chart.$qcResetBtn) chart.$qcResetBtn.classList.toggle('qc-tool-hot', zoomed);
+        if (chart.$qcResetBtn) chart.$qcResetBtn.classList.toggle('show', zoomed);
     }
 
-    // after any gesture: re-slice to the new window and update the toolbar
+    // y extent of the visible, non-band datasets over the current x window (NaN ignored), with a
+    // little breathing room. this is the "correct" y window: reset jumps straight to it, and the
+    // flatness guard below compares against it
+    function qcVisibleYExtent(chart) {
+        const x = chart.scales.x; if (!x || !qcAxisRef) return null;
+        const last = qcAxisRef.length - 1;
+        const start = Math.max(0, Math.floor(x.min)), end = Math.min(last, Math.ceil(x.max));
+        if (end <= start) return null;
+        let mn = Infinity, mx = -Infinity;
+        chart.data.datasets.forEach((d, k) => {
+            if (d.$qcBand || !d.$full || !chart.isDatasetVisible(k)) return;
+            const a = d.$full;
+            for (let i = start; i <= end; i++) { const v = a[i]; if (v === v) { if (v < mn) mn = v; if (v > mx) mx = v; } }
+        });
+        if (mn === Infinity) return null;
+        if (mn === mx) { mn -= 1; mx += 1; }
+        const pad = (mx - mn) * 0.06;
+        return { min: mn - pad, max: mx + pad };
+    }
+
+    // after any gesture: re-slice to the new window and update the toolbar. an xy wheel-out (or a
+    // stale box zoom) can leave the y window grossly wider than the visible data, which flattens
+    // every line; whenever that happens the y axis snaps back to fit the data
     function qcZoomChanged(chart) {
         qcActiveChart = chart;
         qcRefreshResolution(chart);
+        try {
+            const ext = qcVisibleYExtent(chart);
+            if (ext) {
+                const y = chart.scales.y, span = y.max - y.min, fit = ext.max - ext.min;
+                if (span > fit * 1.7) { chart.zoomScale('y', ext, 'none'); chart.update('none'); }
+            }
+        } catch (e) {}
         qcZoomVisual(chart);
     }
 
@@ -337,17 +404,22 @@
         }
     }
 
-    // reset returns this graph to the full flight window. resetZoom alone restores the plugin's
-    // stored limits, which can capture an already zoomed y after a box zoom; clearing the scale
-    // min/max as well always lands the true full frame
+    // reset zoom: back to the default view, deterministically. resetZoom and option juggling both
+    // proved unreliable (the options resolver treats undefined as "fall through to the previous
+    // pinned value"), so the home window is set with concrete numbers through the plugin's own
+    // zoomScale api: full flight on x, then y fitted to the data actually visible
     function qcResetChart(chart) {
         try { chart.resetZoom('none'); } catch (e) {}
-        const so = chart.options.scales;
-        delete so.x.min; delete so.x.max; delete so.y.min; delete so.y.max;
+        const last = qcAxisRef ? qcAxisRef.length - 1 : null;
+        try { if (last != null) chart.zoomScale('x', { min: 0, max: last }, 'none'); } catch (e) {}
+        qcRefreshResolution(chart);
+        try { const ext = qcVisibleYExtent(chart); if (ext) chart.zoomScale('y', ext, 'none'); } catch (e) {}
         chart.$qcHist = [];
         chart.update('none');
-        qcRefreshResolution(chart);
         qcZoomVisual(chart);
+        // the home window is set with explicit limits, which the plugin counts as "zoomed";
+        // the float staying up after a reset would read as a failed reset
+        if (chart.$qcResetBtn) chart.$qcResetBtn.classList.remove('show');
         qcActiveChart = chart;
     }
 
@@ -369,13 +441,19 @@
         return {
             responsive: true, maintainAspectRatio: false, animation: false,
             onClick: qcChartClick,
-            interaction: { mode: 'nearest', axis: 'x', intersect: false },
+            // nearest in BOTH axes: aiming the cursor up at a spike grabs the spike, instead of
+            // whatever sits at that x. the decimation keeps every extreme as a real point, so
+            // spikes are always grabbable even when one pixel spans many seconds
+            interaction: { mode: 'nearest', axis: 'xy', intersect: false },
             elements: { point: { radius: 0 }, line: { borderWidth: 1.2, tension: 0 } },
             scales: {
                 // the graphs show the FULL recording (pre-takeoff included); only the scrubber is
                 // clamped to takeoff..landing, since the 2d/3d player has no rows outside it
                 x: { type: 'linear', bounds: 'data', grid: { color: 'rgba(148,163,184,0.08)' }, ticks: xTicks },
-                y: { type: 'linear', position: 'left', grid: { color: 'rgba(148,163,184,0.10)' }, ticks: tick, title: { display: true, text: titleText, color: qcAxisTickColor(), font: { family: "'Manrope', sans-serif", size: 11, weight: '600' } } }
+                // the top tenth of every graph is reserved: data that reaches its ceiling would
+                // otherwise sit under the gap carets and their labels, so the scale grows itself
+                y: { type: 'linear', position: 'left', grid: { color: 'rgba(148,163,184,0.10)' }, ticks: tick, title: { display: true, text: titleText, color: qcAxisTickColor(), font: { family: "'Manrope', sans-serif", size: 11, weight: '600' } },
+                     afterDataLimits: s => { const r = s.max - s.min; if (r > 0 && isFinite(r)) s.max += r * 0.10; } }
             },
             plugins: {
                 legend: { display: true, align: 'start',
@@ -399,17 +477,39 @@
                         } },
                     onClick: (e, item, legend) => { if (item.datasetIndex == null || item.datasetIndex < 0) return; const ci = legend.chart; ci.setDatasetVisibility(item.datasetIndex, !ci.isDatasetVisible(item.datasetIndex)); ci.update('none'); } },
                 // parsed.x is the axis-second index even on decimated data (dataIndex is not).
-                // the deviation band datasets are scenery, not sensors; keep them out of the tooltip
-                tooltip: { filter: item => !item.dataset.$qcBand, callbacks: { title: (items) => items.length ? ((qcTimeLabels && qcTimeLabels[Math.round(items[0].parsed.x)]) || '') + ' UTC' : '' } },
+                // the deviation band datasets are scenery, not sensors; keep them out of the tooltip.
+                // the picked sensor leads in bold; the other visible sensors' raw values at that
+                // same second follow in the footer, so the cross-sensor comparison stays
+                tooltip: {
+                    filter: item => !item.dataset.$qcBand,
+                    bodyFont: { family: "'IBM Plex Mono', monospace", size: 11, weight: '700' },
+                    footerFont: { family: "'IBM Plex Mono', monospace", size: 10, weight: '400' },
+                    footerColor: '#94a3b8',
+                    callbacks: {
+                        title: (items) => items.length ? ((qcTimeLabels && qcTimeLabels[Math.round(items[0].parsed.x)]) || '') + ' UTC' : '',
+                        label: item => (item.dataset.label || '') + ': ' + (item.parsed.y === item.parsed.y ? qcRound(item.parsed.y, 3) : 'no data'),
+                        footer: (items) => {
+                            if (!items.length) return '';
+                            const it = items[0], ch = it.chart, i = Math.round(it.parsed.x);
+                            const lines = [];
+                            ch.data.datasets.forEach((d, k) => {
+                                if (d.$qcBand || k === it.datasetIndex || !d.$full || !ch.isDatasetVisible(k)) return;
+                                const v = d.$full[i];
+                                lines.push((d.label || '') + ': ' + (v === v ? qcRound(v, 3) : 'no data'));
+                            });
+                            return lines;
+                        }
+                    }
+                },
                 zoom: {
                     zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x',
                             drag: { enabled: false, backgroundColor: 'rgba(91,157,255,0.14)', borderColor: '#5b9dff', borderWidth: 1 },
                             onZoomStart: ({ chart }) => qcPushZoomState(chart),
                             onZoomComplete: ({ chart }) => qcZoomChanged(chart) },
-                    pan: { enabled: true, mode: 'x',
+                    pan: { enabled: true, mode: 'xy',
                            onPanStart: ({ chart }) => qcPushZoomState(chart),
                            onPanComplete: ({ chart }) => qcZoomChanged(chart) },
-                    // pan/zoom stay inside the flight window
+                    // pan/zoom stay inside the flight window on x; y roams free (reset brings it back)
                     limits: { x: { min: 'original', max: 'original' } }
                 }
             }
@@ -473,11 +573,19 @@
     function qcUpdateBand(chart) {
         const ds = chart.data.datasets;
         for (let i = ds.length - 1; i >= 0; i--) if (ds[i].$qcBand) ds.splice(i, 1);
+        chart.$qcBandStats = null;
         if (chart.$qcBandOn) {
             const series = [];
             ds.forEach((d, k) => { if (!d.$qcIsRef && !d.$qcIsDerived && d.$full && chart.isDatasetVisible(k)) series.push(d.$full); });
             if (series.length >= 2) {
                 const band = qcBandSeries(series, qcTimeLabels.length);
+                // headline numbers for the legend: mean sigma over the flight and the worst moment
+                let sSum = 0, sN = 0, sMax = -1, sMaxI = -1;
+                for (let i = 0; i < band.up.length; i++) {
+                    const sd = (band.up[i] - band.lo[i]) / 2;
+                    if (sd === sd) { sSum += sd; sN++; if (sd > sMax) { sMax = sd; sMaxI = i; } }
+                }
+                if (sN) chart.$qcBandStats = { mean: (sSum / sN).toFixed(2), max: sMax.toFixed(2), at: (qcTimeLabels && qcTimeLabels[sMaxI]) || '' };
                 const common = { parsing: false, normalized: true, pointRadius: 0, pointHitRadius: 0, borderWidth: 0, spanGaps: false, $qcBand: true, borderColor: 'rgba(0,0,0,0)' };
                 ds.push(Object.assign({ label: 'std dev upper', data: [], $full: band.up, fill: false }, common));
                 ds.push(Object.assign({ label: 'std dev', data: [], $full: band.lo, fill: '-1', backgroundColor: QC_BAND_FILL }, common));
@@ -490,9 +598,29 @@
     function qcRenderHtmlLegend(chart, fam) {
         const bar = chart.$qcLegendBar; if (!bar) return;
         bar.innerHTML = '';
+        // inset the row by the chart's measured y axis width, so the first entry always starts
+        // past the axis title and tick labels no matter how wide the numbers run
+        const yw = chart.scales && chart.scales.y && chart.scales.y.width;
+        if (yw) bar.style.paddingLeft = Math.round(yw + 6) + 'px';
         const ds = chart.data.datasets;
-        // group chips: exclusive swap, showing one kind of sensor hides the other kind
+        const rerender = () => { qcUpdateBand(chart); qcRenderHtmlLegend(chart, fam); };
+        const mkItem = (d, k) => {
+            const on = chart.isDatasetVisible(k);
+            const it = document.createElement('button'); it.type = 'button'; it.className = 'qc-lg-item' + (on ? '' : ' off');
+            it.title = (on ? 'Unselect ' : 'Select ') + (d.$qcName || d.label);
+            const box = document.createElement('span'); box.className = 'qc-lg-box' + (on ? '' : ' off');
+            if (on) { box.style.background = String(d.borderColor); box.style.borderColor = String(d.borderColor); }
+            const txt = document.createElement('span'); txt.textContent = d.label;
+            it.appendChild(box); it.appendChild(txt); it.$txt = txt;
+            it.addEventListener('click', () => { chart.setDatasetVisibility(k, !chart.isDatasetVisible(k)); rerender(); });
+            return it;
+        };
+        // each group is one cluster: its chip with that group's own variables right after it,
+        // instead of every variable pooling at the end of the row. chips swap exclusively.
+        const grouped = new Set();
+        (chart.$qcGroups || []).forEach(g => g.names.forEach(n => grouped.add(n)));
         (chart.$qcGroups || []).forEach(g => {
+            const cluster = document.createElement('span'); cluster.className = 'qc-lg-group';
             const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'qc-lg-chip';
             chip.textContent = g.label;
             chip.title = 'Show only the ' + g.label + ' sensors (the other group unselects)';
@@ -503,43 +631,59 @@
                     if (d.$qcBand || d.$qcIsRef || d.$qcIsDerived || !d.$qcName) return;
                     chart.setDatasetVisibility(k, g.names.includes(d.$qcName));
                 });
-                qcUpdateBand(chart);
-                qcRenderHtmlLegend(chart, fam);
+                rerender();
             });
-            bar.appendChild(chip);
+            cluster.appendChild(chip);
+            ds.forEach((d, k) => { if (!d.$qcBand && g.names.includes(d.$qcName)) cluster.appendChild(mkItem(d, k)); });
+            bar.appendChild(cluster);
         });
-        if (chart.$qcGroups) { const sep = document.createElement('span'); sep.className = 'qc-lg-sep'; bar.appendChild(sep); }
-        // one checkbox per variable
+        // ref, derived, and ungrouped variables follow on their own. the ref gets its source
+        // sequence right beside it: one chip per segment in ride order, clickable to jump to the
+        // takeover moment, with the segment under the playhead highlighted live (qcSyncRefSources)
         ds.forEach((d, k) => {
-            if (d.$qcBand) return;
-            const on = chart.isDatasetVisible(k);
-            const it = document.createElement('button'); it.type = 'button'; it.className = 'qc-lg-item' + (on ? '' : ' off');
-            it.title = (on ? 'Unselect ' : 'Select ') + (d.$qcName || d.label);
-            const box = document.createElement('span'); box.className = 'qc-lg-box' + (on ? '' : ' off');
-            if (on) { box.style.background = String(d.borderColor); box.style.borderColor = String(d.borderColor); }
-            const txt = document.createElement('span'); txt.textContent = d.label;
-            it.appendChild(box); it.appendChild(txt);
-            it.addEventListener('click', () => {
-                chart.setDatasetVisibility(k, !chart.isDatasetVisible(k));
-                qcUpdateBand(chart);
-                qcRenderHtmlLegend(chart, fam);
-            });
+            if (d.$qcBand || grouped.has(d.$qcName)) return;
+            const it = mkItem(d, k);
             bar.appendChild(it);
+            if (d.$qcIsRef && chart.$qcRefSegs && chart.$qcRefSegs.length) {
+                chart.$qcRefName = d.$qcName; chart.$qcRefTxt = it.$txt; chart.$qcRefActive = null;
+                const seq = document.createElement('span'); seq.className = 'qc-ref-seq';
+                chart.$qcRefSegs.forEach((s, si) => {
+                    const src = document.createElement('button'); src.type = 'button'; src.className = 'qc-ref-src';
+                    src.textContent = (chart.$qcRefSegs.length > 1 ? (si + 1) + ' ' : '') + s.source;
+                    src.title = 'Ref rides ' + s.source + ' from ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '') + ' to ' + ((qcTimeLabels && qcTimeLabels[s.toIdx]) || '') + '. Click to jump there.';
+                    src.addEventListener('click', () => { if (typeof qcJumpToSecond === 'function' && qcAxisRef) qcJumpToSecond(Math.round(qcAxisRef[s.fromIdx])); });
+                    seq.appendChild(src);
+                });
+                bar.appendChild(seq);
+                chart.$qcRefSeqEl = seq;
+            }
         });
-        // std dev toggle: meaningful only with two or more similar sensors visible
-        let visMembers = 0; ds.forEach((d, k) => { if (!d.$qcBand && !d.$qcIsRef && !d.$qcIsDerived && chart.isDatasetVisible(k)) visMembers++; });
-        const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'qc-lg-chip qc-lg-band';
-        bt.textContent = 'std dev';
-        bt.title = 'Shade the mean plus or minus one standard deviation across the visible similar sensors';
-        bt.classList.toggle('active', !!chart.$qcBandOn);
-        if (visMembers < 2) { bt.disabled = true; bt.title = 'Needs at least 2 similar sensors selected'; }
-        bt.addEventListener('click', () => {
-            chart.$qcBandOn = !chart.$qcBandOn;
-            if (fam) qcBandPrefs[fam.key] = chart.$qcBandOn;
-            qcUpdateBand(chart);
-            qcRenderHtmlLegend(chart, fam);
-        });
-        bar.appendChild(bt);
+        // std dev toggle: a family with a single sensor has nothing to compare, so no button at all
+        let totalMembers = 0, visMembers = 0;
+        ds.forEach((d, k) => { if (!d.$qcBand && !d.$qcIsRef && !d.$qcIsDerived) { totalMembers++; if (chart.isDatasetVisible(k)) visMembers++; } });
+        if (totalMembers >= 2) {
+            const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'qc-lg-chip qc-lg-band';
+            bt.textContent = 'std dev';
+            bt.title = 'Shade the mean plus or minus one standard deviation across the visible similar sensors';
+            bt.classList.toggle('active', !!chart.$qcBandOn);
+            if (visMembers < 2) { bt.disabled = true; bt.title = 'Needs at least 2 similar sensors selected'; }
+            bt.addEventListener('click', () => {
+                chart.$qcBandOn = !chart.$qcBandOn;
+                if (fam) qcBandPrefs[fam.key] = chart.$qcBandOn;
+                rerender();
+            });
+            bar.appendChild(bt);
+            // the band earns its keep with numbers: whole-flight average disagreement plus the
+            // worst moment, so a widening band has a figure and a timestamp behind it
+            if (chart.$qcBandOn && chart.$qcBandStats) {
+                const st = chart.$qcBandStats;
+                const info = document.createElement('span'); info.className = 'qc-lg-bandinfo';
+                info.textContent = 'mean σ ' + st.mean + ' · max σ ' + st.max + ' at ' + st.at;
+                info.title = 'Average disagreement (one standard deviation) across the flight, and the worst moment';
+                bar.appendChild(info);
+            }
+        }
+        qcSyncRefSources();   // seed the ref source highlight for the current playhead
     }
 
     function qcBuildMainChart(canvas, fam, famModel) {
@@ -552,19 +696,15 @@
         let startUnchecked = null;
         if (groupNames.some(n => /I-GPS/.test(n)) && groupNames.some(n => !/I-GPS/.test(n))) startUnchecked = n => /I-GPS/.test(n);
         else if (groupNames.some(n => /GPS/.test(n)) && groupNames.some(n => !/GPS/.test(n))) startUnchecked = n => /GPS/.test(n);
-        // the ref entry pipes into its source sensor (ALTref───AltGPS.3), found by the engine's
-        // equality match; a mid-flight source switch is spelled out right in the label
-        const refInfo = famModel.refInfo, refSource = refInfo && refInfo.source;
-        const refLabel = m => {
-            if (!refSource) return m.name + ' (ref)';
-            if (refInfo.switched) return m.name + '───' + refInfo.sources.join(' then ') + ' (switched mid-flight)';
-            return m.name + '───' + refSource;
-        };
+        // the ref linkage lives in the legend bar (source sequence chips + a live label that
+        // follows the playhead), so the dataset label itself stays plain for tooltips
+        const refInfo = famModel.refInfo;
+        const refLabel = m => m.name + ' (ref)';
         const datasets = plotted.map((m, k) => ({
             label: m.isRef ? refLabel(m) : m.name + (m.isDerived ? ' (deriv.)' : ''),
             $qcName: m.name, $qcIsRef: !!m.isRef, $qcIsDerived: !!m.isDerived,
             data: qcDecimate(m.series, first, last), $full: m.series, parsing: false, normalized: true,
-            borderColor: m.isRef ? QC_REF_COLOR : QC_SERIES_COLORS[k % QC_SERIES_COLORS.length],
+            borderColor: m.isRef ? qcRefColor() : QC_SERIES_COLORS[k % QC_SERIES_COLORS.length],
             $qcBaseWidth: m.isRef ? 1.9 : 1.4, borderWidth: m.isRef ? 1.9 : 1.4,
             borderDash: m.isDerived ? [4, 3] : [], pointRadius: 0, pointHitRadius: 6, fill: false, spanGaps: false,
             hidden: !!(startUnchecked && !m.isRef && !m.isDerived && startUnchecked(m.name))
@@ -577,6 +717,14 @@
         const gapMarks = [];
         plotted.forEach(m => (m.gaps || []).forEach(g => { if (g.fromIdx != null) gapMarks.push({ fromIdx: g.fromIdx, toIdx: g.toIdx }); }));
         chart.$qcGapMarks = gapMarks;
+        // implausible-value regions (the engine's Check flags), shaded red by the overlay
+        const checkMarks = [];
+        plotted.forEach(m => (m.checks || []).forEach(g => checkMarks.push({ fromIdx: g.fromIdx, toIdx: g.toIdx })));
+        checkMarks.sort((a, b) => a.fromIdx - b.fromIdx);
+        chart.$qcCheckMarks = checkMarks;
+        chart.$qcAllEmpty = plotted.length > 0 && plotted.every(m => !m.count);
+        chart.$qcRefSegs = (refInfo && refInfo.segments) || [];
+        chart.$qcFam = fam;
         if (QC_HTML_LEGEND) {
             chart.$qcGroups = qcSplitGroups(groupNames);
             chart.$qcBandOn = !!qcBandPrefs[fam.key];
@@ -590,12 +738,27 @@
     }
 
     function qcBuildDiffChart(canvas, fam, famModel) {
-        const plotted = famModel.diffs.filter(d => d.series);
+        // every combination WITHIN a sensor group (3 sensors -> 1-2, 1-3, 2-3), plus cross-group
+        // pairs for curiosity's sake (unchecked by default, labeled as cross group). the ref and
+        // derived channels stay out: the ref duplicates a member and would compare as zero.
+        const members = famModel.members.filter(m => m.series && !m.isRef && !m.isDerived);
+        const names = members.map(m => m.name);
+        const bySensor = {}; members.forEach(m => { bySensor[m.name] = m.series; });
+        const groups = (typeof qcSplitGroups === 'function' && qcSplitGroups(names)) || null;
+        const groupOf = n => (groups && groups[1] && groups[1].names.includes(n)) ? 1 : 0;
+        const pairs = [];
+        for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++)
+            pairs.push({ a: names[i], b: names[j], cross: groupOf(names[i]) !== groupOf(names[j]) });
+        pairs.sort((p, q) => (p.cross ? 1 : 0) - (q.cross ? 1 : 0));   // within-group first
+        const plotted = pairs.map(p => {
+            const d = qcDiff(bySensor[p.a], bySensor[p.b]);
+            return { id: p.a + ' ≠ ' + p.b, series: d.series, max: d.max, cross: p.cross };
+        });
         const last = qcTimeLabels.length - 1, first = 0;
-        // one pair at a time: the first pair starts checked, the rest unchecked. max diffs live in
-        // the section header above, so legend entries stay short.
+        // one pair at a time: the first within-group pair starts checked, the rest unchecked.
+        // max diffs live in the list under the graph, so legend entries stay short.
         const datasets = plotted.map((d, k) => ({
-            label: d.id,
+            label: d.id + (d.cross ? ' (cross group)' : ''),
             data: qcDecimate(d.series, first, last), $full: d.series, parsing: false, normalized: true,
             borderColor: QC_SERIES_COLORS[k % QC_SERIES_COLORS.length],
             $qcBaseWidth: 1.3, borderWidth: 1.3, pointRadius: 0, pointHitRadius: 6, fill: false, spanGaps: false,
@@ -612,6 +775,7 @@
             ci.update('none');
         };
         const chart = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: datasets }, options: opts, plugins: [qcOverlayPlugin] });
+        chart.$qcDiffPairs = plotted;
         qcWireCanvas(canvas, chart);
         return chart;
     }
@@ -627,8 +791,8 @@
             '<div class="modal-card" style="max-width:1500px;width:96%">' +
               '<button id="qcDiffModalClose" class="qc-cmd-x" style="position:absolute;top:14px;right:14px" title="Close">✕</button>' +
               '<h2 id="qcDiffModalTitle" class="text-ink text-lg font-bold border-b border-hairline pb-2"></h2>' +
-              '<div id="qcDiffModalBadges" class="qc-diff-head" style="border-top:none;margin-top:0;padding-top:0"></div>' +
               '<div id="qcDiffModalBody"></div>' +
+              '<div id="qcDiffModalBadges" class="qc-badge-stack" style="margin-top:8px"></div>' +
             '</div>';
         document.body.appendChild(m);
         m.addEventListener('click', e => { if (e.target === m) qcCloseDiffModal(); });
@@ -642,8 +806,6 @@
         qcCloseDiffModal();
         const m = qcDiffModalEl();
         m.querySelector('#qcDiffModalTitle').textContent = fam.label + ': Difference Between Sensors (' + qcUnitLabel(fam.unit) + ')';
-        m.querySelector('#qcDiffModalBadges').innerHTML = fam.diffs.filter(d => d.series)
-            .map(d => '<span class="qc-badge">' + d.id + ' Max Diff: ' + (Number.isNaN(d.max) ? 'n/a' : d.max) + '</span>').join('<span class="qc-diff-sep"></span>');
         const body = m.querySelector('#qcDiffModalBody'); body.innerHTML = '';
         const bar = document.createElement('div'); bar.className = 'qc-graph-bar';
         const wrap = document.createElement('div'); wrap.className = 'qc-canvas-wrap'; wrap.style.height = '52vh';
@@ -653,12 +815,16 @@
         const chart = qcBuildDiffChart(cv, fam, fam);
         qcDiffModalChartKey = 'qc_' + fam.key + '_d';
         qcCharts[qcDiffModalChartKey] = chart;      // joins playhead sync, linked zoom, theming
+        // every within-group combination's max diff, listed under the graph
+        m.querySelector('#qcDiffModalBadges').innerHTML = (chart.$qcDiffPairs || []).filter(p => !p.cross)
+            .map(p => '<span class="qc-badge">' + p.id + ' Max Diff: ' + (Number.isNaN(p.max) ? 'n/a' : p.max) + '</span>').join('');
         const hint = document.createElement('span'); hint.className = 'qc-legend-hint';
-        hint.textContent = 'click a pair to view it alone, click again to unselect it';
+        hint.textContent = 'Click a pair to view it alone, click again to unselect it';
         const tools = document.createElement('div'); tools.className = 'qc-graph-tools-group';
         bar.appendChild(hint); bar.appendChild(tools);
-        tools.appendChild(qcBuildToolbar(chart, fam.key + '_diff.png'));
-        tools.appendChild(qcBuildFsButton(chart));
+        tools.appendChild(qcBuildToolbar(chart));
+        wrap.appendChild(qcBuildCornerTools(chart, fam.key + '_diff.png'));
+        wrap.appendChild(qcBuildResetFloat(chart));
     }
     function qcCloseDiffModal() {
         const m = document.getElementById('qcDiffModal');
@@ -683,10 +849,21 @@
         qcPhaseMarks = qcResult.phases ? { toIdx: qcResult.phases.toIdx, landIdx: qcResult.phases.landIdx } : null;
         container.innerHTML = '';
 
-        qcResult.families.forEach(fam => {
+        // sfmr families sink to the bottom of the column; everything else keeps catalog order
+        const famsOrdered = qcResult.families.slice().sort((a, b) => (/^sfmr/.test(a.key) ? 1 : 0) - (/^sfmr/.test(b.key) ? 1 : 0));
+        famsOrdered.forEach(fam => {
             const hasMain = fam.members.some(m => m.series);
             const hasDiff = fam.diffs.some(d => d.series);
-            if (!hasMain && !hasDiff) return;                                 // whole family absent -> skip panel
+            if (!hasMain && !hasDiff) {
+                // whole family absent: say so in place instead of silently skipping the panel
+                const empty = document.createElement('div'); empty.className = 'qc-chart-panel';
+                empty.id = 'qcpanel_' + fam.key;
+                empty.innerHTML = '<div class="qc-chart-head"><span class="qc-chart-title">' + fam.label + '</span>' +
+                    '<span class="qc-unit">' + qcUnitLabel(fam.unit) + '</span></div>' +
+                    '<div class="qc-nodata-box">NO DATA</div>';
+                container.appendChild(empty);
+                return;
+            }
 
             const panel = document.createElement('div'); panel.className = 'qc-chart-panel';
             panel.id = 'qcpanel_' + fam.key;   // navigation target (Phase Stats "view graph")
@@ -713,7 +890,7 @@
                 const bar = document.createElement('div'); bar.className = 'qc-graph-bar';
                 // tiny reminder sitting right over the variable checkboxes
                 const hint = document.createElement('span'); hint.className = 'qc-legend-hint';
-                hint.textContent = 'You can click on any individual sensor to select/unselect it.';
+                hint.textContent = 'You can click on any group or individual sensor to select/unselect it.';
                 const tools = document.createElement('div'); tools.className = 'qc-graph-tools-group';
                 bar.appendChild(hint); bar.appendChild(tools);
                 panel.appendChild(bar); panel.appendChild(c);
@@ -721,21 +898,31 @@
                 // the html legend row (group chips, variable checkboxes, std dev) sits between
                 // the toolbar row and the canvas
                 if (chart.$qcLegendBar) panel.insertBefore(chart.$qcLegendBar, c);
-                tools.appendChild(qcBuildToolbar(chart, pngName));
-                tools.appendChild(qcBuildFsButton(chart));
+                tools.appendChild(qcBuildToolbar(chart));
+                c.appendChild(qcBuildCornerTools(chart, pngName));
+                c.appendChild(qcBuildResetFloat(chart));
             };
             container.appendChild(panel);
             if (hasMain) addGraph('qc-canvas-wrap', 'qc_' + fam.key, fam.key + '.png', cv => qcBuildMainChart(cv, fam, fam));
             if (hasDiff) {
                 // the difference graph opens in a modal (space saver); max diffs stay visible here
                 const dh = document.createElement('div'); dh.className = 'qc-diff-head';
+                // the button and its small + graph prompt stack in one column, so the prompt sits
+                // right under the button and reads as "this builds a graph"
+                const btnCol = document.createElement('div'); btnCol.className = 'qc-diff-btncol';
                 const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'qc-ov-btn';
                 btn.textContent = 'Difference Between Sensors';
                 btn.title = 'Open this family\'s difference graph';
                 btn.addEventListener('click', () => qcOpenDiffModal(fam.key));
-                dh.appendChild(btn);
-                dh.insertAdjacentHTML('beforeend', '<span class="qc-diff-sep"></span>' +
-                    fam.diffs.filter(d => d.series).map(d => '<span class="qc-badge">' + d.id + ' Max Diff: ' + (Number.isNaN(d.max) ? 'n/a' : d.max) + '</span>').join('<span class="qc-diff-sep"></span>'));
+                btnCol.appendChild(btn);
+                const dp = document.createElement('button'); dp.type = 'button'; dp.className = 'qc-diff-create';
+                dp.innerHTML = '<span class="qc-diff-plus">＋</span><span>graph</span>';
+                dp.title = 'Open this family\'s difference graph';
+                dp.addEventListener('click', () => qcOpenDiffModal(fam.key));
+                btnCol.appendChild(dp);
+                dh.appendChild(btnCol);
+                // no max diffs out here: the full within-group combination list lives under the
+                // graph inside the modal, so the corner hugs just the button pair
                 panel.appendChild(dh);
             }
         });
@@ -757,7 +944,7 @@
     // bokeh-style toolbar, one per graph, floating inside the graph's top-right corner so it is
     // unmistakably that graph's: pan / box zoom / reset scale / fullscreen / png. each button
     // carries an icon plus its label; reset scale lights up while the graph is zoomed.
-    function qcBuildToolbar(chart, pngName) {
+    function qcBuildToolbar(chart) {
         const tb = document.createElement('div'); tb.className = 'qc-chart-tools';
         const mk = (icon, label, title, onClick) => {
             const b = document.createElement('button'); b.type = 'button'; b.className = 'qc-tool';
@@ -770,20 +957,34 @@
         const panBtn = mk('pan', 'pan', 'Drag moves the time window, wheel zooms', () => { qcSetTool(chart, 'pan'); setActive(panBtn); });
         const boxBtn = mk('box', 'select zoom', 'Drag a box to zoom into that area', () => { qcSetTool(chart, 'box'); setActive(boxBtn); });
         modeBtns.push(scrubBtn, panBtn, boxBtn);
-        chart.$qcResetBtn = mk('reset', 'reset scale', 'Return to the full flight window (double-click the graph, or ctrl+z steps back)', () => qcResetChart(chart));
-        mk('png', 'png', 'Save this graph as a PNG image', () => { try { const a = document.createElement('a'); a.href = chart.toBase64Image(); a.download = pngName; a.click(); } catch (e) {} });
         setActive(scrubBtn);
         qcSetTool(chart, 'scrub');
         return tb;
     }
 
-    // standalone fullscreen control, set apart from the toolbar at the very corner of the graph
-    // (same glyph the visualizer's map fullscreen button uses)
-    function qcBuildFsButton(chart) {
-        const b = document.createElement('button'); b.type = 'button'; b.className = 'qc-fs-btn';
-        b.textContent = '⛶'; b.title = 'Fullscreen this graph';
-        b.addEventListener('click', () => qcToggleGraphFullscreen(chart));
+    // reset zoom floats at the bottom of the graph and only appears while the view is zoomed,
+    // recenter-on-aircraft style; living inside the canvas wrap it stays reachable in fullscreen
+    function qcBuildResetFloat(chart) {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'qc-reset-float';
+        b.textContent = '⟲ Reset Zoom';
+        b.title = 'Zoom all the way back out to the default full flight view (double-click the graph, or ctrl+z steps back)';
+        b.addEventListener('click', () => qcResetChart(chart));
+        chart.$qcResetBtn = b;
         return b;
+    }
+
+    // fullscreen + png save ride the top right corner of the graph itself, apart from the toolbar
+    // (and, living inside the canvas wrap, they stay reachable in fullscreen)
+    function qcBuildCornerTools(chart, pngName) {
+        const c = document.createElement('div'); c.className = 'qc-graph-corner';
+        const png = document.createElement('button'); png.type = 'button'; png.className = 'qc-fs-btn';
+        png.innerHTML = QC_TOOL_ICONS.png; png.title = 'Save this graph as a PNG image';
+        png.addEventListener('click', () => { try { const a = document.createElement('a'); a.href = chart.toBase64Image(); a.download = pngName; a.click(); } catch (e) {} });
+        const fs = document.createElement('button'); fs.type = 'button'; fs.className = 'qc-fs-btn';
+        fs.textContent = '⛶'; fs.title = 'Fullscreen this graph';
+        fs.addEventListener('click', () => qcToggleGraphFullscreen(chart));
+        c.appendChild(png); c.appendChild(fs);
+        return c;
     }
 
     function qcToggleGraphFullscreen(chart) {
@@ -804,7 +1005,10 @@
                 c.options.scales.y.ticks.color = tickColor;
                 c.options.scales.y.title.color = tickColor;
                 c.options.plugins.legend.labels.color = legendColor;
+                // the ref line follows the theme too (white on dark, ink on light)
+                c.data.datasets.forEach(d => { if (d.$qcIsRef) d.borderColor = qcRefColor(); });
                 c.update('none');
+                if (c.$qcLegendBar) qcRenderHtmlLegend(c, c.$qcFam);
             } catch (e) {}
         });
     }
@@ -815,33 +1019,56 @@
     // ground gaps (dimmed, informational). shows the first few, the rest behind a "+N more" toggle.
     function qcBuildIssueStrip(fam) {
         const chips = [];
+        const counts = { check: 0, gap: 0, nodata: 0, late: 0, early: 0 };
         fam.members.forEach(m => {
-            if (m.presence === 'nodata') chips.push({ rank: 1, cls: 'qc-issue-nodata', text: m.name + ' no data' });
-            (m.gaps || []).forEach(g => chips.push({ rank: 0, cls: 'qc-issue-gap', jump: Math.round(g.from), text: m.name + ' gap ' + qcSecToLabel(g.from) + ' - ' + qcSecToLabel(g.to) + ' (' + (g.effSecs || g.secs) + ' s)' }));
-            if (m.lateStart) chips.push({ rank: 2, cls: 'qc-issue-note', jump: Math.round(m.lateStart.at), text: m.name + ' started late by ' + m.lateStart.secs + ' s' });
-            if (m.earlyStop) chips.push({ rank: 2, cls: 'qc-issue-note', jump: Math.round(m.earlyStop.at), text: m.name + ' stopped early by ' + m.earlyStop.secs + ' s' });
+            // the reason already names the sensor, so the chip does not repeat it
+            (m.checks || []).forEach(c => { counts.check++; chips.push({ rank: 0, cls: 'qc-issue-check', jump: Math.round(qcAxisRef ? qcAxisRef[c.fromIdx] : 0), text: 'Check: ' + c.reason + ' at ' + (qcTimeLabels ? qcTimeLabels[c.fromIdx] : '') }); });
+            if (m.presence === 'nodata') { counts.nodata++; chips.push({ rank: 2, cls: 'qc-issue-nodata', text: m.name + ' no data' }); }
+            (m.gaps || []).forEach(g => { counts.gap++; chips.push({ rank: 1, cls: 'qc-issue-gap', jump: Math.round(g.from), text: m.name + ' gap ' + qcSecToLabel(g.from) + ' - ' + qcSecToLabel(g.to) + ' (' + (g.effSecs || g.secs) + ' s)' }); });
+            if (m.lateStart) { counts.late++; chips.push({ rank: 3, cls: 'qc-issue-note', jump: Math.round(m.lateStart.at), text: m.name + ' started late by ' + m.lateStart.secs + ' s' }); }
+            if (m.earlyStop) { counts.early++; chips.push({ rank: 3, cls: 'qc-issue-note', jump: Math.round(m.earlyStop.at), text: m.name + ' stopped early by ' + m.earlyStop.secs + ' s' }); }
         });
         if (!chips.length) return null;
-        // real gaps first, then absent members, then the late start / early stop notes, so the
-        // gap chips never hide behind the "+N more" toggle
+        // check regions outrank everything, then real gaps, absent members, and the late start /
+        // early stop notes, so the important chips never hide behind the "+N more" toggle
         chips.sort((a, b) => a.rank - b.rank);
         const wrap = document.createElement('div'); wrap.className = 'qc-issues';
         const VISIBLE = 3;
-        chips.forEach((c, i) => {
+        const mkChip = (c, hidden) => {
             const el = document.createElement('span');
-            el.className = 'qc-issue ' + c.cls + (i >= VISIBLE ? ' qc-issue-hidden' : '');
+            el.className = 'qc-issue ' + c.cls + (hidden ? ' qc-issue-hidden' : '');
             el.textContent = c.text;
             if (c.jump != null) { el.classList.add('qc-issue-jump'); el.title = 'Jump the map and timeline to this moment'; el.addEventListener('click', () => qcJumpToSecond(c.jump)); }
             wrap.appendChild(el);
-        });
+        };
+        chips.slice(0, VISIBLE).forEach(c => mkChip(c, false));
         if (chips.length > VISIBLE) {
+            // the toggle sits BEFORE the expandable chips, so with thousands expanded "less" is
+            // still right here at the top, no scrolling back down to collapse them
             const more = document.createElement('span');
             more.className = 'qc-issue qc-issue-more'; more.textContent = '+' + (chips.length - VISIBLE) + ' more';
             more.addEventListener('click', () => {
                 const open = wrap.classList.toggle('qc-issues-open');
                 more.textContent = open ? 'less' : '+' + (chips.length - VISIBLE) + ' more';
+                // expanded: the totals move to the very top, clear of the toggle and the chip
+                // flood; collapsed: back to their spot under the toggle row
+                if (open) wrap.insertBefore(sumEl, wrap.firstChild);
+                else wrap.insertBefore(sumEl, more.nextSibling);
             });
             wrap.appendChild(more);
+            // totals at a glance, so nobody scrolls a thousand chips just to count them; each
+            // kind wears its own issue color. rides directly under the toggle, above the flood
+            const totals = [];
+            if (counts.check) totals.push('<span class="qc-tot-check">' + counts.check + ' check region' + (counts.check === 1 ? '' : 's') + '</span>');
+            if (counts.gap) totals.push('<span class="qc-tot-gap">' + counts.gap + ' gap' + (counts.gap === 1 ? '' : 's') + '</span>');
+            if (counts.nodata) totals.push('<span class="qc-tot-nodata">' + counts.nodata + ' with no data</span>');
+            if (counts.late) totals.push('<span class="qc-tot-note">' + counts.late + ' late start' + (counts.late === 1 ? '' : 's') + '</span>');
+            if (counts.early) totals.push('<span class="qc-tot-note">' + counts.early + ' early stop' + (counts.early === 1 ? '' : 's') + '</span>');
+            const sumEl = document.createElement('div');
+            sumEl.className = 'qc-issue-totals';
+            sumEl.innerHTML = '<span class="qc-totals-pill">all flags: ' + totals.join(', ') + '</span>';
+            wrap.appendChild(sumEl);
+            chips.slice(VISIBLE).forEach(c => mkChip(c, true));
         }
         return wrap;
     }
@@ -871,6 +1098,22 @@
             if (!c || !c.canvas) return;
             if (pr) { const r = c.canvas.getBoundingClientRect(); if (r.bottom < pr.top || r.top > pr.bottom) return; }  // off-screen: skip
             c.draw();
+        });
+        qcSyncRefSources();
+    }
+
+    // live ref linkage: the source chip whose segment sits under the playhead is highlighted, and
+    // the ref's legend label names it. cheap no-op when the active segment has not changed.
+    function qcSyncRefSources() {
+        if (qcScrubIdx == null) return;
+        Object.values(qcCharts).forEach(c => {
+            if (!c || !c.$qcRefSeqEl || !c.$qcRefSegs || !c.$qcRefSegs.length) return;
+            let ai = -1;
+            for (let k = 0; k < c.$qcRefSegs.length; k++) { const s = c.$qcRefSegs[k]; if (qcScrubIdx >= s.fromIdx && qcScrubIdx <= s.toIdx) { ai = k; break; } }
+            if (c.$qcRefActive === ai) return;
+            c.$qcRefActive = ai;
+            [...c.$qcRefSeqEl.children].forEach((el, k) => el.classList.toggle('active', k === ai));
+            if (c.$qcRefTxt) c.$qcRefTxt.textContent = (c.$qcRefName || 'ref') + (ai >= 0 ? ': ' + c.$qcRefSegs[ai].source : ' (ref)');
         });
     }
 

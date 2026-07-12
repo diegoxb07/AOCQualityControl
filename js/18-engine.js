@@ -4,6 +4,8 @@
 
     function updateSpeedDisplay() {
         speedDisplayBtn.innerText = `${speeds[currentSpeedIdx]}x`;
+        // the qc timeline's speed button mirrors the same engine state
+        const qs = document.getElementById('qcSpeedBtn'); if (qs) qs.textContent = speeds[currentSpeedIdx] + 'x';
         if (videoLoaded && isPlaying) {
             if (speeds[currentSpeedIdx] <= 16) {
                 try { video.playbackRate = speeds[currentSpeedIdx]; } catch(e) {}

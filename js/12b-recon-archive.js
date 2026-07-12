@@ -61,6 +61,12 @@
     let suppressReconStatus = false;   // true while reflectLoadedMissionInSelectors() drives the dropdowns
     let stormTrackFetchPromise = null; // last loadStormTrackForMission() run, so auto-load can wait it out
     function setReconStatus(msg) { if (!suppressReconStatus && reconArchiveStatus) reconArchiveStatus.textContent = msg || ''; }
+    // progress line right under the pre-load button, so a running pass visibly belongs to it
+    function setPreloadBtnStatus(msg) {
+        const el = document.getElementById('preloadBtnStatus'); if (!el) return;
+        el.textContent = msg || '';
+        el.style.display = msg ? '' : 'none';
+    }
 
     async function reconApiJson(path) {
         const resp = await fetch(RECON_API_BASE + path, { headers: reconAuthHeaders() });
@@ -104,19 +110,20 @@
     // the Share button). Deferred to window 'load' so every script file has parsed before the load
     // pipeline runs; a bad/unknown id just surfaces through loadReconMission's own error status.
     (function autoLoadSharedMission() {
-        let shared = '', sharedT = '', sharedView = '';
+        let shared = '', sharedT = '', sharedView = '', sharedSide = '';
         try {
             const params = new URLSearchParams(window.location.search);
             shared = (params.get('mission') || '').trim();
             sharedT = (params.get('t') || '').trim();
             sharedView = (params.get('view') || '').trim();
+            sharedSide = (params.get('side') || '').trim();
         } catch (e) { return; }
         if (!/^\d{8}[A-Z]+\d+$/i.test(shared)) return;
         // Refresh-as-reset: the params exist for SHARING (fresh navigations). On a reload,
         // strip them and start clean instead of re-loading the mission, so F5 resets the app.
         const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
         if (nav && nav.type === 'reload') {
-            try { const u = new URL(window.location.href); ['mission', 't', 'view'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u); } catch (e) {}
+            try { const u = new URL(window.location.href); ['mission', 't', 'view', 'side'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u); } catch (e) {}
             return;
         }
         window.addEventListener('load', async () => {
@@ -126,16 +133,21 @@
             // arrives mid-reflection and gets swallowed.
             try { await stormTrackFetchPromise; } catch (e) { }
             reflectLoadedMissionInSelectors();
-            applySharedPlaybackParams(sharedT, sharedView);
+            applySharedPlaybackParams(sharedT, sharedView, sharedSide);
         });
     })();
 
-    // Apply a share link's t/view once its mission has loaded: switch the tracker first, then seek
-    // the playhead to the first sample at/after the shared clock time.
-    function applySharedPlaybackParams(t, view) {
+    // Apply a share link's t/view/side once its mission has loaded: switch the tracker first,
+    // restore the QC sidebar, then seek both playheads to the shared clock time.
+    function applySharedPlaybackParams(t, view, side) {
         if ((view === '2d' || view === '3d') && trackerModeSelect.value !== view) {
             trackerModeSelect.value = view;
             trackerModeSelect.dispatchEvent(new Event('change'));
+        }
+        // the QC sidebar state travels with the link; the toggle's own handler resizes the map
+        if (side === '1') {
+            const st = document.getElementById('qcSideToggle'), qapp = document.getElementById('qcApp');
+            if (st && qapp && !qapp.classList.contains('qc-side-open')) st.click();
         }
         if (!/^\d{6}$/.test(t) || !filteredData.length) return;
         let sec = timeToSeconds(t);
@@ -145,6 +157,16 @@
         currentIdx = idx;
         timelineSlider.value = idx;
         updateVisualComponents(currentIdx);
+        // the QC playhead lives on the raw 1-second axis; seek it to the same moment
+        if (typeof qcAxisRef !== 'undefined' && qcAxisRef && qcAxisRef.length && typeof qcScrubIdx !== 'undefined') {
+            let qsec = timeToSeconds(t);
+            if (qsec < qcAxisRef[0]) qsec += 86400;
+            let qi = 0; while (qi < qcAxisRef.length - 1 && qcAxisRef[qi] < qsec) qi++;
+            qcScrubIdx = (typeof qcClampScrub === 'function') ? qcClampScrub(qi) : qi;
+            if (typeof qcSyncPlayhead === 'function') qcSyncPlayhead(true);
+            if (typeof qcRefreshTimeline === 'function') qcRefreshTimeline();
+            if (typeof qcDrivePlayer === 'function') qcDrivePlayer(true);
+        }
     }
 
     // Share button: copies a link that reopens this mission at the current playback moment in the
@@ -813,7 +835,10 @@
     // download or parse on any later visit. The preloaded list is its own dropdown; the Preload
     // button opens a modal where any of the selected year's missions can be queued together. ---
     const preloadedMissions = new Map();   // missionId -> { mission, parsed { rows, stats }, isNc, storm }; stored-only stubs carry no parsed
-    const PRELOADED_STORE_MAX = 12;        // full-resolution missions are tens of MB each in IndexedDB
+    // oldest stored missions past this cap are evicted from IndexedDB on each new save. full
+    // resolution missions run tens of MB each; desktop browsers allow gigabytes, so 40 keeps a
+    // whole season on device without risking the quota
+    const PRELOADED_STORE_MAX = 40;
 
     let missionDB = null;
     const missionStoreReady = new Promise(resolve => {
@@ -896,7 +921,8 @@
         const listEl = document.getElementById('loadedPickerList'); if (!listEl) return;
         if (preloadedMissions.size === 0) { listEl.innerHTML = '<div class="loaded-pick-empty">No flights loaded yet.</div>'; return; }
         let html = '';
-        preloadedMissions.forEach((rec, id) => {
+        // chronological, latest first: mission ids lead with YYYYMMDD, so a reverse id sort is a date sort
+        [...preloadedMissions.entries()].sort((a, b) => b[0].localeCompare(a[0])).forEach(([id, rec]) => {
             const active = id === loadedPickerSelectedId;
             html += `<div class="loaded-pick-row${active ? ' active' : ''}">`
                  +  `<button type="button" class="loaded-pick-open" data-open="${escapeHtml(id)}" title="Open ${escapeHtml(id)}">${escapeHtml(loadedPickerRowLabel(id, rec))}</button>`
@@ -1194,7 +1220,7 @@
         }
 
         // Sequential download + parse of everything checked; closing the modal lets it keep
-        // running in the background (progress stays visible in the archive status line).
+        // running in the background (progress stays visible right under the pre-load button).
         async function runPreload() {
             if (preloadRunning) { setModalStatus('A preload pass is already running.'); return; }
             const ids = [...checksBox.querySelectorAll('input[type=checkbox]:checked:not(:disabled)')].map(cb => cb.value);
@@ -1202,13 +1228,13 @@
             preloadRunning = true; if (startBtn) startBtn.disabled = true;
             let ok = 0;
             for (let i = 0; i < ids.length; i++) {
-                const good = await preloadReconMission(ids[i], msg => { setModalStatus(`(${i + 1}/${ids.length}) ${msg}`); setReconStatus(msg); });
+                const good = await preloadReconMission(ids[i], msg => { setModalStatus(`(${i + 1}/${ids.length}) ${msg}`); setPreloadBtnStatus(`(${i + 1}/${ids.length}) ${msg}`); });
                 if (good) ok++;
                 if (fill) fill.style.width = Math.round((i + 1) / ids.length * 100) + '%';
             }
             preloadRunning = false; if (startBtn) startBtn.disabled = false;
             setModalStatus(`Done: ${ok}/${ids.length} preloaded. They stay on this device and open instantly from the Previously Loaded Missions list.`);
-            setReconStatus(`Preloaded ${ok}/${ids.length} missions.`);
+            setPreloadBtnStatus(`Preloaded ${ok}/${ids.length} mission${ids.length === 1 ? '' : 's'}.`);
             if (yearSel && yearSel.value) loadSeasonIntoModal(yearSel.value);   // relist so finished missions show checked and locked
         }
 

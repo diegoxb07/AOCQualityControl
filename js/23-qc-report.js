@@ -62,20 +62,24 @@
         if (ch) ch.innerHTML = '<div class="qc-empty qc-charts-empty">Waiting for flight file&hellip;</div>';
         const nm = document.getElementById('qcMissionName'); if (nm) nm.textContent = '';
         const sp = document.getElementById('qcSummaryPills'); if (sp) sp.innerHTML = '';
+        const ex = document.getElementById('qcExportMenuBtn'); if (ex) ex.disabled = true;
     }
 
-    const QC_PILL = { ok: 'ok', gap: 'gap', nodata: 'nodata' };
+    const QC_PILL = { ok: 'ok', gap: 'gap', nodata: 'nodata', check: 'check' };
     function qcPill(kind, label) { return '<span class="qc-pill qc-pill-' + kind + '" data-kind="' + kind + '">' + label + '</span>'; }
 
     function qcRenderReport() {
         if (!qcResult) { qcRenderEmpty(); return; }
         const s = qcResult.summary;
+        const ex = document.getElementById('qcExportMenuBtn'); if (ex) ex.disabled = false;
         const nm = document.getElementById('qcMissionName');
         if (nm) nm.textContent = (flightMetaData.id || 'flight') + '  ·  ' + qcAircraftLabel(qcResult.aircraft);
         const sp = document.getElementById('qcSummaryPills');
         if (sp) {
             const noun = n => n === 1 ? ' sensor' : ' sensors';
-            sp.innerHTML = qcPill('ok', s.ok + noun(s.ok) + ' OK') +
+            // the red Check pill leads and only appears when the detector fired: it outranks gaps
+            sp.innerHTML = (s.check ? qcPill('check', s.check + noun(s.check) + ' to Check') : '') +
+                qcPill('ok', s.ok + noun(s.ok) + ' OK') +
                 qcPill('gap', s.gap + noun(s.gap) + ' with gap' + (s.gap === 1 ? '' : 's')) +
                 qcPill('nodata', s.nodata + noun(s.nodata) + ' no data');
             // each pill opens a modal listing exactly which sensors are behind that count
@@ -113,10 +117,13 @@
                 if (m.presence === 'ok') detail = m.count.toLocaleString() + ' s';
                 else if (m.presence === 'gap') detail = gapSecs.toLocaleString() + ' s missing, ' + m.gaps.length + ' gap' + (m.gaps.length > 1 ? 's' : '');
                 else if (m.presence === 'nodata') detail = 'absent';
+                else if (m.presence === 'check') detail = m.checks.length + ' region' + (m.checks.length === 1 ? '' : 's') + ' to check: ' + m.checks[0].reason;
                 if (m.lateStart) detail += (detail ? ' · ' : '') + 'started late by ' + m.lateStart.secs.toLocaleString() + ' s';
                 if (m.earlyStop) detail += (detail ? ' · ' : '') + 'stopped early by ' + m.earlyStop.secs.toLocaleString() + ' s';
-                // clicking a gap jumps the timeline + map to where it starts
-                const jump = m.gaps.length ? ' data-jump="' + Math.round(m.gaps[0].from) + '"' : '';
+                // clicking a flagged row jumps the timeline + map to where the issue starts
+                const jumpSec = m.presence === 'check' && m.checks.length ? Math.round(qcResult.timeAxis[m.checks[0].fromIdx])
+                    : m.gaps.length ? Math.round(m.gaps[0].from) : null;
+                const jump = jumpSec != null ? ' data-jump="' + jumpSec + '"' : '';
                 html += '<div class="qc-row' + (jump ? ' qc-row-jump' : '') + '"' + jump + '>' +
                     qcPill(kind, m.presence === 'nodata' ? 'NO DATA' : m.presence.toUpperCase()) +
                     '<span class="qc-row-name">' + m.name + (m.isRef ? ' <em>ref</em>' : '') + (m.isDerived ? ' <em>(deriv.)</em>' : '') + '</span>' +
@@ -180,6 +187,7 @@
             if (m.presence !== kind) return;
             let detail = '';
             if (kind === 'gap') { const secs = m.gaps.reduce((a, g) => a + (g.effSecs || g.secs), 0); detail = secs.toLocaleString() + ' s missing, first at ' + qcSecToLabel(m.gaps[0].from); }
+            else if (kind === 'check') detail = m.checks[0].reason + ', first at ' + qcSecToLabel(qcResult.timeAxis[m.checks[0].fromIdx]);
             else if (kind === 'ok') detail = m.count.toLocaleString() + ' s';
             else detail = 'absent from this file';
             rows.push({ fam: fam, m: m, detail: detail });
@@ -188,10 +196,12 @@
         document.getElementById('qcStatusModalTitle').textContent =
             kind === 'gap' ? rows.length + ' ' + noun + ' with in-flight gap' + (rows.length === 1 ? '' : 's')
             : kind === 'nodata' ? rows.length + ' ' + noun + ' with no data'
+            : kind === 'check' ? rows.length + ' ' + noun + ' to Check'
             : rows.length + ' ' + noun + ' OK';
         const body = document.getElementById('qcStatusModalBody');
         body.innerHTML = rows.map(r =>
-            '<div class="qc-row' + (kind === 'gap' ? ' qc-row-jump" data-jump="' + Math.round(r.m.gaps[0].from) : '') + '">' +
+            '<div class="qc-row' + (kind === 'gap' ? ' qc-row-jump" data-jump="' + Math.round(r.m.gaps[0].from)
+                : kind === 'check' ? ' qc-row-jump" data-jump="' + Math.round(qcResult.timeAxis[r.m.checks[0].fromIdx]) : '') + '">' +
             '<span class="qc-row-name">' + r.m.name + (r.m.isRef ? ' <em>ref</em>' : '') + (r.m.isDerived ? ' <em>(deriv.)</em>' : '') + '</span>' +
             '<span class="qc-row-detail">' + r.fam.label + ' · ' + r.detail + '</span></div>'
         ).join('') || '<div class="qc-empty">None.</div>';
@@ -219,15 +229,15 @@
     // ---- CSV: current-flight per-sensor report --------------------------------------------------
     function qcExportReportCSV() {
         if (!qcResult) return;
-        const rows = [['mission', 'aircraft', 'family', 'sensor', 'is_ref', 'presence', 'samples_s', 'gaps', 'missing_s', 'late_start_s', 'early_stop_s']];
+        const rows = [['mission', 'aircraft', 'family', 'sensor', 'is_ref', 'presence', 'samples_s', 'gaps', 'missing_s', 'late_start_s', 'early_stop_s', 'max_diff']];
         qcResult.families.forEach(fam => fam.members.forEach(m => {
             const missing = m.gaps.reduce((a, g) => a + (g.effSecs || g.secs), 0);
-            rows.push([flightMetaData.id, qcResult.aircraft, fam.key, m.name, m.isRef ? 1 : 0, m.presence, m.count, m.gaps.length, missing, m.lateStart ? m.lateStart.secs : '', m.earlyStop ? m.earlyStop.secs : '']);
+            rows.push([flightMetaData.id, qcResult.aircraft, fam.key, m.name, m.isRef ? 1 : 0, m.presence, m.count, m.gaps.length, missing, m.lateStart ? m.lateStart.secs : '', m.earlyStop ? m.earlyStop.secs : '', '']);
         }));
         // recorder-level gaps, one row each (sensor column marks them as the data system's)
-        (qcResult.recordingGaps || []).forEach(g => rows.push([flightMetaData.id, qcResult.aircraft, '', 'recording', '', 'recording-gap', '', '', g.secs, '']));
-        // per-pair max differences as extra rows (matches the Max Diff shown in the ui)
-        qcResult.families.forEach(fam => fam.diffs.forEach(d => { if (d.series) rows.push([flightMetaData.id, qcResult.aircraft, fam.key, 'diff:' + d.id, '', 'diff', '', '', '', '', d.max]); }));
+        (qcResult.recordingGaps || []).forEach(g => rows.push([flightMetaData.id, qcResult.aircraft, '', 'recording', '', 'recording-gap', '', '', g.secs, '', '', '']));
+        // per-pair max differences as extra rows, in their own labeled column
+        qcResult.families.forEach(fam => fam.diffs.forEach(d => { if (d.series) rows.push([flightMetaData.id, qcResult.aircraft, fam.key, 'diff:' + d.id, '', 'diff', '', '', '', '', '', d.max]); }));
         qcDownloadCSV(rows, (flightMetaData.id || 'flight') + '_QC_report.csv');
     }
 
@@ -240,63 +250,6 @@
         const panel = document.getElementById('qcpanel_' + fam.key); if (!panel) return;
         panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         panel.classList.remove('qc-panel-flash'); void panel.offsetWidth; panel.classList.add('qc-panel-flash');
-    }
-
-    // one self-contained HTML file: header, recording gaps, the per-sensor table, and every graph
-    // as an embedded image. no external references, so it mails and archives cleanly.
-    function qcExportHtmlReport() {
-        if (!qcResult) return;
-        const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        const id = flightMetaData.id || 'flight';
-        const s = qcResult.summary;
-        // graphs snapshot with the page's current background so theme-colored ticks stay readable
-        const chartBg = getComputedStyle(document.body).backgroundColor || '#17181a';
-        const parts = [];
-        parts.push('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(id) + ' QC Report</title><style>' +
-            'body{font-family:ui-monospace,Menlo,Consolas,monospace;margin:24px;color:#1a202c;background:#fff;max-width:1650px}' +
-            'h1{font-size:20px}h2{font-size:15px;margin:26px 0 4px}img{max-width:100%;background:' + chartBg + ';border:1px solid #d7dce3;border-radius:6px;margin:4px 0}' +
-            'table{border-collapse:collapse;font-size:12px;margin:10px 0}td,th{border:1px solid #d7dce3;padding:3px 8px;text-align:left}' +
-            '.meta{color:#5a6472;font-size:12px}.gap{color:#9a6700}.nodata{color:#8a919b}.ok{color:#1a7f37}</style></head><body>');
-        parts.push('<h1>' + esc(id) + ' QC Report</h1>');
-        parts.push('<p class="meta">' + esc(flightMetaData.aircraft) + ' · ' + esc(flightMetaData.date) +
-            ' · generated ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z · ' +
-            s.ok + ' ok, ' + s.gap + ' gap' + (s.gap === 1 ? '' : 's') + ', ' + s.nodata + ' no data · T/O ' +
-            qcSecToLabel(qcResult.phases.takeoffSec) + ' · Land ' + qcSecToLabel(qcResult.phases.landingSec) + '</p>');
-        (qcResult.recordingGaps || []).forEach(g => parts.push('<p class="gap">Data gap from ' + qcSecToLabel(g.from) + ' - ' + qcSecToLabel(g.to) + '</p>'));
-        parts.push('<table><tr><th>Status</th><th>Sensor</th><th>Family</th><th>Detail</th></tr>');
-        qcResult.families.forEach(fam => fam.members.forEach(m => {
-            const gapSecs = m.gaps.reduce((a, g) => a + (g.effSecs || g.secs), 0);
-            let detail = m.presence === 'gap' ? gapSecs + ' s missing, ' + m.gaps.length + ' gap' + (m.gaps.length > 1 ? 's' : '')
-                : m.presence === 'ok' ? m.count + ' s' : 'absent';
-            if (m.lateStart) detail += ' · started late by ' + m.lateStart.secs + ' s';
-            if (m.earlyStop) detail += ' · stopped early by ' + m.earlyStop.secs + ' s';
-            parts.push('<tr><td class="' + m.presence + '">' + m.presence.toUpperCase() + '</td><td>' + esc(m.name) +
-                (m.isRef ? ' (ref)' : '') + (m.isDerived ? ' (deriv.)' : '') + '</td><td>' + esc(fam.label) + '</td><td>' + esc(detail) + '</td></tr>');
-        }));
-        parts.push('</table>');
-        qcResult.families.forEach(fam => {
-            const main = qcCharts['qc_' + fam.key];
-            let diff = qcCharts['qc_' + fam.key + '_d'];   // present only while the diff modal is open
-            const hasDiffData = fam.diffs && fam.diffs.some(d => d.series);
-            if (!main && !diff && !hasDiffData) return;
-            parts.push('<h2>' + esc(fam.label) + ' (' + esc(typeof qcUnitLabel === 'function' ? qcUnitLabel(fam.unit) : fam.unit) + ')</h2>');
-            try { if (main) parts.push('<img src="' + main.toBase64Image() + '">'); } catch (e) {}
-            if (diff) { try { parts.push('<img src="' + diff.toBase64Image() + '">'); } catch (e) {} }
-            else if (hasDiffData && typeof qcBuildDiffChart === 'function') {
-                // diff graphs live in a modal now; render one offscreen just for the report
-                const holder = document.createElement('div');
-                holder.style.cssText = 'position:fixed;left:-2200px;top:0;width:1400px;height:300px;';
-                const cv = document.createElement('canvas'); holder.appendChild(cv);
-                document.body.appendChild(holder);
-                try { const tmp = qcBuildDiffChart(cv, fam, fam); parts.push('<img src="' + tmp.toBase64Image() + '">'); tmp.destroy(); } catch (e) {}
-                holder.remove();
-            }
-        });
-        parts.push('</body></html>');
-        const blob = new Blob([parts.join('\n')], { type: 'text/html' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = id.slice(0, 10) + '_QC_Report.html'; a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 3000);
     }
 
     // gap report in the archive's own GapReport.dat format: the source file on the first line, then
@@ -317,7 +270,9 @@
         if (lines.length === 1) lines.push('No data gaps detected.');
         const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = ((flightMetaData.id || 'flight').slice(0, 10)) + '_GapReport.dat'; a.click();
+        // the archive names this document GapReport.dat inside each mission's directory; the
+        // download keeps that exact name
+        a.download = 'GapReport.dat'; a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }
 
@@ -356,12 +311,21 @@
     async function qcExportStoreCSV() {
         const all = await qcStoreAll();
         if (!all.length) return;   // nothing saved yet (rows are auto-saved on each flight load)
-        // union of all keys across rows so airframes with different families still line up
-        const keys = []; const seen = new Set();
-        ['missionId', 'aircraft', 'date'].forEach(k => { keys.push(k); seen.add(k); });
-        all.forEach(r => Object.keys(r).forEach(k => { if (!seen.has(k)) { seen.add(k); keys.push(k); } }));
-        const rows = [keys]; all.forEach(r => rows.push(keys.map(k => r[k])));
-        qcDownloadCSV(rows, 'AOC_QC_cross_flight_stats.csv');
+        // one file per airframe, byte for byte like the script's N42/N43/N49_Stats.txt: headerless
+        // comma separated lines, one per flight, in the script's exact column order, so a download
+        // can be appended straight onto a user's historical stats file. airframes with no stored
+        // flights produce no file; rows saved by older builds (no scriptLine) regenerate when that
+        // flight is reopened.
+        const tails = { H: 'N42', I: 'N43', N: 'N49' };
+        Object.keys(tails).forEach(letter => {
+            const lines = all.filter(r => r.aircraft === letter && r.scriptLine)
+                .sort((a, b) => String(a.missionId).localeCompare(String(b.missionId)))
+                .map(r => r.scriptLine);
+            if (!lines.length) return;
+            const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = tails[letter] + '_Stats.txt'; a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        });
     }
 
     // ---- QC clock (there is no timeslider: graphs and arrow keys are the scrubber) --------------
@@ -402,6 +366,10 @@
               '<div class="qc-head-controls" id="qcHeadControls"></div>' +
             '</header>' +
             '<div class="qc-actionbar">' +
+              '<div class="qc-graph-search">' +
+                '<input type="text" id="qcGraphSearch" placeholder="Search graphs by variable, sensor, or title" autocomplete="off" />' +
+                '<div id="qcGraphSearchResults" class="qc-menu hidden"></div>' +
+              '</div>' +
               '<div class="qc-ov-title" id="qcMissionName"></div>' +
               '<div class="qc-summary" id="qcSummaryPills"></div>' +
               '<div class="qc-ov-actions">' +
@@ -411,10 +379,10 @@
                 '<div class="qc-export-wrap">' +
                   '<button id="qcExportMenuBtn" class="qc-ov-btn" title="Download reports and stats">Export ▾</button>' +
                   '<div id="qcExportMenu" class="qc-menu hidden">' +
-                    '<button class="qc-menu-item" id="qcExportReportBtn" title="This flight\'s per-sensor QC report">Report CSV</button>' +
+                    '<button class="qc-menu-item" id="qcExportReportBtn" title="This flight\'s per-sensor QC report">Indiv. Sensor Report CSV</button>' +
                     '<button class="qc-menu-item" id="qcGapReportBtn" title="Recording gaps in the archive GapReport.dat format">Gap Report (.dat)</button>' +
-                    '<button class="qc-menu-item" id="qcExportStoreBtn" title="The cross-flight stats store. Every loaded flight is saved automatically (replaces N42/N43/N49_Stats.txt)">Cross-flight CSV</button>' +
-                    '<button class="qc-menu-item" id="qcHtmlReportBtn" title="The whole QC session (report and every graph) as one self-contained file">HTML Report</button>' +
+                    '<button class="qc-menu-item" id="qcExportStoreBtn" title="Downloads N42/N43/N49_Stats.txt in the script\'s exact format: headerless comma separated lines, one per flight, appendable straight onto your historical stats files. Every loaded flight saves automatically.">N42/3/9 Stats CSV</button>' +
+                    '<button class="qc-menu-item" id="qcShareLinkBtn" title="Copy a link that reopens this mission in the QC tool at your current playhead, tracker view, and sidebar state (archive missions only)">Share QC Link</button>' +
                   '</div>' +
                 '</div>' +
               '</div>' +
@@ -427,6 +395,7 @@
                   '<div class="qc-map-slot" id="qcMapSlot"></div>' +
                   '<div class="qc-timeline">' +
                     '<button id="qcPlayBtn" class="qc-ov-btn" title="Play / pause" style="min-width:52px">Play</button>' +
+                '<button id="qcSpeedBtn" class="qc-ov-btn" title="Playback speed, click to cycle" style="min-width:44px">1x</button>' +
                     '<span id="qcTimeLabel" class="qc-time-label">--:--:--</span>' +
                   '</div>' +
                   '<div class="qc-context-note">scrub by clicking or dragging on any graph, or with the arrow keys (shift for 10 s steps); playback stays between takeoff and landing</div>' +
@@ -464,20 +433,83 @@
         const hm = document.createElement('div');
         hm.id = 'qcHelpModal'; hm.className = 'modal-overlay';
         hm.innerHTML =
-            '<div class="modal-card" style="max-height:82vh">' +
+            '<div class="modal-card" style="max-width:760px;max-height:88vh;overflow-y:auto">' +
               '<button id="qcHelpClose" class="qc-cmd-x" style="position:absolute;top:14px;right:14px" title="Close">✕</button>' +
-              '<h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">QC Tool Help</h2>' +
-              '<div class="help-body" style="overflow-y:auto;min-height:0">' +
-                '<p><b>Loading:</b> search the archive by year, storm, or mission id, or drop a <b>.txt</b> / <b>.nc</b> flight file on the upload zone. Flights you load are kept in your browser and reopen instantly from the already loaded missions list.</p>' +
+              '<div class="border-b border-hairline pr-8" style="padding-bottom:10px;">' +
+                '<h2 class="text-ink text-lg font-bold">Help &amp; Feature Guide</h2>' +
+                '<p class="text-[11px] text-muted mt-1 leading-snug">Built for the NOAA Aircraft Operations Center &middot; Science Branch. Based on the qc_plots_with_map_v2.py workflow, automated into one tool.</p>' +
+              '</div>' +
+              '<div class="help-body">' +
+                '<p class="help-lead">The QC Tool grades every sensor on a hurricane-hunter flight: it loads the raw flight-level data on a continuous 1-second axis, separates recorder gaps from per-sensor gaps, flags physically implausible values, reproduces the script\'s statistics, and exports the same reports the archive workflow expects. It runs entirely in your browser.</p>' +
+
+                '<h3>Keyboard shortcuts</h3>' +
                 '<ul>' +
-                  '<li><b>Scrub:</b> with the scrub tool, drag on any graph and the playhead follows. Arrow keys step 1 second (hold Shift for 10 seconds). Clicking a graph jumps the playhead and the map to that second.</li>' +
-                  '<li><b>Zoom and pan:</b> the wheel zooms the time axis, the pan tool drags the window, and select zoom draws a box. Double click or the reset scale button returns to the full flight. Ctrl+Z (Cmd+Z on Mac) steps one zoom back.</li>' +
-                  '<li><b>Variables:</b> click a variable box above a graph to select or unselect it. When a family mixes direct and GPS sensors, the group chips swap one kind for the other. The std band chip shades the mean plus or minus one standard deviation across the visible similar sensors.</li>' +
-                  '<li><b>Gaps:</b> yellow shading and the small carets on top mark data gaps. Hover one for its exact window, or click an issue chip above the graph to jump straight to it.</li>' +
-                  '<li><b>Statistics:</b> Max/Mean/Median opens takeoff, mid flight, and landing stats for any variable; View graph scrolls to it. Each difference plot lists its pair\'s max difference.</li>' +
-                  '<li><b>Flight track:</b> Flight 2D/3D opens the map and per-sensor report sidebar; playback controls live there.</li>' +
-                  '<li><b>Phases:</b> takeoff and landing are auto detected from the flight data and drive the phase statistics windows.</li>' +
-                  '<li><b>Export:</b> per-sensor Report CSV, the archive format Gap Report, the cross-flight stats CSV, and a self contained HTML report of the whole session.</li>' +
+                  '<li><kbd>Space</kbd> plays or pauses.</li>' +
+                  '<li><kbd>Left</kbd> / <kbd>Right</kbd> arrows step the playhead 1 second, and holding <kbd>Shift</kbd> steps 10 seconds.</li>' +
+                  '<li><kbd>Ctrl</kbd> + <kbd>Z</kbd> (<kbd>Cmd</kbd> + <kbd>Z</kbd> on Mac) steps one zoom back on the graph under the cursor.</li>' +
+                  '<li><kbd>Esc</kbd> closes any open modal or panel.</li>' +
+                '</ul>' +
+
+                '<h3>1. Loading a mission</h3>' +
+                '<ul>' +
+                  '<li><b>Archive browser (needs API online):</b> type in the search box to find a mission by id, storm name, or date (YY-MM-DD), or pick <b>Year</b>, <b>Storm</b>, and <b>Flight</b>, then click <b>Load Flight + Storm Track</b>.</li>' +
+                  '<li><b>Manual upload (always works, no internet):</b> drop a <b>.txt</b> or <b>.nc</b> file on the "or upload" zone. When the API is offline the archive greys out with an "API Offline" banner and recovers on its own.</li>' +
+                  '<li><b>Already loaded missions:</b> every flight you load or preload is stored in your browser and reopens instantly, newest first. The red &times; on a row removes that flight from this device. The store keeps the 40 most recent missions.</li>' +
+                  '<li><b>Pre-load Flight Data:</b> queue any season\'s missions for download; progress shows right under the button, and the flights survive page reloads.</li>' +
+                '</ul>' +
+
+                '<h3>2. Reading a graph</h3>' +
+                '<ul>' +
+                  '<li><b>Gaps:</b> yellow shading marks missing data, and every gap gets a caret on top with the word gap (the caret grows to the gap\'s width). One second gaps draw as thin lines until you zoom in. Hover a gap for its exact window.</li>' +
+                  '<li><b>Check regions:</b> red shading and red carets mark implausible sensor values. The Check warning occurs when the algorithm detects an erroneous and unusual value. Users should manually check when this happened in the context of the flight (eyewall penetration, etc.), to see if the value could be valid or totally unwarranted in its context (ex. a 20 m/s vertical wind while at cruise altitude with no visible effect on the plane would be more incorrect than a 20 m/s vertical wind in the eyewall of Hurricane Melissa). Current rules: humidity above 200 percent, a wind change of 100 m/s in under 15 seconds, vertical wind beyond 40 m/s.</li>' +
+                  '<li><b>Marks:</b> dotted vertical lines are the auto detected takeoff and landing; the solid line is the playhead. NO DATA appears in place when a family has nothing to plot.</li>' +
+                  '<li><b>Hover:</b> the tooltip picks the point nearest the cursor in both axes, so aiming up at a spike grabs the spike. The picked sensor leads in bold; every other visible sensor\'s exact value at that second follows below.</li>' +
+                '</ul>' +
+
+                '<h3>3. Variables and the legend</h3>' +
+                '<ul>' +
+                  '<li>Each graph lists one checkbox per variable; click to select or unselect it.</li>' +
+                  '<li><b>Group chips (glowing blue):</b> when a family mixes sensor kinds (direct vs GPS), each glowing chip carries its own variables beside it, and picking one group unselects the other.</li>' +
+                  '<li><b>std dev:</b> shades the mean plus or minus one standard deviation across the visible similar sensors, and prints the whole-flight mean sigma plus the worst disagreement and when it happened. Families with a single sensor have no button.</li>' +
+                  '<li><b>Ref linkage:</b> chips beside a ref variable list, in order, the sensors the ref channel rode. The one under the playhead is highlighted, hovering shows its exact window, and clicking jumps to the takeover moment. A red badge in the graph title calls out a mid-flight switch.</li>' +
+                '</ul>' +
+
+                '<h3>4. Tools, zoom, and pan</h3>' +
+                '<ul>' +
+                  '<li><b>Toolbar:</b> scrub (drag anywhere and the playhead follows), pan (drag the window, vertically too), and select zoom (drag a box).</li>' +
+                  '<li>The wheel zooms the time axis. <b>Reset Zoom</b> appears at the bottom right of a zoomed graph and returns to the default view; double click does the same.</li>' +
+                  '<li>The top right of each graph holds <b>save as PNG</b> and <b>fullscreen</b>.</li>' +
+                  '<li><b>Graph search</b> (status bar, far left): type a variable, sensor, or graph title and jump straight to its panel.</li>' +
+                '</ul>' +
+
+                '<h3>5. Issues, pills, and chips</h3>' +
+                '<ul>' +
+                  '<li><b>Summary pills:</b> Check (red, leads when present), OK, gaps, and no data. Click a pill to list exactly those sensors and jump to their first issue.</li>' +
+                  '<li><b>Chip strip:</b> under each graph title, Check chips come first, then gaps, no data, and the late start / early stop notes. Click any chip to jump the map and timeline there.</li>' +
+                  '<li><b>+N more</b> expands the full list in place (the toggle stays put), and the color coded totals pill counts every kind so nobody scrolls a thousand chips.</li>' +
+                  '<li>Late starts and early stops are reported but never counted as gaps, since warm up on the ramp is normal ops.</li>' +
+                '</ul>' +
+
+                '<h3>6. Statistics</h3>' +
+                '<ul>' +
+                  '<li><b>Max/Mean/Median</b> opens the phase statistics dock: takeoff, mid-flight, and landing max, mean, and median for any variable (the script\'s PSM line); View graph scrolls to its panel.</li>' +
+                  '<li><b>Difference Between Sensors</b> (with the small + graph chip) opens the family\'s difference graph: every combination within a sensor group is plotted, each combination\'s <b>Max Diff</b> is listed under the graph, and clicking a pair views it alone. Cross group pairs are also selectable for curiosity\'s sake.</li>' +
+                '</ul>' +
+
+                '<h3>7. Flight track and playback</h3>' +
+                '<ul>' +
+                  '<li><b>Flight 2D/3D</b> opens the sidebar: the 2D/3D map tracker, the per-sensor report, <b>Play</b>, the playback speed, and the flight clock.</li>' +
+                  '<li>The 2D map starts centered on the aircraft and follows it. Pan away and <b>Recenter on Aircraft</b> appears. The wheel zooms and dragging pans.</li>' +
+                  '<li>Scrub from any graph, the arrow keys, or the play button; every surface follows the same playhead.</li>' +
+                '</ul>' +
+
+                '<h3>8. Exports and feedback</h3>' +
+                '<ul>' +
+                  '<li><b>Indiv. Sensor Report CSV:</b> one row per sensor (presence, gaps, missing seconds, late start, early stop) plus each pair\'s max difference in its own column.</li>' +
+                  '<li><b>Gap Report (.dat):</b> recorder-level gaps in the archive\'s GapReport.dat wording.</li>' +
+                  '<li><b>N42/3/9 Stats:</b> downloads N42/N43/N49_Stats.txt in the script\'s exact format (headerless comma separated lines, one per flight, same column order), so a download appends straight onto your historical stats files. Every loaded flight saves automatically.</li>' +
+                  '<li><b>Share QC Link:</b> copies a link that reopens this archive mission in the QC tool for anyone, at your current playhead, tracker view, and sidebar state.</li>' +
+                  '<li><b>Feedback:</b> the exclamation button opens a report form; Send opens your mail app addressed to diegoxiaobarbero@gmail.com with the mission id attached.</li>' +
                 '</ul>' +
               '</div>' +
             '</div>';
@@ -488,6 +520,74 @@
         const hb = document.getElementById('helpBtn');
         if (hb) { hb.onclick = () => { hm.style.display = hm.style.display === 'flex' ? 'none' : 'flex'; }; hb.title = 'Help and keyboard shortcuts'; }
 
+        // report a problem / ask a question: subject + body handed to the user's own mail app
+        // (static page, no server; mailto is the only channel that works everywhere)
+        const rm = document.createElement('div');
+        rm.id = 'qcReportModal'; rm.className = 'modal-overlay';
+        rm.innerHTML =
+            '<div class="modal-card" style="max-width:560px">' +
+              '<button id="qcReportClose" class="qc-cmd-x" style="position:absolute;top:14px;right:14px" title="Close">✕</button>' +
+              '<h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">Report a Problem or Ask a Question</h2>' +
+              '<div class="qc-report-form" id="qcReportForm">' +
+                '<label for="qcReportSubject">Subject</label>' +
+                '<input type="text" id="qcReportSubject" autocomplete="off" />' +
+                '<label for="qcReportBody">Details</label>' +
+                '<textarea id="qcReportBody" rows="7"></textarea>' +
+                '<div class="qc-report-actions">' +
+                  '<span class="qc-report-note">The loaded mission id is attached automatically. Your draft is kept here until it is sent.</span>' +
+                  '<button id="qcReportSend" type="button" class="qc-ov-btn" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700">Send</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+        document.body.appendChild(rm);
+        // the redirect notice is its own small overlay STACKED ON TOP of the form (an are you
+        // sure step), never replacing it. closing anything keeps the typed draft; only a
+        // completed send clears it.
+        const rc = document.createElement('div');
+        rc.id = 'qcReportConfirm'; rc.className = 'modal-overlay'; rc.style.zIndex = '5100';
+        rc.innerHTML =
+            '<div class="modal-card" style="max-width:440px">' +
+              '<p class="qc-report-confirm-text">Clicking Send will redirect you to your mail app, with an email addressed to diegoxiaobarbero@gmail.com and your subject and details filled in. Press send there to deliver it.</p>' +
+              '<p class="qc-report-note">If nothing opens, this machine has no default mail app; email diegoxiaobarbero@gmail.com directly.</p>' +
+              '<div class="qc-report-actions">' +
+                '<button id="qcReportBack" type="button" class="qc-ov-btn">Back</button>' +
+                // a REAL link, not a scripted navigation: a genuine user click on a mailto anchor
+                // is the one trigger browsers never block
+                '<a id="qcReportSend2" class="qc-ov-btn" href="mailto:diegoxiaobarbero@gmail.com" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;text-decoration:none;display:inline-block">Send</a>' +
+              '</div>' +
+            '</div>';
+        document.body.appendChild(rc);
+        const rcClose = () => { rc.style.display = 'none'; };
+        const rmClose = () => { rm.style.display = 'none'; rcClose(); };
+        document.getElementById('qcReportClose').addEventListener('click', rmClose);
+        rm.addEventListener('click', e => { if (e.target === rm) rmClose(); });
+        rc.addEventListener('click', e => { if (e.target === rc) rcClose(); });
+        // escape peels one layer at a time: the confirm first, then the form
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape') return;
+            if (rc.style.display === 'flex') rcClose(); else rmClose();
+        });
+        // opening the confirm bakes the draft into the Send link's href
+        document.getElementById('qcReportSend').addEventListener('click', () => {
+            const subj = (document.getElementById('qcReportSubject').value || '').trim() || 'QC Tool feedback';
+            const meta = '\n\nMission: ' + ((typeof flightMetaData !== 'undefined' && flightMetaData.id) || 'none loaded') + ' · QC Tool';
+            const body = (document.getElementById('qcReportBody').value || '') + meta;
+            document.getElementById('qcReportSend2').href =
+                'mailto:diegoxiaobarbero@gmail.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+            rc.style.display = 'flex';
+        });
+        document.getElementById('qcReportBack').addEventListener('click', rcClose);
+        document.getElementById('qcReportSend2').addEventListener('click', () => {
+            // let the browser follow the mailto naturally, then clear the delivered draft
+            setTimeout(() => {
+                document.getElementById('qcReportSubject').value = '';
+                document.getElementById('qcReportBody').value = '';
+                rmClose();
+            }, 80);
+        });
+        const rb = document.getElementById('reportProblemBtn');
+        if (rb) rb.onclick = () => { if (rm.style.display === 'flex') rmClose(); else rm.style.display = 'flex'; };
+
         document.body.appendChild(app);
 
         // relocate the reused visualizer subsystems into the QC app (moving a node keeps its wiring):
@@ -497,8 +597,10 @@
         qcRelocate('missionLoadConsole', 'qcLoaderSlot');
         qcRelocate('mapPanel', 'qcMapSlot');
         qcRelocate('topRightControls', 'qcHeadControls');
-        // the flight library controls live under the QC Tool title
+        // the flight library controls live under the QC Tool title, with the season preloader
+        // (download whole seasons to this device) right beside them
         qcRelocate('loadedPickerWrap', 'qcBrandActions');
+        qcRelocate('preloadBtnWrap', 'qcBrandActions');
 
         // relabel the reused map panel for a QC context, and hide the player-only map controls
         const sub = document.querySelector('#qcMapSlot .panel-subhead'); if (sub) sub.textContent = 'Flight Track';
@@ -520,7 +622,27 @@
         document.getElementById('qcExportReportBtn').addEventListener('click', qcExportReportCSV);
         document.getElementById('qcGapReportBtn').addEventListener('click', qcExportGapReport);
         document.getElementById('qcExportStoreBtn').addEventListener('click', qcExportStoreCSV);
-        document.getElementById('qcHtmlReportBtn').addEventListener('click', qcExportHtmlReport);
+        // share qc link: copies a url that reopens this archive mission in the qc tool at the
+        // current playhead, tracker view, and sidebar state. feedback shows in place on the
+        // export button; uploaded files have no mission id to share.
+        document.getElementById('qcShareLinkBtn').addEventListener('click', async () => {
+            const ex = document.getElementById('qcExportMenuBtn');
+            const say = msg => { if (!ex) return; ex.textContent = msg; setTimeout(() => { ex.textContent = 'Export ▾'; }, 2200); };
+            if (typeof reconArchiveMeta === 'undefined' || !reconArchiveMeta || !qcResult) { say('Archive missions only'); return; }
+            let url = '';
+            try {
+                const u = new URL(window.location.href);
+                ['mission', 't', 'view', 'side'].forEach(k => u.searchParams.delete(k));
+                u.searchParams.set('mission', reconArchiveMeta.missionId);
+                if (qcScrubIdx != null && typeof qcAxisRef !== 'undefined' && qcAxisRef && qcAxisRef[qcScrubIdx] != null)
+                    u.searchParams.set('t', qcSecToLabel(qcAxisRef[qcScrubIdx]).replace(/:/g, ''));
+                if (typeof trackerModeSelect !== 'undefined') u.searchParams.set('view', trackerModeSelect.value);
+                if (app.classList.contains('qc-side-open')) u.searchParams.set('side', '1');
+                url = u.toString();
+            } catch (e) { return; }
+            try { await navigator.clipboard.writeText(url); say('Link copied'); }
+            catch (e) { try { history.replaceState(null, '', url); } catch (e2) {} say('Link in address bar'); }
+        });
         document.getElementById('qcCmdViewGraph').addEventListener('click', () => qcScrollToVar(document.getElementById('qcCmdVar').value));
         document.getElementById('qcPhaseStatsBtn').addEventListener('click', qcToggleCmdPanel);
         document.getElementById('qcCmdClose').addEventListener('click', () => document.getElementById('qcCmdPanel').classList.add('hidden'));
@@ -538,6 +660,11 @@
                     if (typeof qcScrubIdx !== 'undefined' && qcScrubIdx != null && typeof qcClampScrub === 'function') qcScrubIdx = qcClampScrub(qcScrubIdx);
                     qcDrivePlayer(true);
                     if (typeof qcSyncPlayhead === 'function') qcSyncPlayhead(true);
+                    // the flight loaded while this panel was hidden, so the on-load centering ran
+                    // against a zero-size canvas; center on the plane now that the map has a size
+                    if (typeof followAircraft2D !== 'undefined' && followAircraft2D
+                        && typeof engageFollowAircraft === 'function'
+                        && typeof trackerModeSelect !== 'undefined' && trackerModeSelect.value === '2d') engageFollowAircraft();
                 } catch (e) {}
             }, 60);
         });
@@ -565,6 +692,44 @@
             pb.click();
             document.getElementById('qcPlayBtn').textContent = /pause/i.test(pb.innerText) ? 'Pause' : 'Play';
         });
+        // playback speed rides the visualizer's speed engine; one button cycles through its steps
+        document.getElementById('qcSpeedBtn').addEventListener('click', () => {
+            if (typeof speeds === 'undefined' || typeof currentSpeedIdx === 'undefined') return;
+            currentSpeedIdx = (currentSpeedIdx + 1) % speeds.length;
+            if (typeof updateSpeedDisplay === 'function') updateSpeedDisplay();
+        });
+
+        // graph search: type a variable, sensor, or graph title and jump to its panel
+        const gs = document.getElementById('qcGraphSearch'), gr = document.getElementById('qcGraphSearchResults');
+        const qcSearchMatches = q => {
+            if (!qcResult || !q) return [];
+            q = q.toLowerCase();
+            const out = [];
+            qcResult.families.forEach(f => {
+                if (f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q)) out.push({ label: f.label, sub: 'graph', key: f.key, name: null });
+                f.members.forEach(m => { if (m.name.toLowerCase().includes(q)) out.push({ label: m.name, sub: f.label, key: f.key, name: m.name }); });
+            });
+            return out.slice(0, 12);
+        };
+        const qcSearchJump = (key, name) => {
+            if (gr) { gr.classList.add('hidden'); gr.innerHTML = ''; }
+            if (name && typeof qcScrollToVar === 'function') { qcScrollToVar(name); return; }
+            const p = document.getElementById('qcpanel_' + key); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        if (gs && gr) {
+            gs.addEventListener('input', () => {
+                const ms = qcSearchMatches(gs.value.trim());
+                if (!ms.length) { gr.classList.add('hidden'); gr.innerHTML = ''; return; }
+                gr.innerHTML = ms.map((m, i) => '<button class="qc-menu-item" data-i="' + i + '">' + m.label + ' <span class="qc-search-sub">' + m.sub + '</span></button>').join('');
+                gr.classList.remove('hidden');
+                gr.querySelectorAll('.qc-menu-item').forEach(b => b.addEventListener('click', () => { const m = ms[parseInt(b.dataset.i, 10)]; qcSearchJump(m.key, m.name); }));
+            });
+            gs.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { const ms = qcSearchMatches(gs.value.trim()); if (ms.length) qcSearchJump(ms[0].key, ms[0].name); }
+                if (e.key === 'Escape') gr.classList.add('hidden');
+            });
+            document.addEventListener('click', e => { if (!gr.contains(e.target) && e.target !== gs) gr.classList.add('hidden'); });
+        }
 
         qcRenderEmpty();
     }
