@@ -794,6 +794,10 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-lg-group { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px 1px 1px; border: 1px solid color-mix(in oklab, var(--border) 60%, transparent); border-radius: 999px; }
 .qc-lg-group .qc-lg-chip { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 70%, transparent); box-shadow: 0 0 7px color-mix(in oklab, var(--accent) 40%, transparent); }
 .qc-lg-group .qc-lg-chip.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); box-shadow: 0 0 9px color-mix(in oklab, var(--accent) 55%, transparent); }
+/* an unselected group chip carries a dotted diagonal, same gray as the variable-box slash: it
+   reads as "not shown" while the glow stays and the label stays readable behind the dots */
+.qc-lg-group .qc-lg-chip { position: relative; overflow: hidden; }
+.qc-lg-group .qc-lg-chip:not(.active)::after { content: ''; position: absolute; left: -8%; right: -8%; top: 50%; border-top: 1.5px dotted #7a8494; transform: rotate(-14deg); pointer-events: none; }
 .qc-lg-bandinfo { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap; }
 .qc-lg-bandval { color: var(--accent); }
 /* ref connector: the pipe chains the ref to every sensor it rode, in order. negative margins
