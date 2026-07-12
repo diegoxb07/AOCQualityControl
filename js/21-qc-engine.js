@@ -74,10 +74,29 @@
     function qcDetectChecks(name, arr) {
         if (!arr) return [];
         const hum = /^HUM_REL/.test(name), vw = /^UWZ\.|^DPJ_WSZ/.test(name), ws = /^WS\./.test(name);
-        if (!hum && !vw && !ws) return [];
+        // position sensors (case sensitive on purpose: LATref/LONref stay out, like every ref)
+        const geo = /^(Lat|Lon)/.test(name);
+        if (!hum && !vw && !ws && !geo) return [];
         // wording matters: the wind rules are about SUDDENNESS (even an eye passage is gradual),
         // the humidity rule is about physical absurdity
         const marks = [];
+        if (geo) {
+            // a 5 degree move inside 30 minutes is beyond any of these airframes. sliding-window
+            // range via monotonic deques, O(n); ranges near 360 are the dateline wrapping on a
+            // longitude, not a sensor fault, so those pass.
+            const W = 1800, THR = 5;
+            const minq = [], maxq = [];
+            for (let i = 0; i < arr.length; i++) {
+                const v = arr[i]; if (Number.isNaN(v)) continue;
+                while (minq.length && arr[minq[minq.length - 1]] >= v) minq.pop(); minq.push(i);
+                while (maxq.length && arr[maxq[maxq.length - 1]] <= v) maxq.pop(); maxq.push(i);
+                while (minq[0] < i - W) minq.shift();
+                while (maxq[0] < i - W) maxq.shift();
+                const rng = arr[maxq[0]] - arr[minq[0]];
+                if (rng > THR && rng < 350) marks.push({ i: i, reason: 'sudden ' + name + ' change of more than 5 degrees within 30 minutes' });
+            }
+            if (!marks.length) return [];
+        }
         for (let i = 0; i < arr.length; i++) {
             const v = arr[i]; if (Number.isNaN(v)) continue;
             if (hum && v > 200) { marks.push({ i: i, reason: 'physically absurd ' + name + ' above 200 percent' }); continue; }
@@ -387,7 +406,7 @@
                 return { id: a + ' ≠ ' + b, a: a, b: b, series: d.series, mean: d.mean, max: d.max };
             });
 
-            const famOut = { key: fam.key, label: fam.label, unit: fam.unit, ref: fam.ref || null, derived: !!fam.derived, p3only: !!fam.p3only, members: members, diffs: diffs };
+            const famOut = { key: fam.key, label: fam.label, unit: fam.unit, ref: fam.ref || null, derived: !!fam.derived, p3only: !!fam.p3only, members: members, diffs: diffs, groups: (fam.groups && fam.groups[qcAirframeKey(aircraft)]) || null };
 
             // identify (and watch) the ref channel's source sensor
             if (fam.ref && rawPlus[fam.ref]) {

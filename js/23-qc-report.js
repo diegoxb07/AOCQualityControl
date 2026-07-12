@@ -56,6 +56,15 @@
     }
 
     // ---- QC app is the primary, always-on view (not a dismissible overlay) -----------------------
+    // the report controls only exist once there is a flight: pre-flight there is nothing to
+    // search, view on the map, summarize, or export
+    function qcToggleReportControls(show) {
+        const d = show ? '' : 'none';
+        ['qcPhaseStatsBtn', 'qcSideToggle'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = d; });
+        const gsWrap = document.querySelector('.qc-graph-search'); if (gsWrap) gsWrap.style.display = d;
+        const exWrap = document.querySelector('.qc-export-wrap'); if (exWrap) exWrap.style.display = d;
+    }
+
     function qcRenderEmpty() {
         const rep = document.getElementById('qcReportPanel'), ch = document.getElementById('qcChartsPanel');
         if (rep) rep.innerHTML = '<div class="qc-empty">No flight loaded.</div>';
@@ -63,6 +72,13 @@
         const nm = document.getElementById('qcMissionName'); if (nm) nm.textContent = '';
         const sp = document.getElementById('qcSummaryPills'); if (sp) sp.innerHTML = '';
         const ex = document.getElementById('qcExportMenuBtn'); if (ex) ex.disabled = true;
+        qcToggleReportControls(false);
+        // a cleared flight also closes the sidebar, since its toggle is hidden now
+        const qapp = document.getElementById('qcApp');
+        if (qapp && qapp.classList.contains('qc-side-open')) {
+            qapp.classList.remove('qc-side-open');
+            const st = document.getElementById('qcSideToggle'); if (st) st.classList.remove('active');
+        }
     }
 
     const QC_PILL = { ok: 'ok', gap: 'gap', nodata: 'nodata', check: 'check' };
@@ -72,6 +88,7 @@
         if (!qcResult) { qcRenderEmpty(); return; }
         const s = qcResult.summary;
         const ex = document.getElementById('qcExportMenuBtn'); if (ex) ex.disabled = false;
+        qcToggleReportControls(true);
         const nm = document.getElementById('qcMissionName');
         if (nm) nm.textContent = (flightMetaData.id || 'flight') + '  ·  ' + qcAircraftLabel(qcResult.aircraft);
         const sp = document.getElementById('qcSummaryPills');
@@ -164,7 +181,12 @@
     let qcDriveAt = 0;
     function qcDrivePlayer(force) {
         const app = document.getElementById('qcApp');
-        if (!app || !app.classList.contains('qc-side-open')) return;
+        if (!app) return;
+        // the map is drivable when its panel is visible: in the open sidebar, or relocated into
+        // the diff modal's flight context card
+        const ctx = document.getElementById('qcDiffContext');
+        const ctxOpen = ctx && ctx.style.display !== 'none';
+        if (!app.classList.contains('qc-side-open') && !ctxOpen) return;
         if (!filteredData || !filteredData.length || typeof qcScrubIdx === 'undefined' || qcScrubIdx == null || !qcAxisRef) return;
         const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
         if (!force && now - qcDriveAt < 150) return;
@@ -217,6 +239,16 @@
     function qcJumpToSecond(sec) {
         if (!qcAxisRef || !qcAxisRef.length) return;
         const ai = Math.round(sec - qcAxisRef[0]);
+        // the click wins over the context: a jump aimed OUTSIDE the takeoff..landing window (a
+        // pre-takeoff gap, say) would be clamped while the sidebar player is open, so the sidebar
+        // minimizes itself and the playhead goes exactly where the user clicked
+        if (typeof qcPhaseMarks !== 'undefined' && qcPhaseMarks && (ai < qcPhaseMarks.toIdx || ai > qcPhaseMarks.landIdx)) {
+            const qapp = document.getElementById('qcApp');
+            if (qapp && qapp.classList.contains('qc-side-open')) {
+                const st = document.getElementById('qcSideToggle');
+                if (st) st.click(); else qapp.classList.remove('qc-side-open');
+            }
+        }
         qcScrubIdx = (typeof qcClampScrub === 'function') ? qcClampScrub(ai) : Math.max(0, Math.min(qcAxisRef.length - 1, ai));
         if (typeof isPlaying !== 'undefined' && isPlaying) {
             const pb = document.getElementById('playPauseBtn');
@@ -460,8 +492,8 @@
 
                 '<h3>2. Reading a graph</h3>' +
                 '<ul>' +
-                  '<li><b>Gaps:</b> yellow shading marks missing data, and every gap gets a caret on top with the word gap (the caret grows to the gap\'s width). One second gaps draw as thin lines until you zoom in. Hover a gap for its exact window.</li>' +
-                  '<li><b>Check regions:</b> red shading and red carets mark implausible sensor values. The Check warning occurs when the algorithm detects an erroneous and unusual value. Users should manually check when this happened in the context of the flight (eyewall penetration, etc.), to see if the value could be valid or totally unwarranted in its context (ex. a 20 m/s vertical wind while at cruise altitude with no visible effect on the plane would be more incorrect than a 20 m/s vertical wind in the eyewall of Hurricane Melissa). Current rules: humidity above 200 percent, a wind change of 100 m/s in under 15 seconds, vertical wind beyond 40 m/s.</li>' +
+                  '<li><b>Gaps:</b> yellow shading marks missing data, and every gap gets a caret on top (the caret grows to the gap\'s width; the legend row defines the marker once). Click a caret to jump to the exact second the gap starts, or hover the shading for its window. One second gaps draw as thin lines until you zoom in.</li>' +
+                  '<li><b>Check regions:</b> red shading and red carets mark implausible sensor values. The Check warning occurs when the algorithm detects an erroneous and unusual value. Users should manually check when this happened in the context of the flight (eyewall penetration, etc.), to see if the value could be valid or totally unwarranted in its context (ex. a 20 m/s vertical wind while at cruise altitude with no visible effect on the plane would be more incorrect than a 20 m/s vertical wind in the eyewall of Hurricane Melissa). Current rules: humidity above 200 percent, a wind change of 100 m/s in under 15 seconds, vertical wind beyond 40 m/s, and a latitude or longitude change of more than 5 degrees within 30 minutes (no airframe here covers that distance so fast).</li>' +
                   '<li><b>Marks:</b> dotted vertical lines are the auto detected takeoff and landing; the solid line is the playhead. NO DATA appears in place when a family has nothing to plot.</li>' +
                   '<li><b>Hover:</b> the tooltip picks the point nearest the cursor in both axes, so aiming up at a spike grabs the spike. The picked sensor leads in bold; every other visible sensor\'s exact value at that second follows below.</li>' +
                 '</ul>' +
@@ -470,8 +502,8 @@
                 '<ul>' +
                   '<li>Each graph lists one checkbox per variable; click to select or unselect it.</li>' +
                   '<li><b>Group chips (glowing blue):</b> when a family mixes sensor kinds (direct vs GPS), each glowing chip carries its own variables beside it, and picking one group unselects the other.</li>' +
-                  '<li><b>std dev:</b> shades the mean plus or minus one standard deviation across the visible similar sensors, and prints the whole-flight mean sigma plus the worst disagreement and when it happened. Families with a single sensor have no button.</li>' +
-                  '<li><b>Ref linkage:</b> chips beside a ref variable list, in order, the sensors the ref channel rode. The one under the playhead is highlighted, hovering shows its exact window, and clicking jumps to the takeover moment. A red badge in the graph title calls out a mid-flight switch.</li>' +
+                  '<li><b>Standard deviation:</b> always listed at the bottom right of each graph block: the whole-flight mean sigma between the selected similar sensors, plus the worst disagreement and when it happened. Families with a single sensor list nothing.</li>' +
+                  '<li><b>Ref linkage:</b> a pipe connector beside the ref variable chains it to every sensor it rode during the flight, in order; more than one name means the operators switched the ref mid-flight, and a red badge in the graph title calls that out too. Hover the ref entry for the takeover times.</li>' +
                 '</ul>' +
 
                 '<h3>4. Tools, zoom, and pan</h3>' +
@@ -493,7 +525,7 @@
                 '<h3>6. Statistics</h3>' +
                 '<ul>' +
                   '<li><b>Max/Mean/Median</b> opens the phase statistics dock: takeoff, mid-flight, and landing max, mean, and median for any variable (the script\'s PSM line); View graph scrolls to its panel.</li>' +
-                  '<li><b>Difference Between Sensors</b> (with the small + graph chip) opens the family\'s difference graph: every combination within a sensor group is plotted, each combination\'s <b>Max Diff</b> is listed under the graph, and clicking a pair views it alone. Cross group pairs are also selectable for curiosity\'s sake.</li>' +
+                  '<li><b>Difference Between Sensors</b> (with the small + graph chip) opens the family\'s difference graph: every combination within a sensor group is plotted, each combination\'s <b>Max Diff</b> is listed under the graph, and clicking a pair views it alone. Cross group pairs sit on their own legend row, selectable for curiosity\'s sake. The <b>Flight Context</b> button pulls the 2D/3D map up beside the graph so you can see where a difference occurred.</li>' +
                 '</ul>' +
 
                 '<h3>7. Flight track and playback</h3>' +
@@ -509,7 +541,7 @@
                   '<li><b>Gap Report (.dat):</b> recorder-level gaps in the archive\'s GapReport.dat wording.</li>' +
                   '<li><b>N42/3/9 Stats:</b> downloads N42/N43/N49_Stats.txt in the script\'s exact format (headerless comma separated lines, one per flight, same column order), so a download appends straight onto your historical stats files. Every loaded flight saves automatically.</li>' +
                   '<li><b>Share QC Link:</b> copies a link that reopens this archive mission in the QC tool for anyone, at your current playhead, tracker view, and sidebar state.</li>' +
-                  '<li><b>Feedback:</b> the exclamation button opens a report form; Send opens your mail app addressed to diegoxiaobarbero@gmail.com with the mission id attached.</li>' +
+                  '<li><b>Feedback:</b> the exclamation button opens a report form addressed to diegoxiaobarbero@gmail.com, with the mission id attached and the tool named in the subject. Send redirects to Gmail with everything prefilled. Your draft stays in the form until it is sent.</li>' +
                 '</ul>' +
               '</div>' +
             '</div>';
@@ -546,14 +578,12 @@
         const rc = document.createElement('div');
         rc.id = 'qcReportConfirm'; rc.className = 'modal-overlay'; rc.style.zIndex = '5100';
         rc.innerHTML =
-            '<div class="modal-card" style="max-width:440px">' +
-              '<p class="qc-report-confirm-text">Clicking Send will redirect you to your mail app, with an email addressed to diegoxiaobarbero@gmail.com and your subject and details filled in. Press send there to deliver it.</p>' +
-              '<p class="qc-report-note">If nothing opens, this machine has no default mail app; email diegoxiaobarbero@gmail.com directly.</p>' +
-              '<div class="qc-report-actions">' +
+            '<div class="modal-card" style="max-width:420px">' +
+              '<p class="qc-report-confirm-text">Clicking \'Send\' again will redirect you to GMail, are you sure you want to do this?</p>' +
+              '<div class="qc-report-actions" style="justify-content:flex-end">' +
                 '<button id="qcReportBack" type="button" class="qc-ov-btn">Back</button>' +
-                // a REAL link, not a scripted navigation: a genuine user click on a mailto anchor
-                // is the one trigger browsers never block
-                '<a id="qcReportSend2" class="qc-ov-btn" href="mailto:diegoxiaobarbero@gmail.com" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;text-decoration:none;display:inline-block">Send</a>' +
+                // a real link, not a scripted navigation: a genuine user click is never blocked
+                '<a id="qcReportGmail" class="qc-ov-btn" href="https://mail.google.com/" target="_blank" rel="noopener" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;text-decoration:none;display:inline-block">Send</a>' +
               '</div>' +
             '</div>';
         document.body.appendChild(rc);
@@ -567,24 +597,27 @@
             if (e.key !== 'Escape') return;
             if (rc.style.display === 'flex') rcClose(); else rmClose();
         });
-        // opening the confirm bakes the draft into the Send link's href
-        document.getElementById('qcReportSend').addEventListener('click', () => {
-            const subj = (document.getElementById('qcReportSubject').value || '').trim() || 'QC Tool feedback';
+        // opening the confirm bakes the draft into every send channel's target. the subject
+        // names the tool, so reports are recognizable in the inbox.
+        const qcReportDraft = () => {
+            const subj = 'AOCQualityControl - ' + ((document.getElementById('qcReportSubject').value || '').trim() || 'feedback');
             const meta = '\n\nMission: ' + ((typeof flightMetaData !== 'undefined' && flightMetaData.id) || 'none loaded') + ' · QC Tool';
-            const body = (document.getElementById('qcReportBody').value || '') + meta;
-            document.getElementById('qcReportSend2').href =
-                'mailto:diegoxiaobarbero@gmail.com?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+            return { subj: subj, body: (document.getElementById('qcReportBody').value || '') + meta };
+        };
+        const qcReportClear = () => {
+            document.getElementById('qcReportSubject').value = '';
+            document.getElementById('qcReportBody').value = '';
+            rmClose();
+        };
+        document.getElementById('qcReportSend').addEventListener('click', () => {
+            const d = qcReportDraft();
+            document.getElementById('qcReportGmail').href =
+                'https://mail.google.com/mail/?view=cm&fs=1&to=diegoxiaobarbero@gmail.com&su=' + encodeURIComponent(d.subj) + '&body=' + encodeURIComponent(d.body);
             rc.style.display = 'flex';
         });
         document.getElementById('qcReportBack').addEventListener('click', rcClose);
-        document.getElementById('qcReportSend2').addEventListener('click', () => {
-            // let the browser follow the mailto naturally, then clear the delivered draft
-            setTimeout(() => {
-                document.getElementById('qcReportSubject').value = '';
-                document.getElementById('qcReportBody').value = '';
-                rmClose();
-            }, 80);
-        });
+        // gmail composes in a new tab; the delivered draft clears once it is handed over
+        document.getElementById('qcReportGmail').addEventListener('click', () => setTimeout(qcReportClear, 80));
         const rb = document.getElementById('reportProblemBtn');
         if (rb) rb.onclick = () => { if (rm.style.display === 'flex') rmClose(); else rm.style.display = 'flex'; };
 
@@ -713,6 +746,7 @@
         };
         const qcSearchJump = (key, name) => {
             if (gr) { gr.classList.add('hidden'); gr.innerHTML = ''; }
+            if (gs) gs.value = '';   // the jump happened, the query has done its job
             if (name && typeof qcScrollToVar === 'function') { qcScrollToVar(name); return; }
             const p = document.getElementById('qcpanel_' + key); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };

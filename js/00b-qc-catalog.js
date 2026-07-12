@@ -28,7 +28,10 @@
               diffs: { HI: [['AccAYI.1','AccAYI.2'],['AccYI-GPS.1','AccYI-GPS.2']], N: [['AccAYI.1','AccAYI.2'],['AccAYI.1','AccAYI.3']] } },
             { key: 'accz', label: 'Z Acceleration', unit: 'm/s²', ref: 'ACCZref',
               members: { HI: ['AccAZI.1','AccAZI.2','AccZI-GPS.1','AccZI-GPS.2','AccZfilterI-GPS.1','AccZfilterI-GPS.2'], N: ['AccAZI.1','AccAZI.2','AccAZI.3','AccZI.1','AccZI.2','AccZI.3'] },
-              diffs: { HI: [['AccAZI.1','AccAZI.2'],['AccZI-GPS.1','AccZI-GPS.2'],['AccZfilterI-GPS.1','AccZfilterI-GPS.2']], N: [['AccAZI.1','AccAZI.2'],['AccAZI.1','AccAZI.3'],['AccZI.1','AccZI.2'],['AccZI.1','AccZI.3']] } },
+              diffs: { HI: [['AccAZI.1','AccAZI.2'],['AccZI-GPS.1','AccZI-GPS.2'],['AccZfilterI-GPS.1','AccZfilterI-GPS.2']], N: [['AccAZI.1','AccAZI.2'],['AccAZI.1','AccAZI.3'],['AccZI.1','AccZI.2'],['AccZI.1','AccZI.3']] },
+              // explicit sensor groups (legend swap chips); families without a groups entry fall
+              // back to the direct-vs-GPS name heuristic
+              groups: { N: [{ label: 'AccAZI', names: ['AccAZI.1','AccAZI.2','AccAZI.3'] }, { label: 'AccZI', names: ['AccZI.1','AccZI.2','AccZI.3'] }] } },
 
             // --- altitude (m) ---
             { key: 'altgps', label: 'Pure GPS Altitude', unit: 'm', ref: 'ALTref',
@@ -39,7 +42,10 @@
               diffs: { HI: [['AltI-GPS.1','AltI-GPS.2']], N: [['AltI.1','AltI.2'],['AltI.1','AltI.3']] } },
             { key: 'altpabc', label: 'PA and Baro-Corrected PA', unit: 'm',
               members: { HI: ['AltPaADDU.1','AltBCADDU.1'], N: ['AltPaADDU.1','AltBCADDU.1','AltPaADDU.2','AltBCADDU.2'] },
-              diffs: { HI: [['AltPaADDU.1','AltBCADDU.1']], N: [['AltBCADDU.1','AltBCADDU.2'],['AltPaADDU.1','AltPaADDU.2']] } },
+              diffs: { HI: [['AltPaADDU.1','AltBCADDU.1']], N: [['AltBCADDU.1','AltBCADDU.2'],['AltPaADDU.1','AltPaADDU.2']] },
+              // pa vs baro-corrected, matching the script's within-kind diffs on the G-IV; the
+              // P-3 has one of each, so no swap there
+              groups: { N: [{ label: 'AltPaADDU', names: ['AltPaADDU.1','AltPaADDU.2'] }, { label: 'AltBCADDU', names: ['AltBCADDU.1','AltBCADDU.2'] }] } },
             { key: 'altra', label: 'Radar Altitude', unit: 'm',
               members: { HI: ['AltRa.1','AltRa.2','AltRa1.c','AltRa2.c'], N: ['AltRa.1'] },
               diffs: { HI: [['AltRa.1','AltRa.2'],['AltRa1.c','AltRa2.c']], N: [] } },
@@ -93,7 +99,10 @@
             // --- air data (kt / m·s, mixed; overlaid as the script does) ---
             { key: 'airspeed', label: 'Air Speed', unit: 'kt',
               members: { HI: ['CasADDU.1','TasADDU.1','IasADDU.1','IAS.d','TAS.d'], N: ['CasADDU.1','CasADDU.2','TasADDU.1','TasADDU.2','IAS.d','TAS.d'] },
-              diffs: { HI: [], N: [['CasADDU.1','CasADDU.2'],['TasADDU.1','TasADDU.2']] } },
+              diffs: { HI: [], N: [['CasADDU.1','CasADDU.2'],['TasADDU.1','TasADDU.2']] },
+              // calibrated/indicated speeds vs true airspeed
+              groups: { HI: [{ label: 'CAS/IAS', names: ['CasADDU.1','IasADDU.1','IAS.d'] }, { label: 'TAS', names: ['TasADDU.1','TAS.d'] }],
+                        N: [{ label: 'CAS/IAS', names: ['CasADDU.1','CasADDU.2','IAS.d'] }, { label: 'TAS', names: ['TasADDU.1','TasADDU.2','TAS.d'] }] } },
 
             // --- attitude (deg / deg per s) ---
             { key: 'pitch', label: 'Pitch', unit: 'deg', ref: 'PITCHref',

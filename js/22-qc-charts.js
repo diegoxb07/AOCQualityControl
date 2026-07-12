@@ -160,8 +160,9 @@
             });
             // carets on top of each marked range. per-member gaps are marked too (the shading only
             // covers seconds every member misses). EVERY range gets its caret, none skipped; when
-            // hundreds sit close they simply merge into a band. only the tiny word underneath is
-            // spaced out, so the labels stay legible instead of smearing
+            // hundreds sit close they simply merge into a band. gap carets carry NO word (the
+            // legend row defines the marker once instead of spamming the plot); check carets keep
+            // theirs since they are rare and urgent
             const drawCarets = (ranges, fill, word) => {
                 ctx.fillStyle = fill;
                 ctx.font = "8px 'IBM Plex Mono', monospace"; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -176,13 +177,13 @@
                     ctx.beginPath();
                     ctx.moveTo(cx - hw, area.top + 1); ctx.lineTo(cx + hw, area.top + 1); ctx.lineTo(cx, area.top + 9);
                     ctx.closePath(); ctx.fill();
-                    if (cx - lastWordX >= 22) { ctx.fillText(word, cx, area.top + 11); lastWordX = cx; }
+                    if (word && cx - lastWordX >= 22) { ctx.fillText(word, cx, area.top + 11); lastWordX = cx; }
                 });
                 ctx.textAlign = 'left';
             };
             const light = document.documentElement.dataset.theme === 'light';
             const gapCarets = gapRanges.concat(chart.$qcGapMarks || []).slice().sort((a, b) => a.fromIdx - b.fromIdx);
-            drawCarets(gapCarets, light ? 'rgba(170, 120, 20, 0.95)' : 'rgba(240, 190, 60, 0.95)', 'gap');
+            drawCarets(gapCarets, light ? 'rgba(170, 120, 20, 0.95)' : 'rgba(240, 190, 60, 0.95)', '');
             drawCarets(chart.$qcCheckMarks || [], light ? 'rgba(198, 40, 40, 0.95)' : 'rgba(234, 84, 85, 0.95)', 'check');
             // a graph whose members carry zero finite samples says so in place, centered in the
             // takeoff to landing window so the empty frame cannot be mistaken for a render bug
@@ -235,6 +236,20 @@
         // clicks outside the plot area (the legend row) must not move the playhead
         const a = chart.chartArea, py = (e && e.y != null) ? e.y : (ne ? ne.offsetY : null);
         if (a && (px < a.left || px > a.right || (py != null && (py < a.top || py > a.bottom)))) return;
+        // a click on a caret (the top strip of the plot) jumps to that gap's or check's first
+        // second, not to the pixel under the cursor
+        if (a && py != null && py <= a.top + 12) {
+            const marks = (chart.$qcGapRanges || []).concat(chart.$qcGapMarks || [], chart.$qcCheckMarks || []);
+            let best = null, bd = 9;
+            marks.forEach(g => {
+                const x0 = Math.max(xa.getPixelForValue(g.fromIdx), a.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), a.right);
+                if (x1 < x0) return;
+                const cx = (x0 + x1) / 2;
+                const d = (px >= x0 && px <= x1) ? 0 : Math.abs(px - cx);
+                if (d < bd) { bd = d; best = g; }
+            });
+            if (best && typeof qcJumpToSecond === 'function') { qcJumpToSecond(Math.round(qcAxisRef[best.fromIdx])); return; }
+        }
         const i = qcClampScrub(Math.round(xa.getValueForPixel(px)));
         if (typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[i]));
     }
@@ -536,8 +551,6 @@
     // ---- html legend bar: group chips, per-variable checkboxes, std dev toggle -----------------
     // flip to false to fall back to the chart.js canvas legend exactly as before
     const QC_HTML_LEGEND = true;
-    const qcBandPrefs = {};            // fam.key -> band on/off, remembered for the session
-    const QC_BAND_FILL = 'rgba(148, 163, 184, 0.20)';
 
     // split a family's direct sensors from their blended GPS counterparts (the same heuristic the
     // auto-uncheck logic uses); null when the family has only one kind
@@ -547,9 +560,24 @@
         else if (names.some(n => /GPS/.test(n)) && names.some(n => !/GPS/.test(n))) test = n => /GPS/.test(n);
         if (!test) return null;
         const a = names.filter(n => !test(n)), b = names.filter(test);
+        // one big group is not a split: chips would toggle nothing, so no chips at all
+        if (!a.length || !b.length) return null;
         return [{ label: qcNameStem(a), names: a }, { label: qcNameStem(b), names: b }];
     }
+    // explicit catalog groups (fam.groups from js/00b) win; the direct-vs-GPS name heuristic
+    // covers families without one. group entries filter down to the sensors actually present.
+    function qcFamilyLegendGroups(famModel, names) {
+        const g = famModel && famModel.groups;
+        if (g && g.length === 2) {
+            const a = g[0].names.filter(n => names.includes(n)), b = g[1].names.filter(n => names.includes(n));
+            if (a.length && b.length) return [{ label: g[0].label, names: a }, { label: g[1].label, names: b }];
+            return null;
+        }
+        return qcSplitGroups(names);
+    }
+
     function qcNameStem(names) {
+        if (names.length === 1) return (names[0] || '').replace(/\.[^.]*$/, '') || names[0];
         let p = names[0] || '';
         names.forEach(n => { let i = 0; while (i < p.length && p[i] === n[i]) i++; p = p.slice(0, i); });
         return p.replace(/[.\-_]+$/, '') || 'group';
@@ -568,31 +596,21 @@
         return { up: up, lo: lo };
     }
 
-    // rebuild the band datasets from the currently visible similar sensors (ref and derived lines
-    // are excluded: the ref duplicates a member and would double-count it)
-    function qcUpdateBand(chart) {
-        const ds = chart.data.datasets;
-        for (let i = ds.length - 1; i >= 0; i--) if (ds[i].$qcBand) ds.splice(i, 1);
-        chart.$qcBandStats = null;
-        if (chart.$qcBandOn) {
-            const series = [];
-            ds.forEach((d, k) => { if (!d.$qcIsRef && !d.$qcIsDerived && d.$full && chart.isDatasetVisible(k)) series.push(d.$full); });
-            if (series.length >= 2) {
-                const band = qcBandSeries(series, qcTimeLabels.length);
-                // headline numbers for the legend: mean sigma over the flight and the worst moment
-                let sSum = 0, sN = 0, sMax = -1, sMaxI = -1;
-                for (let i = 0; i < band.up.length; i++) {
-                    const sd = (band.up[i] - band.lo[i]) / 2;
-                    if (sd === sd) { sSum += sd; sN++; if (sd > sMax) { sMax = sd; sMaxI = i; } }
-                }
-                if (sN) chart.$qcBandStats = { mean: (sSum / sN).toFixed(2), max: sMax.toFixed(2), at: (qcTimeLabels && qcTimeLabels[sMaxI]) || '' };
-                const common = { parsing: false, normalized: true, pointRadius: 0, pointHitRadius: 0, borderWidth: 0, spanGaps: false, $qcBand: true, borderColor: 'rgba(0,0,0,0)' };
-                ds.push(Object.assign({ label: 'std dev upper', data: [], $full: band.up, fill: false }, common));
-                ds.push(Object.assign({ label: 'std dev', data: [], $full: band.lo, fill: '-1', backgroundColor: QC_BAND_FILL }, common));
-            }
+    // standard deviation between the visible similar sensors, always computed (no toggle, no
+    // shaded band datasets): whole-flight mean sigma plus the worst disagreement moment. ref and
+    // derived lines are excluded, since the ref duplicates a member and would double-count it.
+    function qcBandStats(chart) {
+        const series = [];
+        chart.data.datasets.forEach((d, k) => { if (!d.$qcIsRef && !d.$qcIsDerived && d.$full && chart.isDatasetVisible(k)) series.push(d.$full); });
+        if (series.length < 2 || !qcTimeLabels) return null;
+        const band = qcBandSeries(series, qcTimeLabels.length);
+        let sSum = 0, sN = 0, sMax = -1, sMaxI = -1;
+        for (let i = 0; i < band.up.length; i++) {
+            const sd = (band.up[i] - band.lo[i]) / 2;
+            if (sd === sd) { sSum += sd; sN++; if (sd > sMax) { sMax = sd; sMaxI = i; } }
         }
-        qcRefreshResolution(chart);
-        chart.update('none');
+        if (!sN) return null;
+        return { mean: (sSum / sN).toFixed(2), max: sMax.toFixed(2), at: qcTimeLabels[sMaxI] || '' };
     }
 
     function qcRenderHtmlLegend(chart, fam) {
@@ -603,7 +621,7 @@
         const yw = chart.scales && chart.scales.y && chart.scales.y.width;
         if (yw) bar.style.paddingLeft = Math.round(yw + 6) + 'px';
         const ds = chart.data.datasets;
-        const rerender = () => { qcUpdateBand(chart); qcRenderHtmlLegend(chart, fam); };
+        const rerender = () => { chart.update('none'); qcRenderHtmlLegend(chart, fam); };
         const mkItem = (d, k) => {
             const on = chart.isDatasetVisible(k);
             const it = document.createElement('button'); it.type = 'button'; it.className = 'qc-lg-item' + (on ? '' : ' off');
@@ -637,53 +655,44 @@
             ds.forEach((d, k) => { if (!d.$qcBand && g.names.includes(d.$qcName)) cluster.appendChild(mkItem(d, k)); });
             bar.appendChild(cluster);
         });
-        // ref, derived, and ungrouped variables follow on their own. the ref gets its source
-        // sequence right beside it: one chip per segment in ride order, clickable to jump to the
-        // takeover moment, with the segment under the playhead highlighted live (qcSyncRefSources)
+        // ref, derived, and ungrouped variables follow on their own. the ref carries a static
+        // pipe connector naming every sensor it rode across the flight, in segment order: one
+        // name means one source the whole flight, more than one means it switched.
         ds.forEach((d, k) => {
             if (d.$qcBand || grouped.has(d.$qcName)) return;
             const it = mkItem(d, k);
-            bar.appendChild(it);
             if (d.$qcIsRef && chart.$qcRefSegs && chart.$qcRefSegs.length) {
-                chart.$qcRefName = d.$qcName; chart.$qcRefTxt = it.$txt; chart.$qcRefActive = null;
-                const seq = document.createElement('span'); seq.className = 'qc-ref-seq';
-                chart.$qcRefSegs.forEach((s, si) => {
-                    const src = document.createElement('button'); src.type = 'button'; src.className = 'qc-ref-src';
-                    src.textContent = (chart.$qcRefSegs.length > 1 ? (si + 1) + ' ' : '') + s.source;
-                    src.title = 'Ref rides ' + s.source + ' from ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '') + ' to ' + ((qcTimeLabels && qcTimeLabels[s.toIdx]) || '') + '. Click to jump there.';
-                    src.addEventListener('click', () => { if (typeof qcJumpToSecond === 'function' && qcAxisRef) qcJumpToSecond(Math.round(qcAxisRef[s.fromIdx])); });
-                    seq.appendChild(src);
+                it.classList.add('qc-ref-boxed');   // one box around the ref and its sources
+                // pipe glyphs and source names alternate as separate spans, so only the pipes
+                // carry the transfer pulse animation while the names stay solid
+                chart.$qcRefSegs.forEach(seg => {
+                    const dash = document.createElement('span'); dash.className = 'qc-ref-pipe'; dash.textContent = '───';
+                    const nm = document.createElement('span'); nm.className = 'qc-ref-src-name'; nm.textContent = seg.source;
+                    it.appendChild(dash); it.appendChild(nm);
                 });
-                bar.appendChild(seq);
-                chart.$qcRefSeqEl = seq;
+                it.title += '. This ref rode: ' + chart.$qcRefSegs.map(s => s.source + ' from ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '')).join(', then ') +
+                    (chart.$qcRefSegs.length > 1 ? '. It switched mid-flight.' : '.');
             }
+            bar.appendChild(it);
         });
-        // std dev toggle: a family with a single sensor has nothing to compare, so no button at all
-        let totalMembers = 0, visMembers = 0;
-        ds.forEach((d, k) => { if (!d.$qcBand && !d.$qcIsRef && !d.$qcIsDerived) { totalMembers++; if (chart.isDatasetVisible(k)) visMembers++; } });
-        if (totalMembers >= 2) {
-            const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'qc-lg-chip qc-lg-band';
-            bt.textContent = 'std dev';
-            bt.title = 'Shade the mean plus or minus one standard deviation across the visible similar sensors';
-            bt.classList.toggle('active', !!chart.$qcBandOn);
-            if (visMembers < 2) { bt.disabled = true; bt.title = 'Needs at least 2 similar sensors selected'; }
-            bt.addEventListener('click', () => {
-                chart.$qcBandOn = !chart.$qcBandOn;
-                if (fam) qcBandPrefs[fam.key] = chart.$qcBandOn;
-                rerender();
-            });
-            bar.appendChild(bt);
-            // the band earns its keep with numbers: whole-flight average disagreement plus the
-            // worst moment, so a widening band has a figure and a timestamp behind it
-            if (chart.$qcBandOn && chart.$qcBandStats) {
-                const st = chart.$qcBandStats;
-                const info = document.createElement('span'); info.className = 'qc-lg-bandinfo';
-                info.textContent = 'mean σ ' + st.mean + ' · max σ ' + st.max + ' at ' + st.at;
-                info.title = 'Average disagreement (one standard deviation) across the flight, and the worst moment';
-                bar.appendChild(info);
-            }
+        // no button anymore: the standard deviation between the selected sensors is always
+        // listed, at the right end of the panel's bottom strip. families with fewer than two
+        // similar sensors selected list nothing.
+        const bandHost = chart.$qcBandSlot || bar;
+        if (chart.$qcBandSlot) chart.$qcBandSlot.innerHTML = '';
+        const st = qcBandStats(chart);
+        if (st) {
+            const info = document.createElement('span'); info.className = 'qc-lg-bandinfo';
+            info.textContent = 'Standard Deviation between Selected Sensors: mean σ ' + st.mean + ' · max σ ' + st.max + ' at ' + st.at;
+            info.title = 'Average disagreement (one standard deviation) across the flight between the selected similar sensors, and the worst moment';
+            bandHost.appendChild(info);
         }
-        qcSyncRefSources();   // seed the ref source highlight for the current playhead
+        // the gap marker is defined ONCE here instead of a word under every caret on the plot
+        if ((chart.$qcGapMarks && chart.$qcGapMarks.length) || (chart.$qcGapRanges && chart.$qcGapRanges.length)) {
+            const gn = document.createElement('span'); gn.className = 'qc-lg-gapnote';
+            gn.innerHTML = '<span class="qc-lg-caret"></span> means there is a gap at that time (click one to jump to it)';
+            bar.appendChild(gn);
+        }
     }
 
     function qcBuildMainChart(canvas, fam, famModel) {
@@ -699,7 +708,8 @@
         // the ref linkage lives in the legend bar (source sequence chips + a live label that
         // follows the playhead), so the dataset label itself stays plain for tooltips
         const refInfo = famModel.refInfo;
-        const refLabel = m => m.name + ' (ref)';
+        // names like ALTref already say ref, so no "(ref)" suffix on top of them
+        const refLabel = m => /ref/i.test(m.name) ? m.name : m.name + ' (ref)';
         const datasets = plotted.map((m, k) => ({
             label: m.isRef ? refLabel(m) : m.name + (m.isDerived ? ' (deriv.)' : ''),
             $qcName: m.name, $qcIsRef: !!m.isRef, $qcIsDerived: !!m.isDerived,
@@ -726,11 +736,9 @@
         chart.$qcRefSegs = (refInfo && refInfo.segments) || [];
         chart.$qcFam = fam;
         if (QC_HTML_LEGEND) {
-            chart.$qcGroups = qcSplitGroups(groupNames);
-            chart.$qcBandOn = !!qcBandPrefs[fam.key];
+            chart.$qcGroups = qcFamilyLegendGroups(famModel, groupNames);
             chart.$qcLegendBar = document.createElement('div');
             chart.$qcLegendBar.className = 'qc-legend-bar';
-            if (chart.$qcBandOn) qcUpdateBand(chart);
             qcRenderHtmlLegend(chart, fam);
         }
         qcWireCanvas(canvas, chart);
@@ -744,7 +752,7 @@
         const members = famModel.members.filter(m => m.series && !m.isRef && !m.isDerived);
         const names = members.map(m => m.name);
         const bySensor = {}; members.forEach(m => { bySensor[m.name] = m.series; });
-        const groups = (typeof qcSplitGroups === 'function' && qcSplitGroups(names)) || null;
+        const groups = qcFamilyLegendGroups(famModel, names);
         const groupOf = n => (groups && groups[1] && groups[1].names.includes(n)) ? 1 : 0;
         const pairs = [];
         for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++)
@@ -758,26 +766,56 @@
         // one pair at a time: the first within-group pair starts checked, the rest unchecked.
         // max diffs live in the list under the graph, so legend entries stay short.
         const datasets = plotted.map((d, k) => ({
-            label: d.id + (d.cross ? ' (cross group)' : ''),
+            label: d.id, $qcCross: d.cross, $qcName: d.id,
             data: qcDecimate(d.series, first, last), $full: d.series, parsing: false, normalized: true,
             borderColor: QC_SERIES_COLORS[k % QC_SERIES_COLORS.length],
             $qcBaseWidth: 1.3, borderWidth: 1.3, pointRadius: 0, pointHitRadius: 6, fill: false, spanGaps: false,
             hidden: k > 0
         }));
         const opts = qcChartOptions('Difference (' + qcUnitLabel(fam.unit) + ')');
-        // one pair at a time, without surprises: checking an unchecked pair solos it, while
-        // unchecking a checked pair only unchecks that pair (never touches the others).
-        opts.plugins.legend.onClick = (e, item, legend) => {
-            const ci = legend.chart, k = item.datasetIndex;
-            if (k == null || k < 0) return;
-            if (ci.isDatasetVisible(k)) ci.setDatasetVisibility(k, false);
-            else ci.data.datasets.forEach((_, j) => ci.setDatasetVisibility(j, j === k));
-            ci.update('none');
-        };
+        // the modal draws its own two-row html legend (within-group / cross-group), so the canvas
+        // legend stays off here just like on the family graphs
+        opts.plugins.legend.display = false;
         const chart = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: datasets }, options: opts, plugins: [qcOverlayPlugin] });
         chart.$qcDiffPairs = plotted;
         qcWireCanvas(canvas, chart);
         return chart;
+    }
+
+    // two aligned rows for the diff modal legend: within-group pairs on top, cross-group pairs
+    // (curiosity comparisons) on their own labeled row underneath, so wrapping never mixes them.
+    // solo semantics: checking an unchecked pair shows it alone, unchecking only unchecks itself.
+    function qcRenderDiffLegend(chart, holder) {
+        holder.innerHTML = '';
+        const yw = chart.scales && chart.scales.y && chart.scales.y.width;
+        if (yw) holder.style.paddingLeft = Math.round(yw + 6) + 'px';
+        const ds = chart.data.datasets;
+        const mkRow = (cross, labelText) => {
+            const has = ds.some(d => !!d.$qcCross === cross);
+            if (!has) return;
+            const row = document.createElement('div'); row.className = 'qc-lg-row';
+            if (labelText) { const lb = document.createElement('span'); lb.className = 'qc-lg-rowlabel'; lb.textContent = labelText; row.appendChild(lb); }
+            ds.forEach((d, k) => {
+                if (!!d.$qcCross !== cross) return;
+                const on = chart.isDatasetVisible(k);
+                const it = document.createElement('button'); it.type = 'button'; it.className = 'qc-lg-item' + (on ? '' : ' off');
+                it.title = on ? 'Unselect ' + d.label : 'View ' + d.label + ' alone';
+                const box = document.createElement('span'); box.className = 'qc-lg-box' + (on ? '' : ' off');
+                if (on) { box.style.background = String(d.borderColor); box.style.borderColor = String(d.borderColor); }
+                const txt = document.createElement('span'); txt.textContent = d.label;
+                it.appendChild(box); it.appendChild(txt);
+                it.addEventListener('click', () => {
+                    if (chart.isDatasetVisible(k)) chart.setDatasetVisibility(k, false);
+                    else ds.forEach((_, j) => chart.setDatasetVisibility(j, j === k));
+                    chart.update('none');
+                    qcRenderDiffLegend(chart, holder);
+                });
+                row.appendChild(it);
+            });
+            holder.appendChild(row);
+        };
+        mkRow(false, '');
+        mkRow(true, 'cross group:');
     }
 
     // ---- difference modal: one shared overlay, the chart is built on open and destroyed on close
@@ -787,18 +825,47 @@
         let m = document.getElementById('qcDiffModal');
         if (m) return m;
         m = document.createElement('div'); m.id = 'qcDiffModal'; m.className = 'modal-overlay';
+        // the graph card, with the max diff list bottom left and the Flight Context BUTTON bottom
+        // right; the context panel itself opens as the right-side dock beside the card
+        m.style.gap = '14px';
         m.innerHTML =
-            '<div class="modal-card" style="max-width:1500px;width:96%">' +
+            '<div class="modal-card" id="qcDiffMainCard" style="max-width:1500px;width:96%;max-height:92vh;overflow-y:auto">' +
               '<button id="qcDiffModalClose" class="qc-cmd-x" style="position:absolute;top:14px;right:14px" title="Close">✕</button>' +
               '<h2 id="qcDiffModalTitle" class="text-ink text-lg font-bold border-b border-hairline pb-2"></h2>' +
               '<div id="qcDiffModalBody"></div>' +
-              '<div id="qcDiffModalBadges" class="qc-badge-stack" style="margin-top:8px"></div>' +
+              '<div class="qc-diff-bottom">' +
+                '<div id="qcDiffModalBadges" class="qc-badge-stack"></div>' +
+                '<div id="qcDiffCtxBtnSlot"></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="modal-card qc-diff-context" id="qcDiffContext" style="display:none">' +
+              '<div class="qc-context-head">Flight Track <span>context</span></div>' +
+              '<div class="qc-map-slot" id="qcDiffMapSlot"></div>' +
+              '<div class="qc-context-note">the map follows the graph playhead, so scrub to the moment the difference occurs</div>' +
             '</div>';
         document.body.appendChild(m);
         m.addEventListener('click', e => { if (e.target === m) qcCloseDiffModal(); });
         m.querySelector('#qcDiffModalClose').addEventListener('click', qcCloseDiffModal);
         document.addEventListener('keydown', e => { if (e.key === 'Escape') qcCloseDiffModal(); });
         return m;
+    }
+
+    // toggle the flight context card beside the diff graph: the ONE map panel relocates in (and
+    // back to the sidebar slot on close), keeping all of its wiring
+    function qcToggleDiffContext(on) {
+        const ctx = document.getElementById('qcDiffContext'), main = document.getElementById('qcDiffMainCard');
+        if (!ctx || !main) return;
+        const open = on != null ? on : ctx.style.display === 'none';
+        ctx.style.display = open ? '' : 'none';
+        main.style.width = open ? 'calc(96% - 480px)' : '96%';
+        const src = document.getElementById('mapPanel');
+        const dst = document.getElementById(open ? 'qcDiffMapSlot' : 'qcMapSlot');
+        if (src && dst && src.parentNode !== dst) dst.appendChild(src);
+        try { window.dispatchEvent(new Event('resize')); } catch (e) {}
+        if (open && typeof followAircraft2D !== 'undefined' && followAircraft2D
+            && typeof engageFollowAircraft === 'function'
+            && typeof trackerModeSelect !== 'undefined' && trackerModeSelect.value === '2d') engageFollowAircraft();
+        if (typeof qcDrivePlayer === 'function') qcDrivePlayer(true);
     }
     function qcOpenDiffModal(famKey) {
         if (!qcCurrentResult) return;
@@ -822,12 +889,24 @@
         hint.textContent = 'Click a pair to view it alone, click again to unselect it';
         const tools = document.createElement('div'); tools.className = 'qc-graph-tools-group';
         bar.appendChild(hint); bar.appendChild(tools);
+        // flight context toggle lives at the BOTTOM RIGHT of the card, next to the max diff list
+        const ctxBtn = document.createElement('button'); ctxBtn.type = 'button'; ctxBtn.className = 'qc-ov-btn';
+        ctxBtn.textContent = 'Flight Context';
+        ctxBtn.title = 'Show the flight track map beside this graph, following the playhead';
+        ctxBtn.addEventListener('click', () => { qcToggleDiffContext(); ctxBtn.classList.toggle('active', document.getElementById('qcDiffContext').style.display !== 'none'); });
+        const ctxSlot = m.querySelector('#qcDiffCtxBtnSlot'); if (ctxSlot) { ctxSlot.innerHTML = ''; ctxSlot.appendChild(ctxBtn); }
         tools.appendChild(qcBuildToolbar(chart));
         wrap.appendChild(qcBuildCornerTools(chart, fam.key + '_diff.png'));
         wrap.appendChild(qcBuildResetFloat(chart));
+        // the two-row legend (within-group / cross-group) sits between the toolbar and the canvas
+        const lg = document.createElement('div'); lg.className = 'qc-legend-bar qc-diff-legend';
+        body.insertBefore(lg, wrap);
+        qcRenderDiffLegend(chart, lg);
     }
     function qcCloseDiffModal() {
         const m = document.getElementById('qcDiffModal');
+        // the map goes home to the sidebar slot before the modal hides
+        try { qcToggleDiffContext(false); } catch (e) {}
         if (qcDiffModalChartKey) {
             const c = qcCharts[qcDiffModalChartKey];
             if (c) { try { c.destroy(); } catch (e) {} delete qcCharts[qcDiffModalChartKey]; }
@@ -890,41 +969,46 @@
                 const bar = document.createElement('div'); bar.className = 'qc-graph-bar';
                 // tiny reminder sitting right over the variable checkboxes
                 const hint = document.createElement('span'); hint.className = 'qc-legend-hint';
-                hint.textContent = 'You can click on any group or individual sensor to select/unselect it.';
+                hint.textContent = 'Click on any group or individual sensor to select/unselect it.';
                 const tools = document.createElement('div'); tools.className = 'qc-graph-tools-group';
                 bar.appendChild(hint); bar.appendChild(tools);
                 panel.appendChild(bar); panel.appendChild(c);
                 const chart = qcCharts[key] = build(cv);
-                // the html legend row (group chips, variable checkboxes, std dev) sits between
+                // the html legend row (group chips, variable checkboxes, ref chips) sits between
                 // the toolbar row and the canvas
                 if (chart.$qcLegendBar) panel.insertBefore(chart.$qcLegendBar, c);
                 tools.appendChild(qcBuildToolbar(chart));
-                c.appendChild(qcBuildCornerTools(chart, pngName));
+                // fullscreen + png ride the top right of the whole graph BLOCK, and fullscreen
+                // takes the block with them (title, legend, and toolbar included)
+                panel.appendChild(qcBuildCornerTools(chart, pngName));
                 c.appendChild(qcBuildResetFloat(chart));
             };
             container.appendChild(panel);
             if (hasMain) addGraph('qc-canvas-wrap', 'qc_' + fam.key, fam.key + '.png', cv => qcBuildMainChart(cv, fam, fam));
+            // bottom strip of the graph block: the fused diff button inside its corner on the
+            // left, and the std dev control sitting to the RIGHT of the corner lines
+            const bottom = document.createElement('div'); bottom.className = 'qc-fam-bottom';
             if (hasDiff) {
-                // the difference graph opens in a modal (space saver); max diffs stay visible here
                 const dh = document.createElement('div'); dh.className = 'qc-diff-head';
-                // the button and its small + graph prompt stack in one column, so the prompt sits
-                // right under the button and reads as "this builds a graph"
+                // one fused button: the label line and the + graph line share a single click
+                // handler on the wrapper, one glow border around both
                 const btnCol = document.createElement('div'); btnCol.className = 'qc-diff-btncol';
                 const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'qc-ov-btn';
                 btn.textContent = 'Difference Between Sensors';
-                btn.title = 'Open this family\'s difference graph';
-                btn.addEventListener('click', () => qcOpenDiffModal(fam.key));
                 btnCol.appendChild(btn);
                 const dp = document.createElement('button'); dp.type = 'button'; dp.className = 'qc-diff-create';
                 dp.innerHTML = '<span class="qc-diff-plus">＋</span><span>graph</span>';
-                dp.title = 'Open this family\'s difference graph';
-                dp.addEventListener('click', () => qcOpenDiffModal(fam.key));
                 btnCol.appendChild(dp);
+                btnCol.title = 'Open this family\'s difference graph';
+                btnCol.addEventListener('click', () => qcOpenDiffModal(fam.key));
                 dh.appendChild(btnCol);
-                // no max diffs out here: the full within-group combination list lives under the
-                // graph inside the modal, so the corner hugs just the button pair
-                panel.appendChild(dh);
+                bottom.appendChild(dh);
             }
+            const bandSlot = document.createElement('div'); bandSlot.className = 'qc-band-slot';
+            bottom.appendChild(bandSlot);
+            panel.appendChild(bottom);
+            const mainChart = qcCharts['qc_' + fam.key];
+            if (mainChart) { mainChart.$qcBandSlot = bandSlot; qcRenderHtmlLegend(mainChart, fam); }
         });
         // charts scrolled back into view would otherwise show the playhead where it was when they
         // scrolled out; refresh the visible ones as the column scrolls
@@ -988,9 +1072,12 @@
     }
 
     function qcToggleGraphFullscreen(chart) {
-        const wrap = chart.canvas && chart.canvas.parentElement; if (!wrap) return;
-        if (document.fullscreenElement === wrap) { if (document.exitFullscreen) document.exitFullscreen().catch(() => {}); }
-        else if (wrap.requestFullscreen) wrap.requestFullscreen().catch(() => {});
+        // family graphs fullscreen their whole block (title, legend, toolbar, canvas); the diff
+        // modal graph, which has no block, fullscreens its canvas wrap as before
+        const target = (chart.canvas && chart.canvas.closest('.qc-chart-panel')) || (chart.canvas && chart.canvas.parentElement);
+        if (!target) return;
+        if (document.fullscreenElement === target) { if (document.exitFullscreen) document.exitFullscreen().catch(() => {}); }
+        else if (target.requestFullscreen) target.requestFullscreen().catch(() => {});
     }
 
     // recolor the chart scaffolding when the page theme flips, so tick, axis-title, and legend text
@@ -1066,7 +1153,7 @@
             if (counts.early) totals.push('<span class="qc-tot-note">' + counts.early + ' early stop' + (counts.early === 1 ? '' : 's') + '</span>');
             const sumEl = document.createElement('div');
             sumEl.className = 'qc-issue-totals';
-            sumEl.innerHTML = '<span class="qc-totals-pill">all flags: ' + totals.join(', ') + '</span>';
+            sumEl.innerHTML = '<span class="qc-totals-pill">total flags: ' + totals.join(', ') + '</span>';
             wrap.appendChild(sumEl);
             chips.slice(VISIBLE).forEach(c => mkChip(c, true));
         }
@@ -1098,22 +1185,6 @@
             if (!c || !c.canvas) return;
             if (pr) { const r = c.canvas.getBoundingClientRect(); if (r.bottom < pr.top || r.top > pr.bottom) return; }  // off-screen: skip
             c.draw();
-        });
-        qcSyncRefSources();
-    }
-
-    // live ref linkage: the source chip whose segment sits under the playhead is highlighted, and
-    // the ref's legend label names it. cheap no-op when the active segment has not changed.
-    function qcSyncRefSources() {
-        if (qcScrubIdx == null) return;
-        Object.values(qcCharts).forEach(c => {
-            if (!c || !c.$qcRefSeqEl || !c.$qcRefSegs || !c.$qcRefSegs.length) return;
-            let ai = -1;
-            for (let k = 0; k < c.$qcRefSegs.length; k++) { const s = c.$qcRefSegs[k]; if (qcScrubIdx >= s.fromIdx && qcScrubIdx <= s.toIdx) { ai = k; break; } }
-            if (c.$qcRefActive === ai) return;
-            c.$qcRefActive = ai;
-            [...c.$qcRefSeqEl.children].forEach((el, k) => el.classList.toggle('active', k === ai));
-            if (c.$qcRefTxt) c.$qcRefTxt.textContent = (c.$qcRefName || 'ref') + (ai >= 0 ? ': ' + c.$qcRefSegs[ai].source : ' (ref)');
         });
     }
 

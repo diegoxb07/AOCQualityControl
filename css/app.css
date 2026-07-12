@@ -720,8 +720,11 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 /* charts: stacked panels, one per family, like the qc_plots bokeh column. generous side gutters
    give the mouse wheel a safe lane to scroll the page without landing on a graph and zooming it. */
 .qc-charts { flex: 1; overflow-y: auto; padding: 12px clamp(32px, 5vw, 110px); min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-.qc-chart-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 10px 14px; min-width: 0; flex: none; }
-.qc-chart-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+/* relative so the fullscreen + png corner buttons can pin to the block's top right; the head
+   keeps clear of them with its right padding. fullscreened blocks keep the page background. */
+.qc-chart-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 10px 14px; min-width: 0; flex: none; position: relative; }
+.qc-chart-panel:fullscreen { background: var(--bg); padding: 22px; overflow-y: auto; }
+.qc-chart-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; padding-right: 72px; }
 .qc-chart-title { font-weight: 700; font-size: 13px; color: var(--text); }
 .qc-chart-meta { font-size: 10px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; }
 /* the unit reads as a proper label, not a stray letter next to the title */
@@ -746,6 +749,24 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-diff-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding: 2px 10px 6px 2px; width: fit-content; max-width: 100%; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); border-bottom-right-radius: 10px; }
 /* max diffs stack one pair per line beside the button */
 .qc-badge-stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+/* diff modal legend: within-group pairs on the top row, cross-group pairs aligned on their own
+   labeled row, so wrapping never mixes the two kinds */
+.qc-diff-legend { flex-direction: column; align-items: stretch; gap: 4px; }
+.qc-lg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.qc-lg-rowlabel { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+/* legend definition of the gap marker: same triangle the plot draws, defined once */
+.qc-lg-gapnote { display: inline-flex; align-items: center; gap: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.qc-lg-caret { display: inline-block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--warn); }
+/* flight context card sits centered (middle right) beside the diff card */
+.qc-diff-context { width: 440px; max-width: 38vw; flex: none; display: flex; flex-direction: column; align-self: center; }
+.qc-diff-context .qc-map-slot { flex: none; min-height: 0; height: 54vh; margin-top: 8px; }
+/* bottom row of the diff card: max diff list left, Flight Context button right */
+.qc-diff-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: 8px; }
+/* bottom strip of a graph block: the cornered diff button, then the std dev control right of
+   the corner lines */
+.qc-fam-bottom { display: flex; align-items: center; gap: 14px; }
+/* the always-on std dev readout rides the far right of the bottom strip */
+.qc-band-slot { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-right: 8px; }
 .qc-diff-title { font-weight: 700; font-size: 12.5px; color: var(--text); margin-right: 4px; }
 .qc-diff-sep { display: none; }
 /* warn-tinted badge (ref switched sources mid-flight) */
@@ -772,23 +793,30 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-lg-group { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px 1px 1px; border: 1px solid color-mix(in oklab, var(--border) 60%, transparent); border-radius: 999px; }
 .qc-lg-group .qc-lg-chip { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 70%, transparent); box-shadow: 0 0 7px color-mix(in oklab, var(--accent) 40%, transparent); }
 .qc-lg-group .qc-lg-chip.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); box-shadow: 0 0 9px color-mix(in oklab, var(--accent) 55%, transparent); }
-.qc-lg-bandinfo { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
-/* ref source sequence: the sensors the ref rode, in order; the segment under the playhead glows */
-.qc-ref-seq { display: inline-flex; align-items: center; gap: 4px; }
-.qc-ref-src { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; padding: 1px 7px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-strip); color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s, box-shadow .12s; }
-.qc-ref-src:hover { border-color: var(--accent); color: var(--accent); }
-.qc-ref-src.active { color: var(--accent); border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--panel-strip)); box-shadow: 0 0 7px color-mix(in oklab, var(--accent) 55%, transparent); }
+.qc-lg-bandinfo { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap; }
+/* ref connector: the pipe chains the ref to every sensor it rode, in order. negative margins
+   cancel the item's flex gap so pipes and names touch seamlessly. the pipe carries an accent
+   pulse traveling back and forth, a live transfer between the ref and its source. */
+.qc-ref-pipe { font-family: 'IBM Plex Mono', monospace; font-size: 10px; white-space: nowrap; margin-left: -5px;
+    background: linear-gradient(90deg, var(--text-muted) 0%, var(--text-muted) 30%, var(--accent) 50%, var(--text-muted) 70%, var(--text-muted) 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: qcRefFlow 1.6s ease-in-out infinite alternate; }
+@keyframes qcRefFlow { 0% { background-position: 100% 0; } 100% { background-position: 0% 0; } }
+.qc-ref-src-name { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text); white-space: nowrap; margin-left: -5px; }
+/* one box around the ref variable and its reference sensor chain */
+.qc-ref-boxed { border: 1px solid color-mix(in oklab, var(--border) 75%, transparent); border-radius: 999px; padding: 1px 9px 1px 5px; background: color-mix(in oklab, var(--panel-strip) 60%, transparent); }
 /* graph search: far left of the status bar, next to the mission id */
 .qc-graph-search { position: relative; flex: none; }
-.qc-graph-search input { width: 260px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 11px; color: var(--text); outline: none; transition: border-color .12s; }
-.qc-graph-search input:focus { border-color: var(--accent); }
+.qc-graph-search input { width: 340px; background: var(--panel-strip); border: 1px solid color-mix(in oklab, var(--accent) 55%, transparent); border-radius: 7px; padding: 6px 12px; font-size: 12px; color: var(--text); outline: none; transition: border-color .12s, box-shadow .12s; }
+.qc-graph-search input:focus { border-color: var(--accent); box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 40%, transparent); }
 .qc-graph-search input::placeholder { color: var(--text-muted); }
 .qc-graph-search .qc-menu { left: 0; right: auto; min-width: 280px; max-height: 260px; overflow-y: auto; }
 .qc-search-sub { color: var(--text-faint); font-size: 10px; font-weight: 400; }
-/* the export button wears the gap yellow so it stands out from its neighbors. the ink flips
-   with the theme: dark ink on the bright dark-mode gold, white on the deeper light-mode gold */
-#qcExportMenuBtn { background: var(--warn); border-color: var(--warn); color: #16130a; font-weight: 700; }
-#qcExportMenuBtn:hover { background: color-mix(in oklab, var(--warn) 82%, #000); border-color: color-mix(in oklab, var(--warn) 82%, #000); color: #16130a; }
+/* the export button wears the gap yellow so it stands out from its neighbors. its ink adapts
+   to the theme like every other font: the page ink on dark, white on the deeper light-mode gold */
+#qcExportMenuBtn { background: var(--warn); border-color: var(--warn); color: var(--text); font-weight: 700; }
+#qcExportMenuBtn:hover { background: color-mix(in oklab, var(--warn) 82%, #000); border-color: color-mix(in oklab, var(--warn) 82%, #000); color: var(--text); }
 :root[data-theme="light"] #qcExportMenuBtn, :root[data-theme="light"] #qcExportMenuBtn:hover { color: #ffffff; }
 /* whole family absent: a plain empty frame that says so */
 .qc-nodata-box { display: flex; align-items: center; justify-content: center; height: 140px; border: 1px dashed var(--border); border-radius: 8px; margin: 6px 0 2px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 700; letter-spacing: 0.3em; }
@@ -814,12 +842,15 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    otherwise. lifted above the x axis labels so it covers no ticks */
 .qc-reset-float { display: none; position: absolute; right: 40px; bottom: 34px; z-index: 6; padding: 3px 11px; background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); white-space: nowrap; }
 .qc-reset-float.show { display: inline-flex; }
-/* small create prompt stacked right under the difference button: the + says a graph gets built.
-   one shared glow wraps the pair, since both open the same graph */
-.qc-diff-btncol { display: inline-flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 3px; border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); border-radius: 8px; box-shadow: 0 0 7px color-mix(in oklab, var(--accent) 35%, transparent); }
+/* the button and its + graph prompt fuse into ONE big button: a single glowing border wraps
+   both, the inner button loses its own box, and the bottom edge sits below the + graph line */
+.qc-diff-btncol { display: inline-flex; flex-direction: column; align-items: stretch; gap: 0; background: var(--panel-strip); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); border-radius: 8px; box-shadow: 0 0 7px color-mix(in oklab, var(--accent) 35%, transparent); cursor: pointer; overflow: hidden; }
 .qc-diff-btncol:hover { border-color: var(--accent); box-shadow: 0 0 10px color-mix(in oklab, var(--accent) 55%, transparent); }
-.qc-diff-create { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 1px 8px; background: none; border: 1px dashed var(--border); border-radius: 6px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; cursor: pointer; transition: color .12s, border-color .12s; }
-.qc-diff-create:hover { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 70%, transparent); }
+.qc-diff-btncol .qc-ov-btn { border: none; background: transparent; border-radius: 0; padding-bottom: 2px; }
+.qc-diff-btncol .qc-diff-create { padding-top: 0; padding-bottom: 4px; }
+/* no border of its own: the shared glow on .qc-diff-btncol is the ONE outline for the pair */
+.qc-diff-create { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 1px 8px; background: none; border: none; border-radius: 6px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; cursor: pointer; transition: color .12s; }
+.qc-diff-create:hover { color: var(--accent); }
 .qc-diff-create .qc-diff-plus { font-size: 12px; line-height: 1; color: var(--accent); }
 /* report a problem form */
 .qc-report-form { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
