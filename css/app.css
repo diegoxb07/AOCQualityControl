@@ -826,10 +826,9 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 :root[data-theme="light"] #qcExportMenuBtn, :root[data-theme="light"] #qcExportMenuBtn:hover { color: #ffffff; }
 /* whole family absent: a plain empty frame that says so */
 .qc-nodata-box { display: flex; align-items: center; justify-content: center; height: 140px; border: 1px dashed var(--border); border-radius: 8px; margin: 6px 0 2px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 700; letter-spacing: 0.3em; }
-/* per-kind totals under a long chip strip: a highlighted accent pill on its own row, each kind
-   colored like its chips, so the summary pops instead of reading as one more dim line */
-.qc-issue-totals { flex-basis: 100%; margin-top: 2px; }
-.qc-totals-pill { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 700; color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent); border-radius: 5px; padding: 2px 9px; }
+/* per-kind flag breakdown on its own row under the +N more toggle, parenthesized, each kind
+   colored like its chips */
+.qc-issue-totals { flex-basis: 100%; margin-top: 1px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; color: var(--text-muted); }
 .qc-tot-check { color: var(--crit); }
 .qc-tot-gap { color: var(--warn); }
 .qc-tot-nodata { color: var(--text-faint); }

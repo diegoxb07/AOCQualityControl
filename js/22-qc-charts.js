@@ -81,8 +81,8 @@
     // the ref line follows the theme: pure white vanishes on the light panel
     const qcRefColor = () => document.documentElement.dataset.theme === 'light' ? '#0f172a' : '#ffffff';
     // one opacity for every gap pillar, wide or one second thin, so no gap looks heavier than
-    // another; strong enough that a 2px line still reads down the whole panel
-    const QC_GAP_FILL = 'rgba(240, 190, 60, 0.26)';
+    // another; kept very faint so the pillar marks the spot without covering the traces
+    const QC_GAP_FILL = 'rgba(240, 190, 60, 0.10)';
 
     function qcAxisTickColor() { return document.documentElement.dataset.theme === 'light' ? '#475569' : '#94a3b8'; }
 
@@ -139,12 +139,20 @@
             const ctx = chart.ctx, xa = chart.scales.x;
             const area = chart.chartArea; if (!area) return;
             ctx.save();
-            // gap shading: seconds where no member of the panel carries data. every pillar shares
-            // one opacity; a one second gap draws as a thin 2px line (zooming in grows it to its
-            // true width)
+            // gap shading: EVERY gap marker gets its pillar, whole-family holes and per-member
+            // gaps alike (pillars under only some carets read as broken). overlapping ranges
+            // merge first so stacked fills cannot darken one gap over another; a one second gap
+            // draws as a thin 2px line (zooming in grows it to its true width)
             const gapRanges = chart.$qcGapRanges || [];
+            const pillars = gapRanges.concat(chart.$qcGapMarks || []).sort((a, b) => a.fromIdx - b.fromIdx);
+            const merged = [];
+            pillars.forEach(g => {
+                const m = merged[merged.length - 1];
+                if (m && g.fromIdx <= m.toIdx) { if (g.toIdx > m.toIdx) m.toIdx = g.toIdx; }
+                else merged.push({ fromIdx: g.fromIdx, toIdx: g.toIdx });
+            });
             ctx.fillStyle = QC_GAP_FILL;
-            gapRanges.forEach(g => {
+            merged.forEach(g => {
                 const x0 = xa.getPixelForValue(g.fromIdx), x1 = xa.getPixelForValue(g.toIdx);
                 if (x1 < area.left || x0 > area.right) return;
                 const left = Math.max(x0, area.left);
@@ -171,9 +179,9 @@
                     const x0 = Math.max(xa.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), area.right);
                     if (x1 < x0) return;
                     const cx = (x0 + x1) / 2;
-                    // the caret spans the whole range when it is wider than the default marker,
-                    // so the marker itself tells how wide the gap is; narrow gaps keep the default
-                    const hw = Math.max(5, (x1 - x0) / 2);
+                    // fixed size caret no matter the zoom; the shaded pillar underneath is what
+                    // tells how wide the gap really is
+                    const hw = 5;
                     ctx.beginPath();
                     ctx.moveTo(cx - hw, area.top + 1); ctx.lineTo(cx + hw, area.top + 1); ctx.lineTo(cx, area.top + 9);
                     ctx.closePath(); ctx.fill();
@@ -302,17 +310,33 @@
         canvas.addEventListener('mousemove', ev => {
             if (chart.$qcScrubbing) { qcScrubMove(chart, canvas, ev, false); return; }
             const tip = qcGapTip();
-            const ranges = chart.$qcGapRanges, area = chart.chartArea;
-            if (!ranges || !ranges.length || !area || !qcAxisRef) { tip.classList.add('hidden'); return; }
+            const area = chart.chartArea;
+            if (!area || !qcAxisRef) { tip.classList.add('hidden'); return; }
             const rect = canvas.getBoundingClientRect();
             const px = ev.clientX - rect.left, py = ev.clientY - rect.top;
+            // pointer cursor over the caret strip whenever a marker sits under the cursor (the
+            // same hit test the click jump uses), so jumpable markers advertise themselves
+            let overMark = false;
+            if (py >= area.top && py <= area.top + 12 && px >= area.left && px <= area.right) {
+                const marks = (chart.$qcGapRanges || []).concat(chart.$qcGapMarks || [], chart.$qcCheckMarks || []);
+                const xs = chart.scales.x;
+                overMark = marks.some(g => {
+                    const x0 = Math.max(xs.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xs.getPixelForValue(g.toIdx), area.right);
+                    return x1 >= x0 && ((px >= x0 && px <= x1) || Math.abs(px - (x0 + x1) / 2) < 9);
+                });
+            }
+            canvas.style.cursor = overMark ? 'pointer' : qcToolCursor(chart.$qcTool || 'scrub');
+            const famGaps = chart.$qcGapRanges || [], memGaps = chart.$qcGapMarks || [];
+            if (!famGaps.length && !memGaps.length) { tip.classList.add('hidden'); return; }
             if (px < area.left || px > area.right || py < area.top || py > area.bottom) { tip.classList.add('hidden'); return; }
             const x = chart.scales.x;
             const v = x.getValueForPixel(px);
             const tol = Math.max(0.5, (x.max - x.min) / Math.max(1, area.right - area.left));   // a gap thinner than a pixel still hits
-            const g = ranges.find(r => v >= r.fromIdx - tol && v <= r.toIdx + tol);
+            const hit = list => list.find(r => v >= r.fromIdx - tol && v <= r.toIdx + tol);
+            // whole-family holes outrank single-sensor gaps when both sit under the cursor
+            const g = hit(famGaps) || hit(memGaps);
             if (!g) { tip.classList.add('hidden'); return; }
-            tip.textContent = 'Data gap from ' + qcSecToLabel(qcAxisRef[g.fromIdx]) + ' - ' + qcSecToLabel(qcAxisRef[g.toIdx]) + ' (' + (g.toIdx - g.fromIdx + 1) + ' s)';
+            tip.textContent = (g.name ? g.name + ' data gap from ' : 'Data gap from ') + qcSecToLabel(qcAxisRef[g.fromIdx]) + ' - ' + qcSecToLabel(qcAxisRef[g.toIdx]) + ' (' + (g.toIdx - g.fromIdx + 1) + ' s)';
             tip.style.left = (ev.clientX + 14) + 'px'; tip.style.top = (ev.clientY + 14) + 'px';
             tip.classList.remove('hidden');
         });
@@ -322,13 +346,14 @@
     // tool switch on one chart. scrub (default): dragging moves the playhead under the cursor.
     // pan: dragging moves the time window. select zoom: dragging draws a zoom box (both axes,
     // like bokeh's BoxZoomTool). wheel zoom stays on in every mode.
+    const qcToolCursor = t => t === 'scrub' ? 'ew-resize' : t === 'pan' ? 'grab' : 'crosshair';
     function qcSetTool(chart, tool) {
         chart.$qcTool = tool;
         const z = chart.options.plugins.zoom;
         z.pan.enabled = tool === 'pan';
         z.zoom.drag.enabled = tool === 'box';
         z.zoom.mode = tool === 'box' ? 'xy' : 'x';
-        chart.canvas.style.cursor = tool === 'scrub' ? 'ew-resize' : tool === 'pan' ? 'grab' : 'crosshair';
+        chart.canvas.style.cursor = qcToolCursor(tool);
         chart.update('none');
     }
 
@@ -387,23 +412,28 @@
         });
         if (mn === Infinity) return null;
         if (mn === mx) { mn -= 1; mx += 1; }
-        const pad = (mx - mn) * 0.06;
-        return { min: mn - pad, max: mx + pad };
+        // extra pad on top keeps the caret strip clear, standing in for the axis headroom
+        // that no longer applies once the scale is pinned
+        const r = mx - mn;
+        return { min: mn - r * 0.06, max: mx + r * 0.16 };
     }
 
     // after any gesture: re-slice to the new window and update the toolbar. an xy wheel-out (or a
     // stale box zoom) can leave the y window grossly wider than the visible data, which flattens
-    // every line; whenever that happens the y axis snaps back to fit the data
-    function qcZoomChanged(chart) {
+    // every line; whenever that happens the y axis snaps back to fit the data. never after a pan:
+    // a pan is a deliberate move of the window, so the axes must stay exactly where the user put them
+    function qcZoomChanged(chart, panned) {
         qcActiveChart = chart;
         qcRefreshResolution(chart);
-        try {
-            const ext = qcVisibleYExtent(chart);
-            if (ext) {
-                const y = chart.scales.y, span = y.max - y.min, fit = ext.max - ext.min;
-                if (span > fit * 1.7) { chart.zoomScale('y', ext, 'none'); chart.update('none'); }
-            }
-        } catch (e) {}
+        if (!panned) {
+            try {
+                const ext = qcVisibleYExtent(chart);
+                if (ext) {
+                    const y = chart.scales.y, span = y.max - y.min, fit = ext.max - ext.min;
+                    if (span > fit * 1.7) { chart.zoomScale('y', ext, 'none'); chart.update('none'); }
+                }
+            } catch (e) {}
+        }
         qcZoomVisual(chart);
     }
 
@@ -435,6 +465,8 @@
         // the home window is set with explicit limits, which the plugin counts as "zoomed";
         // the float staying up after a reset would read as a failed reset
         if (chart.$qcResetBtn) chart.$qcResetBtn.classList.remove('show');
+        // a reset also hands the mouse back to the scrubber, the default tool
+        if (chart.$qcSelectTool) chart.$qcSelectTool('scrub'); else qcSetTool(chart, 'scrub');
         qcActiveChart = chart;
     }
 
@@ -468,7 +500,10 @@
                 // the top tenth of every graph is reserved: data that reaches its ceiling would
                 // otherwise sit under the gap carets and their labels, so the scale grows itself
                 y: { type: 'linear', position: 'left', grid: { color: 'rgba(148,163,184,0.10)' }, ticks: tick, title: { display: true, text: titleText, color: qcAxisTickColor(), font: { family: "'Manrope', sans-serif", size: 11, weight: '600' } },
-                     afterDataLimits: s => { const r = s.max - s.min; if (r > 0 && isFinite(r)) s.max += r * 0.10; } }
+                     // headroom only while the scale is free: once pan or zoom pins explicit
+                     // min/max the plugin re-reads the computed range on every gesture step, so
+                     // growing it here would compound ten percent per mouse move
+                     afterDataLimits: s => { const o = s.options; if (typeof o.min === 'number' || typeof o.max === 'number') return; const r = s.max - s.min; if (r > 0 && isFinite(r)) s.max += r * 0.10; } }
             },
             plugins: {
                 legend: { display: true, align: 'start',
@@ -523,7 +558,7 @@
                             onZoomComplete: ({ chart }) => qcZoomChanged(chart) },
                     pan: { enabled: true, mode: 'xy',
                            onPanStart: ({ chart }) => qcPushZoomState(chart),
-                           onPanComplete: ({ chart }) => qcZoomChanged(chart) },
+                           onPanComplete: ({ chart }) => qcZoomChanged(chart, true) },
                     // pan/zoom stay inside the flight window on x; y roams free (reset brings it back)
                     limits: { x: { min: 'original', max: 'original' } }
                 }
@@ -674,8 +709,7 @@
                     const nm = document.createElement('span'); nm.className = 'qc-ref-src-name'; nm.textContent = seg.source;
                     it.appendChild(dash); it.appendChild(nm);
                 });
-                it.title += '. This ref rode: ' + chart.$qcRefSegs.map(s => s.source + ' from ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '')).join(', then ') +
-                    (chart.$qcRefSegs.length > 1 ? '. It switched mid-flight.' : '.');
+                it.title += '. This ref rode: ' + chart.$qcRefSegs.map(s => s.source + ' from ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '')).join(', then ') + '.';
             }
             bar.appendChild(it);
         });
@@ -739,9 +773,10 @@
         if (QC_HTML_LEGEND) opts.plugins.legend.display = false;
         const chart = new Chart(canvas.getContext('2d'), { type: 'line', data: { datasets: datasets }, options: opts, plugins: [qcOverlayPlugin] });
         chart.$qcGapRanges = qcFamilyGapRanges(plotted.map(m => m.series), qcTimeLabels.length);
-        // per-member in-flight gaps, for the caret markers drawn by the overlay plugin
+        // per-member in-flight gaps: the overlay draws their carets and pillars, and the hover
+        // tip names the sensor
         const gapMarks = [];
-        plotted.forEach(m => (m.gaps || []).forEach(g => { if (g.fromIdx != null) gapMarks.push({ fromIdx: g.fromIdx, toIdx: g.toIdx }); }));
+        plotted.forEach(m => (m.gaps || []).forEach(g => { if (g.fromIdx != null) gapMarks.push({ fromIdx: g.fromIdx, toIdx: g.toIdx, name: m.name }); }));
         chart.$qcGapMarks = gapMarks;
         // implausible-value regions (the engine's Check flags), shaded red by the overlay
         const checkMarks = [];
@@ -967,7 +1002,14 @@
             if (fam.phaseStat) statBits += qcPhaseStatBadge(fam);
             if (fam.flightMean) statBits += ' <span class="qc-badge">avg ' + fam.flightMean.var + ': ' + fam.flightMean.value + '</span>';
             // the ref channel is supposed to ride one sensor all flight; call it out when it moved
-            if (fam.refInfo && fam.refInfo.switched) statBits += ' <span class="qc-badge qc-badge-warn">' + fam.ref + ' switched sources mid-flight: ' + fam.refInfo.sources.join(' then ') + '</span>';
+            if (fam.refInfo && fam.refInfo.switched) {
+                // every switch is named with its moment, not an ambiguous "mid flight"
+                const segs = fam.refInfo.segments || [];
+                const ride = segs.length > 1
+                    ? segs.map((s, i) => i ? s.source + ' at ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '?') : s.source).join(', then ')
+                    : fam.refInfo.sources.join(' then ');
+                statBits += ' <span class="qc-badge qc-badge-warn">' + fam.ref + ' switched sources: ' + ride + '</span>';
+            }
             head.innerHTML = '<span class="qc-chart-title">' + fam.label + '</span>' +
                 '<span class="qc-unit">' + qcUnitLabel(fam.unit) + '</span>' +
                 '<span class="qc-chart-meta">' + statBits + '</span>';
@@ -1059,6 +1101,8 @@
         modeBtns.push(scrubBtn, panBtn, boxBtn);
         setActive(scrubBtn);
         qcSetTool(chart, 'scrub');
+        // reset zoom snaps the tool back to scrub; the toolbar must show that switch too
+        chart.$qcSelectTool = tool => { qcSetTool(chart, tool); setActive(tool === 'pan' ? panBtn : tool === 'box' ? boxBtn : scrubBtn); };
         return tb;
     }
 
@@ -1153,14 +1197,11 @@
             more.addEventListener('click', () => {
                 const open = wrap.classList.toggle('qc-issues-open');
                 more.textContent = open ? 'less' : '+' + (chips.length - VISIBLE) + ' more';
-                // expanded: the totals move to the very top, clear of the toggle and the chip
-                // flood; collapsed: back to their spot under the toggle row
-                if (open) wrap.insertBefore(sumEl, wrap.firstChild);
-                else wrap.insertBefore(sumEl, more.nextSibling);
             });
             wrap.appendChild(more);
-            // totals at a glance, so nobody scrolls a thousand chips just to count them; each
-            // kind wears its own issue color. rides directly under the toggle, above the flood
+            // the flag breakdown rides its own row right under the toggle, in parentheses; each
+            // kind wears its own issue color. the expanded chips flood in AFTER it in the dom,
+            // so it stays pinned above the list either way
             const totals = [];
             if (counts.check) totals.push('<span class="qc-tot-check">' + counts.check + ' check region' + (counts.check === 1 ? '' : 's') + '</span>');
             if (counts.gap) totals.push('<span class="qc-tot-gap">' + counts.gap + ' gap' + (counts.gap === 1 ? '' : 's') + '</span>');
@@ -1169,7 +1210,7 @@
             if (counts.early) totals.push('<span class="qc-tot-note">' + counts.early + ' early stop' + (counts.early === 1 ? '' : 's') + '</span>');
             const sumEl = document.createElement('div');
             sumEl.className = 'qc-issue-totals';
-            sumEl.innerHTML = '<span class="qc-totals-pill">total flags: ' + totals.join(', ') + '</span>';
+            sumEl.innerHTML = '(' + totals.join(', ') + ')';
             wrap.appendChild(sumEl);
             chips.slice(VISIBLE).forEach(c => mkChip(c, true));
         }
