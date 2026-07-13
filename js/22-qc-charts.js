@@ -244,19 +244,23 @@
         // clicks outside the plot area (the legend row) must not move the playhead
         const a = chart.chartArea, py = (e && e.y != null) ? e.y : (ne ? ne.offsetY : null);
         if (a && (px < a.left || px > a.right || (py != null && (py < a.top || py > a.bottom)))) return;
-        // a click on a caret (the top strip of the plot) jumps to that gap's or check's first
-        // second, not to the pixel under the cursor
+        // a click on a gap or check marker (the triangle in the top strip) jumps the playhead to
+        // that range AND zooms the graph into it. only the triangle itself counts (half width
+        // 5px, plus a hair): clicking near a marker but not on it just moves the playhead.
         if (a && py != null && py <= a.top + 12) {
             const marks = (chart.$qcGapRanges || []).concat(chart.$qcGapMarks || [], chart.$qcCheckMarks || []);
-            let best = null, bd = 9;
+            let best = null, bd = 6.5;
             marks.forEach(g => {
                 const x0 = Math.max(xa.getPixelForValue(g.fromIdx), a.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), a.right);
                 if (x1 < x0) return;
-                const cx = (x0 + x1) / 2;
-                const d = (px >= x0 && px <= x1) ? 0 : Math.abs(px - cx);
+                const d = Math.abs(px - (x0 + x1) / 2);
                 if (d < bd) { bd = d; best = g; }
             });
-            if (best && typeof qcJumpToSecond === 'function') { qcJumpToSecond(Math.round(qcAxisRef[best.fromIdx])); return; }
+            if (best) {
+                if (typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[best.fromIdx]));
+                qcZoomToRange(chart, best);
+                return;
+            }
         }
         const i = qcClampScrub(Math.round(xa.getValueForPixel(px)));
         if (typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[i]));
@@ -322,7 +326,7 @@
                 const xs = chart.scales.x;
                 overMark = marks.some(g => {
                     const x0 = Math.max(xs.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xs.getPixelForValue(g.toIdx), area.right);
-                    return x1 >= x0 && ((px >= x0 && px <= x1) || Math.abs(px - (x0 + x1) / 2) < 9);
+                    return x1 >= x0 && Math.abs(px - (x0 + x1) / 2) < 6.5;
                 });
             }
             canvas.style.cursor = overMark ? 'pointer' : qcToolCursor(chart.$qcTool || 'scrub');
@@ -352,7 +356,7 @@
         const z = chart.options.plugins.zoom;
         z.pan.enabled = tool === 'pan';
         z.zoom.drag.enabled = tool === 'box';
-        z.zoom.mode = tool === 'box' ? 'xy' : 'x';
+        z.zoom.mode = (tool === 'box' || chart.$qcIsMap) ? 'xy' : 'x';
         chart.canvas.style.cursor = qcToolCursor(tool);
         chart.update('none');
     }
@@ -437,6 +441,20 @@
         qcZoomVisual(chart);
     }
 
+    // zoom the x window into a marked range with breathing room on both sides, y refit to match
+    function qcZoomToRange(chart, g) {
+        if (!qcAxisRef) return;
+        const last = qcAxisRef.length - 1;
+        const span = Math.max(1, g.toIdx - g.fromIdx);
+        const pad = Math.max(30, Math.round(span * 0.75));
+        qcPushZoomState(chart);
+        try { chart.zoomScale('x', { min: Math.max(0, g.fromIdx - pad), max: Math.min(last, g.toIdx + pad) }, 'none'); } catch (e) {}
+        try { const ext = qcVisibleYExtent(chart); if (ext) chart.zoomScale('y', ext, 'none'); } catch (e) {}
+        qcRefreshResolution(chart);
+        chart.update('none');
+        qcZoomVisual(chart);
+    }
+
     function qcUndoZoom(chart) {
         if (!chart) return;
         const h = chart.$qcHist;
@@ -454,6 +472,18 @@
     // pinned value"), so the home window is set with concrete numbers through the plugin's own
     // zoomScale api: full flight on x, then y fitted to the data actually visible
     function qcResetChart(chart) {
+        if (chart.$qcIsMap) {
+            // the map's home is its own lat/lon extents, not the time axis
+            try { chart.resetZoom('none'); } catch (e) {}
+            try { if (chart.$qcHome) { chart.zoomScale('x', chart.$qcHome.x, 'none'); chart.zoomScale('y', chart.$qcHome.y, 'none'); } } catch (e) {}
+            chart.$qcHist = [];
+            chart.update('none');
+            qcZoomVisual(chart);
+            if (chart.$qcResetBtn) chart.$qcResetBtn.classList.remove('show');
+            if (chart.$qcSelectTool) chart.$qcSelectTool('pan');
+            qcActiveChart = chart;
+            return;
+        }
         try { chart.resetZoom('none'); } catch (e) {}
         const last = qcAxisRef ? qcAxisRef.length - 1 : null;
         try { if (last != null) chart.zoomScale('x', { min: 0, max: last }, 'none'); } catch (e) {}
@@ -673,21 +703,20 @@
             return it;
         };
         // each group is one cluster: its chip with that group's own variables right after it,
-        // instead of every variable pooling at the end of the row. chips swap exclusively.
+        // instead of every variable pooling at the end of the row. chips toggle their own group
+        // only, so several groups can be lit on one graph at the same time.
         const grouped = new Set();
         (chart.$qcGroups || []).forEach(g => g.names.forEach(n => grouped.add(n)));
         (chart.$qcGroups || []).forEach(g => {
             const cluster = document.createElement('span'); cluster.className = 'qc-lg-group';
             const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'qc-lg-chip';
             chip.textContent = g.label;
-            chip.title = 'Show only the ' + g.label + ' sensors (the other group unselects)';
+            chip.title = 'Select or unselect the ' + g.label + ' sensors (other groups keep their own selection)';
             const idx = []; ds.forEach((d, k) => { if (!d.$qcBand && g.names.includes(d.$qcName)) idx.push(k); });
-            chip.classList.toggle('active', idx.length > 0 && idx.every(k => chart.isDatasetVisible(k)));
+            const allOn = idx.length > 0 && idx.every(k => chart.isDatasetVisible(k));
+            chip.classList.toggle('active', allOn);
             chip.addEventListener('click', () => {
-                ds.forEach((d, k) => {
-                    if (d.$qcBand || d.$qcIsRef || d.$qcIsDerived || !d.$qcName) return;
-                    chart.setDatasetVisibility(k, g.names.includes(d.$qcName));
-                });
+                idx.forEach(k => chart.setDatasetVisibility(k, !allOn));
                 rerender();
             });
             cluster.appendChild(chip);
@@ -704,11 +733,15 @@
                 it.classList.add('qc-ref-boxed');   // one box around the ref and its sources
                 // pipe glyphs and source names alternate as separate spans, so only the pipes
                 // carry the transfer pulse animation while the names stay solid
+                chart.$qcRefNameEls = [];
                 chart.$qcRefSegs.forEach(seg => {
                     const dash = document.createElement('span'); dash.className = 'qc-ref-pipe'; dash.textContent = '───';
                     const nm = document.createElement('span'); nm.className = 'qc-ref-src-name'; nm.textContent = seg.source;
+                    nm.dataset.from = seg.fromIdx;   // the playhead lights the source in force (see qcRefLiveHighlight)
                     it.appendChild(dash); it.appendChild(nm);
+                    chart.$qcRefNameEls.push(nm);
                 });
+                qcRefLiveHighlight();
                 it.title += '. This ref rode: ' + chart.$qcRefSegs.map(s => s.source + ' from ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '')).join(', then ') + '.';
             }
             bar.appendChild(it);
@@ -740,9 +773,170 @@
         // the gap marker is defined ONCE here instead of a word under every caret on the plot
         if ((chart.$qcGapMarks && chart.$qcGapMarks.length) || (chart.$qcGapRanges && chart.$qcGapRanges.length)) {
             const gn = document.createElement('span'); gn.className = 'qc-lg-gapnote';
-            gn.innerHTML = '<span class="qc-lg-caret"></span> means there is a gap at that time (click one to jump to it)';
+            gn.innerHTML = '<span class="qc-lg-caret"></span> means there is a gap at that time (click one to jump there and zoom in)';
             bar.appendChild(gn);
         }
+    }
+
+    // map panel overlay: faint geography (the visualizer's basemap geojson) under the tracks,
+    // takeoff / landing / playhead dots on top. the geography renders into an offscreen cache
+    // keyed by the view window, so playhead redraws just blit it.
+    const qcMapOverlayPlugin = {
+        id: 'qcMapOverlay',
+        beforeDatasetsDraw: chart => {
+            const area = chart.chartArea, x = chart.scales.x, y = chart.scales.y, ctx = chart.ctx;
+            if (!area || typeof mapFeatures === 'undefined' || !mapFeatures.length) return;
+            const light = document.documentElement.dataset.theme === 'light';
+            const key = [x.min, x.max, y.min, y.max, chart.width, chart.height, light].join('|');
+            if (chart.$qcGeoKey !== key) {
+                chart.$qcGeoKey = key;
+                const off = chart.$qcGeoCv || (chart.$qcGeoCv = document.createElement('canvas'));
+                off.width = Math.max(1, Math.round(chart.width)); off.height = Math.max(1, Math.round(chart.height));
+                const c2 = off.getContext('2d');
+                c2.strokeStyle = light ? 'rgba(71, 85, 105, 0.28)' : 'rgba(148, 163, 184, 0.16)';
+                c2.lineWidth = 1;
+                const ring = pts => {
+                    c2.beginPath();
+                    for (let i = 0; i < pts.length; i++) { const px = x.getPixelForValue(pts[i][0]), py = y.getPixelForValue(pts[i][1]); if (i) c2.lineTo(px, py); else c2.moveTo(px, py); }
+                    c2.stroke();
+                };
+                mapFeatures.forEach(f => {
+                    const bb = f.properties && f.properties.bbox;
+                    if (bb && (bb[2] < x.min || bb[0] > x.max || bb[3] < y.min || bb[1] > y.max)) return;
+                    const g = f.geometry; if (!g) return;
+                    if (g.type === 'Polygon') g.coordinates.forEach(ring);
+                    else if (g.type === 'MultiPolygon') g.coordinates.forEach(poly => poly.forEach(ring));
+                    else if (g.type === 'LineString') ring(g.coordinates);
+                    else if (g.type === 'MultiLineString') g.coordinates.forEach(ring);
+                });
+            }
+            ctx.save();
+            ctx.beginPath(); ctx.rect(area.left, area.top, area.right - area.left, area.bottom - area.top); ctx.clip();
+            ctx.drawImage(chart.$qcGeoCv, 0, 0, chart.width, chart.height);
+            ctx.restore();
+        },
+        afterDraw: chart => {
+            const area = chart.chartArea, x = chart.scales.x, y = chart.scales.y, ctx = chart.ctx;
+            const la = chart.$qcMapLat, lo = chart.$qcMapLon;
+            if (!area || !la || !lo) return;
+            const light = document.documentElement.dataset.theme === 'light';
+            const dot = (i, fill, r) => {
+                if (i == null || i < 0 || i >= la.length) return;
+                const a = la[i], b = lo[i];
+                if (Number.isNaN(a) || Number.isNaN(b)) return;
+                const px = x.getPixelForValue(b), py = y.getPixelForValue(a);
+                if (px < area.left || px > area.right || py < area.top || py > area.bottom) return;
+                ctx.beginPath(); ctx.arc(px, py, r, 0, 2 * Math.PI);
+                ctx.fillStyle = fill; ctx.fill();
+                ctx.strokeStyle = light ? '#ffffff' : '#0d1117'; ctx.lineWidth = 1.4; ctx.stroke();
+            };
+            if (qcPhaseMarks) { dot(qcPhaseMarks.toIdx, '#28c76f', 4); dot(qcPhaseMarks.landIdx, '#ea5455', 4); }
+            dot(qcScrubIdx, light ? '#0f172a' : '#ffffff', 5);
+        }
+    };
+
+    // combined latitude + longitude panel: one map style graph like the script's flight track
+    // plot. each lat sensor pairs with its lon partner as one track; the ref pair rides on top.
+    function qcBuildMapChart(canvas, latFam, lonFam) {
+        const lonName = nm => nm === 'LATref' ? 'LONref' : nm.replace(/^Lat/, 'Lon');
+        const lonBy = {}; lonFam.members.forEach(m => { lonBy[m.name] = m; });
+        const n = qcTimeLabels.length;
+        const step = Math.max(1, Math.ceil(n / 3000));
+        const pairs = [];
+        latFam.members.forEach(m => {
+            const lm = lonBy[lonName(m.name)];
+            if (m.series && lm && lm.series) pairs.push({ la: m, lo: lm, isRef: !!m.isRef });
+        });
+        pairs.sort((a, b) => (b.isRef ? 1 : 0) - (a.isRef ? 1 : 0));   // ref first, drawn on top
+        let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+        const mkPts = p => {
+            const pts = [];
+            for (let i = 0; i < n; i += step) {
+                const a = p.la.series[i], b = p.lo.series[i];
+                if (Number.isNaN(a) || Number.isNaN(b)) { pts.push({ x: NaN, y: NaN }); continue; }
+                if (b < mnx) mnx = b; if (b > mxx) mxx = b; if (a < mny) mny = a; if (a > mxy) mxy = a;
+                pts.push({ x: b, y: a, i: i });
+            }
+            return pts;
+        };
+        // pair labels match the script's legends exactly: Lat/LonGPS.1, Lat/LonI-GPS.1, Lat/Lonref
+        const pairName = p => p.isRef ? 'Lat/Lonref' : 'Lat/' + lonName(p.la.name);
+        const datasets = pairs.map((p, k) => ({
+            label: pairName(p),
+            $qcName: pairName(p), $qcIsRef: p.isRef,
+            data: mkPts(p), parsing: false,
+            borderColor: p.isRef ? qcRefColor() : QC_SERIES_COLORS[(k + QC_SERIES_COLORS.length - 1) % QC_SERIES_COLORS.length],
+            $qcBaseWidth: p.isRef ? 1.9 : 1.4, borderWidth: p.isRef ? 1.9 : 1.4,
+            pointRadius: 0, pointHitRadius: 6, fill: false, spanGaps: false, showLine: true, tension: 0
+        }));
+        if (mnx === Infinity) { mnx = -100; mxx = -60; mny = 0; mxy = 40; }
+        const padX = Math.max(0.2, (mxx - mnx) * 0.08), padY = Math.max(0.2, (mxy - mny) * 0.08);
+        const tick = { color: qcAxisTickColor(), font: { family: "'IBM Plex Mono', monospace", size: 10 } };
+        const axTitle = t => ({ display: true, text: t, color: qcAxisTickColor(), font: { family: "'Manrope', sans-serif", size: 11, weight: '600' } });
+        const opts = {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            interaction: { mode: 'nearest', axis: 'xy', intersect: false },
+            // clicking a spot on a track jumps the playhead (and the 2d/3d map) to that moment
+            onClick: (e, els, chart) => {
+                const ne = e && e.native;
+                if (ne && chart.$qcDownX != null && (Math.abs(ne.clientX - chart.$qcDownX) > 5 || Math.abs(ne.clientY - chart.$qcDownY) > 5)) return;
+                let best = null, bd = 18;
+                chart.data.datasets.forEach((d, k) => {
+                    if (!chart.isDatasetVisible(k)) return;
+                    d.data.forEach(pt => {
+                        if (pt.i == null || Number.isNaN(pt.x)) return;
+                        const dist = Math.hypot(chart.scales.x.getPixelForValue(pt.x) - e.x, chart.scales.y.getPixelForValue(pt.y) - e.y);
+                        if (dist < bd) { bd = dist; best = pt; }
+                    });
+                });
+                if (best && typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[best.i]));
+            },
+            scales: {
+                x: { type: 'linear', min: mnx - padX, max: mxx + padX, grid: { color: 'rgba(148,163,184,0.08)' }, ticks: Object.assign({ maxTicksLimit: 9 }, tick), title: axTitle('Longitude (degrees)') },
+                y: { type: 'linear', min: mny - padY, max: mxy + padY, grid: { color: 'rgba(148,163,184,0.10)' }, ticks: tick, title: axTitle('Latitude (degrees)') }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    bodyFont: { family: "'IBM Plex Mono', monospace", size: 11, weight: '700' },
+                    callbacks: {
+                        title: items => (items.length && items[0].raw && items[0].raw.i != null) ? ((qcTimeLabels[items[0].raw.i] || '') + ' UTC') : '',
+                        label: item => (item.dataset.label || '') + ': ' + qcRound(item.parsed.y, 4) + ', ' + qcRound(item.parsed.x, 4)
+                    }
+                },
+                zoom: {
+                    zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy',
+                            drag: { enabled: false, backgroundColor: 'rgba(91,157,255,0.14)', borderColor: '#5b9dff', borderWidth: 1 },
+                            onZoomStart: ({ chart }) => qcPushZoomState(chart),
+                            onZoomComplete: ({ chart }) => qcZoomChanged(chart) },
+                    pan: { enabled: true, mode: 'xy',
+                           onPanStart: ({ chart }) => qcPushZoomState(chart),
+                           onPanComplete: ({ chart }) => qcZoomChanged(chart, true) }
+                }
+            }
+        };
+        const chart = new Chart(canvas.getContext('2d'), { type: 'scatter', data: { datasets: datasets }, options: opts, plugins: [qcMapOverlayPlugin] });
+        chart.$qcIsMap = true;
+        chart.$qcHome = { x: { min: mnx - padX, max: mxx + padX }, y: { min: mny - padY, max: mxy + padY } };
+        const refPair = pairs.find(p => p.isRef) || pairs[0];
+        chart.$qcMapLat = refPair ? refPair.la.series : null;
+        chart.$qcMapLon = refPair ? refPair.lo.series : null;
+        chart.$qcFam = latFam;
+        // the script splits these tracks across two plots (pure gps p12, blended inertial p13);
+        // one map carries every pair here, with a group chip per set so either toggles at once
+        const gpsNames = datasets.filter(d => !d.$qcIsRef && /^Lat\/LonGPS\./.test(d.$qcName)).map(d => d.$qcName);
+        const ineNames = datasets.filter(d => !d.$qcIsRef && /^Lat\/Lon(I-GPS|I)\./.test(d.$qcName)).map(d => d.$qcName);
+        const mapGroups = [];
+        if (gpsNames.length > 1) mapGroups.push({ label: 'GPS', names: gpsNames });
+        if (ineNames.length > 1) mapGroups.push({ label: 'Blended Inertial', names: ineNames });
+        if (mapGroups.length) chart.$qcGroups = mapGroups;
+        if (QC_HTML_LEGEND) {
+            chart.$qcLegendBar = document.createElement('div');
+            chart.$qcLegendBar.className = 'qc-legend-bar';
+            qcRenderHtmlLegend(chart, latFam);
+        }
+        qcWireCanvas(canvas, chart);
+        return chart;
     }
 
     function qcBuildMainChart(canvas, fam, famModel) {
@@ -982,6 +1176,12 @@
         // sfmr families sink to the bottom of the column; everything else keeps catalog order
         const famsOrdered = qcResult.families.slice().sort((a, b) => (/^sfmr/.test(a.key) ? 1 : 0) - (/^sfmr/.test(b.key) ? 1 : 0));
         famsOrdered.forEach(fam => {
+            // latitude and longitude fuse into ONE map style panel (x = longitude, y = latitude),
+            // like the script's flight track plot; the lon family folds into the lat panel
+            const latFamAll = qcResult.families.find(f => f.key === 'lat');
+            if (fam.key === 'lon' && latFamAll && latFamAll.members.some(m => m.series) && fam.members.some(m => m.series)) return;
+            const lonFam = fam.key === 'lat' ? qcResult.families.find(f => f.key === 'lon') : null;
+            const isMapPanel = !!(lonFam && lonFam.members.some(m => m.series) && fam.members.some(m => m.series));
             const hasMain = fam.members.some(m => m.series);
             const hasDiff = fam.diffs.some(d => d.series);
             if (!hasMain && !hasDiff) {
@@ -998,31 +1198,46 @@
             const panel = document.createElement('div'); panel.className = 'qc-chart-panel';
             panel.id = 'qcpanel_' + fam.key;   // navigation target (Phase Stats "view graph")
             const head = document.createElement('div'); head.className = 'qc-chart-head';
+            // the ref channel is supposed to ride one sensor all flight; call it out when it
+            // moved. every switch is named with its clickable moment, no ambiguous "mid flight".
+            const switchedBadge = f => {
+                if (!f || !f.refInfo || !f.refInfo.switched) return '';
+                const segs = f.refInfo.segments || [];
+                if (segs.length <= 1) return ' <span class="qc-badge qc-badge-warn">' + f.ref + ' switched sources: ' + f.refInfo.sources.join(' then ') + '</span>';
+                const parts = segs.map((s, i) => i ? s.source + ' at <span class="qc-ref-jump" data-idx="' + s.fromIdx + '" title="Jump to this switch">' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '?') + '</span>' : s.source);
+                // a long switch history folds behind a +N more toggle so the badge never crowds
+                // out the sensor legend; every time stays clickable once expanded
+                const SHOW = 3;
+                let ride;
+                if (parts.length <= SHOW) ride = parts.join(', then ');
+                else ride = parts.slice(0, SHOW).join(', then ') +
+                    '<span class="qc-ref-rest">, then ' + parts.slice(SHOW).join(', then ') + '</span>' +
+                    '<button type="button" class="qc-ref-morebtn" data-n="+' + (parts.length - SHOW) + ' more">+' + (parts.length - SHOW) + ' more</button>';
+                return ' <span class="qc-badge qc-badge-warn">' + f.ref + ' switched sources: ' + ride + '</span>';
+            };
             let statBits = '';
             if (fam.phaseStat) statBits += qcPhaseStatBadge(fam);
             if (fam.flightMean) statBits += ' <span class="qc-badge">avg ' + fam.flightMean.var + ': ' + fam.flightMean.value + '</span>';
-            // the ref channel is supposed to ride one sensor all flight; call it out when it moved
-            if (fam.refInfo && fam.refInfo.switched) {
-                // every switch is named with its moment, not an ambiguous "mid flight"; each
-                // time is clickable and jumps the playhead to that switch
-                const segs = fam.refInfo.segments || [];
-                const ride = segs.length > 1
-                    ? segs.map((s, i) => i ? s.source + ' at <span class="qc-ref-jump" data-idx="' + s.fromIdx + '" title="Jump to this switch">' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '?') + '</span>' : s.source).join(', then ')
-                    : fam.refInfo.sources.join(' then ');
-                statBits += ' <span class="qc-badge qc-badge-warn">' + fam.ref + ' switched sources: ' + ride + '</span>';
-            }
-            head.innerHTML = '<span class="qc-chart-title">' + fam.label + '</span>' +
-                '<span class="qc-unit">' + qcUnitLabel(fam.unit) + '</span>' +
+            statBits += switchedBadge(fam);
+            if (isMapPanel) statBits += switchedBadge(lonFam);
+            head.innerHTML = '<span class="qc-chart-title">' + (isMapPanel ? 'Flight Track' : fam.label) + '</span>' +
+                '<span class="qc-unit">' + (isMapPanel ? 'degrees' : qcUnitLabel(fam.unit)) + '</span>' +
                 '<span class="qc-chart-meta">' + statBits + '</span>';
             head.querySelectorAll('.qc-ref-jump').forEach(el => el.addEventListener('click', () => {
                 const i = parseInt(el.dataset.idx, 10);
                 if (qcAxisRef && qcAxisRef[i] != null && typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[i]));
+            }));
+            head.querySelectorAll('.qc-ref-morebtn').forEach(btn => btn.addEventListener('click', () => {
+                const rest = btn.previousElementSibling;
+                const open = rest && rest.classList.toggle('qc-ref-rest-open');
+                btn.textContent = open ? 'less' : btn.dataset.n;
             }));
             panel.appendChild(head);
             // issues are visible on the panel itself, no interaction needed: one chip per absent
             // member and per in-flight gap (click a gap chip to jump there), ground gaps dimmed.
             const issuesEl = qcBuildIssueStrip(fam);
             if (issuesEl) panel.appendChild(issuesEl);
+            if (isMapPanel) { const lonIssues = qcBuildIssueStrip(lonFam); if (lonIssues) panel.appendChild(lonIssues); }
 
             // each graph gets a slim control bar directly ABOVE it (tools never cover the plot);
             // fullscreen sits apart at the bar's far right
@@ -1047,30 +1262,37 @@
                 c.appendChild(qcBuildResetFloat(chart));
             };
             container.appendChild(panel);
-            if (hasMain) addGraph('qc-canvas-wrap', 'qc_' + fam.key, fam.key + '.png', cv => qcBuildMainChart(cv, fam, fam));
+            if (isMapPanel) addGraph('qc-canvas-wrap qc-canvas-map', 'qc_latlon', 'flight-track.png', cv => qcBuildMapChart(cv, fam, lonFam));
+            else if (hasMain) addGraph('qc-canvas-wrap', 'qc_' + fam.key, fam.key + '.png', cv => qcBuildMainChart(cv, fam, fam));
             // bottom strip of the graph block: the fused diff button inside its corner on the
             // left, and the std dev control sitting to the RIGHT of the corner lines
             const bottom = document.createElement('div'); bottom.className = 'qc-fam-bottom';
-            if (hasDiff) {
-                const dh = document.createElement('div'); dh.className = 'qc-diff-head';
-                // one fused button: the label line and the + graph line share a single click
-                // handler on the wrapper, one glow border around both
+            // one fused button per family: the label line and the + graph line share a single
+            // click handler on the wrapper, one glow border around both. the map panel carries
+            // both families' difference graphs side by side.
+            const mkDiffCol = (label, famKey) => {
                 const btnCol = document.createElement('div'); btnCol.className = 'qc-diff-btncol';
                 const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'qc-ov-btn';
-                btn.textContent = 'Difference Between Sensors';
+                btn.textContent = label;
                 btnCol.appendChild(btn);
                 const dp = document.createElement('button'); dp.type = 'button'; dp.className = 'qc-diff-create';
                 dp.innerHTML = '<span class="qc-diff-plus">＋</span><span>graph</span>';
                 btnCol.appendChild(dp);
                 btnCol.title = 'Open this family\'s difference graph';
-                btnCol.addEventListener('click', () => qcOpenDiffModal(fam.key));
-                dh.appendChild(btnCol);
+                btnCol.addEventListener('click', () => qcOpenDiffModal(famKey));
+                return btnCol;
+            };
+            const lonDiff = isMapPanel && lonFam.diffs.some(d => d.series);
+            if (hasDiff || lonDiff) {
+                const dh = document.createElement('div'); dh.className = 'qc-diff-head';
+                if (hasDiff) dh.appendChild(mkDiffCol(isMapPanel ? 'Latitude Differences' : 'Difference Between Sensors', fam.key));
+                if (lonDiff) dh.appendChild(mkDiffCol('Longitude Differences', 'lon'));
                 bottom.appendChild(dh);
             }
             const bandSlot = document.createElement('div'); bandSlot.className = 'qc-band-slot';
             bottom.appendChild(bandSlot);
             panel.appendChild(bottom);
-            const mainChart = qcCharts['qc_' + fam.key];
+            const mainChart = qcCharts[isMapPanel ? 'qc_latlon' : 'qc_' + fam.key];
             if (mainChart) { mainChart.$qcBandSlot = bandSlot; qcRenderHtmlLegend(mainChart, fam); }
         });
         // charts scrolled back into view would otherwise show the playhead where it was when they
@@ -1100,14 +1322,19 @@
         };
         const modeBtns = [];
         const setActive = btn => { modeBtns.forEach(b => b.classList.toggle('active', b === btn)); };
-        const scrubBtn = mk('scrub', 'scrub', 'Drag anywhere on the graph and the playhead follows the cursor', () => { qcSetTool(chart, 'scrub'); setActive(scrubBtn); });
-        const panBtn = mk('pan', 'pan', 'Drag moves the time window, wheel zooms', () => { qcSetTool(chart, 'pan'); setActive(panBtn); });
+        // the map panel has no time axis to scrub: pan is its resting tool
+        const scrubBtn = chart.$qcIsMap ? null : mk('scrub', 'scrub', 'Drag anywhere on the graph and the playhead follows the cursor', () => { qcSetTool(chart, 'scrub'); setActive(scrubBtn); });
+        const panBtn = mk('pan', 'pan', chart.$qcIsMap ? 'Drag moves the map, wheel zooms' : 'Drag moves the time window, wheel zooms', () => { qcSetTool(chart, 'pan'); setActive(panBtn); });
         const boxBtn = mk('box', 'select zoom', 'Drag a box to zoom into that area', () => { qcSetTool(chart, 'box'); setActive(boxBtn); });
-        modeBtns.push(scrubBtn, panBtn, boxBtn);
-        setActive(scrubBtn);
-        qcSetTool(chart, 'scrub');
-        // reset zoom snaps the tool back to scrub; the toolbar must show that switch too
-        chart.$qcSelectTool = tool => { qcSetTool(chart, tool); setActive(tool === 'pan' ? panBtn : tool === 'box' ? boxBtn : scrubBtn); };
+        if (scrubBtn) modeBtns.push(scrubBtn);
+        modeBtns.push(panBtn, boxBtn);
+        setActive(chart.$qcIsMap ? panBtn : scrubBtn);
+        qcSetTool(chart, chart.$qcIsMap ? 'pan' : 'scrub');
+        // reset zoom snaps the tool back to the resting mode; the toolbar must show that switch
+        chart.$qcSelectTool = tool => {
+            if (tool === 'scrub' && chart.$qcIsMap) tool = 'pan';
+            qcSetTool(chart, tool); setActive(tool === 'pan' ? panBtn : tool === 'box' ? boxBtn : scrubBtn);
+        };
         return tb;
     }
 
@@ -1171,13 +1398,12 @@
     // ground gaps (dimmed, informational). shows the first few, the rest behind a "+N more" toggle.
     function qcBuildIssueStrip(fam) {
         const chips = [];
-        const counts = { check: 0, gap: 0, nodata: 0, late: 0, early: 0 };
+        const counts = { check: 0, gap: 0, nodata: 0, early: 0 };
         fam.members.forEach(m => {
             // the reason already names the sensor, so the chip does not repeat it
             (m.checks || []).forEach(c => { counts.check++; chips.push({ rank: 0, cls: 'qc-issue-check', jump: Math.round(qcAxisRef ? qcAxisRef[c.fromIdx] : 0), text: 'Check: ' + c.reason + ' at ' + (qcTimeLabels ? qcTimeLabels[c.fromIdx] : '') }); });
             if (m.presence === 'nodata') { counts.nodata++; chips.push({ rank: 2, cls: 'qc-issue-nodata', text: m.name + ' no data' }); }
             (m.gaps || []).forEach(g => { counts.gap++; chips.push({ rank: 1, cls: 'qc-issue-gap', jump: Math.round(g.from), text: m.name + ' gap ' + qcSecToLabel(g.from) + ' - ' + qcSecToLabel(g.to) + ' (' + (g.effSecs || g.secs) + ' s)' }); });
-            if (m.lateStart) { counts.late++; chips.push({ rank: 3, cls: 'qc-issue-note', jump: Math.round(m.lateStart.at), text: m.name + ' started late by ' + m.lateStart.secs + ' s' }); }
             if (m.earlyStop) { counts.early++; chips.push({ rank: 3, cls: 'qc-issue-note', jump: Math.round(m.earlyStop.at), text: m.name + ' stopped early by ' + m.earlyStop.secs + ' s' }); }
         });
         if (!chips.length) return null;
@@ -1211,7 +1437,6 @@
             if (counts.check) totals.push('<span class="qc-tot-check">' + counts.check + ' check region' + (counts.check === 1 ? '' : 's') + '</span>');
             if (counts.gap) totals.push('<span class="qc-tot-gap">' + counts.gap + ' gap' + (counts.gap === 1 ? '' : 's') + '</span>');
             if (counts.nodata) totals.push('<span class="qc-tot-nodata">' + counts.nodata + ' with no data</span>');
-            if (counts.late) totals.push('<span class="qc-tot-note">' + counts.late + ' late start' + (counts.late === 1 ? '' : 's') + '</span>');
             if (counts.early) totals.push('<span class="qc-tot-note">' + counts.early + ' early stop' + (counts.early === 1 ? '' : 's') + '</span>');
             const sumEl = document.createElement('div');
             sumEl.className = 'qc-issue-totals';
@@ -1247,6 +1472,19 @@
             if (!c || !c.canvas) return;
             if (pr) { const r = c.canvas.getBoundingClientRect(); if (r.bottom < pr.top || r.top > pr.bottom) return; }  // off-screen: skip
             c.draw();
+        });
+        qcRefLiveHighlight();
+    }
+
+    // in every ref pipe, the source the ref is riding at the playhead's second reads blue; the
+    // blue hands off to the next name the moment the playhead crosses its takeover point
+    function qcRefLiveHighlight() {
+        if (typeof qcScrubIdx === 'undefined' || qcScrubIdx == null) return;
+        Object.values(qcCharts).forEach(c => {
+            const els = c && c.$qcRefNameEls; if (!els || !els.length) return;
+            let active = -1;
+            els.forEach((el, k) => { if (qcScrubIdx >= +el.dataset.from) active = k; });
+            els.forEach((el, k) => el.classList.toggle('qc-ref-live', k === active));
         });
     }
 

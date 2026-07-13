@@ -43,8 +43,8 @@
         return { max: f[f.length - 1], mean: qcRound(mean, 2), median: f.length % 2 ? f[mid] : (f[mid - 1] + f[mid]) / 2, n: f.length };
     }
 
-    // three-phase statistics. takeoff = the pre-takeoff/climb ground samples [0, toIdx) (matches the
-    // script's 1..i static-pressure window); mid = +/-300 s around the in-air midpoint; landing = the
+    // three-phase statistics. takeoff = [0, toIdx), which after the pre-takeoff trim is exactly
+    // the five minutes before takeoff; mid = +/-300 s around the in-air midpoint; landing = the
     // last ~600 s before touchdown [landIdx-600, landIdx] (matches the script's last-600-points window).
     function qcPhaseStats(v, toIdx, landIdx, midIdx) {
         const slice = (a, b) => v.slice(Math.max(0, a), Math.min(v.length, b));
@@ -339,8 +339,20 @@
     // airframe letter (H/I/N) from the mission id; `override` optionally pins takeoff/landing seconds.
     function computeQCReport(qc, aircraft, override) {
         if (!qc || !qc.timeAxis || qc.timeAxis.length === 0) return null;
-        const t = qc.timeAxis, n = t.length, raw = qc.raw;
-        const phases = qcDetectPhases(raw, t, override);
+        let t = qc.timeAxis, raw = qc.raw, present = qc.present;
+        let phases = qcDetectPhases(raw, t, override);
+        // everything recorded before five minutes ahead of takeoff is trimmed away, so it never
+        // reaches the graphs, gaps, or stats; those five minutes are exactly the takeoff phase
+        const trim = Math.max(0, phases.toIdx - 300);
+        if (trim > 0) {
+            t = Array.prototype.slice.call(t, trim);
+            const cutRaw = {};
+            Object.keys(raw).forEach(k => { const a = raw[k]; cutRaw[k] = (a && a.subarray) ? a.subarray(trim) : a; });
+            raw = cutRaw;
+            present = null;   // the stored per-channel counts refer to the untrimmed arrays
+            phases = qcDetectPhases(raw, t, override);
+        }
+        const n = t.length;
         const cov = qcComputeCoverage(raw, n);
         const recordingGaps = qcRecordingGaps(cov.covered, t, cov.firstAny, cov.lastAny);
 
@@ -364,10 +376,10 @@
                 // derived channels are ordinary members with a "(deriv.)" name suffix in the UI:
                 // computed -> ok, inputs absent -> nodata; not gap-scanned (their holes mirror the
                 // input sensors' own gaps).
-                let presence, gaps = [], count = 0, lateStart = null, earlyStop = null;
+                let presence, gaps = [], count = 0, earlyStop = null;
                 if (!arr) { presence = 'nodata'; }
                 else {
-                    count = qc.present[name] || (function () { let c = 0; for (let i = 0; i < arr.length; i++) if (!Number.isNaN(arr[i])) c++; return c; })();
+                    count = (present && present[name]) || (function () { let c = 0; for (let i = 0; i < arr.length; i++) if (!Number.isNaN(arr[i])) c++; return c; })();
                     if (count === 0) presence = 'nodata';
                     else if (isDerived) presence = 'ok';
                     else {
@@ -378,10 +390,11 @@
                             gaps.push(g);
                         });
                         presence = gaps.length ? 'gap' : 'ok';
-                        // first/last sample vs the recording window (small slack absorbs alignment jitter)
-                        let first = -1, lastI = -1;
-                        for (let i = 0; i < arr.length; i++) if (!Number.isNaN(arr[i])) { if (first < 0) first = i; lastI = i; }
-                        if (first - cov.firstAny > 5) lateStart = { secs: first - cov.firstAny, at: t[first] };
+                        // last sample vs the recording window (small slack absorbs alignment jitter).
+                        // no late start flagging: the recording is trimmed to takeoff minus five
+                        // minutes, so a channel absent early is either a gap or a real dropout
+                        let lastI = -1;
+                        for (let i = 0; i < arr.length; i++) if (!Number.isNaN(arr[i])) lastI = i;
                         if (cov.lastAny - lastI > 5) earlyStop = { secs: cov.lastAny - lastI, at: t[lastI] };
                     }
                 }
@@ -394,7 +407,7 @@
                 else if (presence === 'gap') summary.gap++;
                 else if (presence === 'check') summary.check++;
                 else summary.nodata++;
-                return { name: name, presence: presence, count: count, gaps: gaps, lateStart: lateStart, earlyStop: earlyStop, checks: checks, flags: [], series: arr || null, isRef: name === fam.ref, isDerived: isDerived };
+                return { name: name, presence: presence, count: count, gaps: gaps, earlyStop: earlyStop, checks: checks, flags: [], series: arr || null, isRef: name === fam.ref, isDerived: isDerived };
             });
 
             // redundant-member difference series + stats, and roll each mean into the cross-flight row
@@ -431,7 +444,7 @@
         crossFlightRow.scriptLine = qcScriptStatsLine(rawPlus, n, phases ? phases.toIdx : 0, aircraft, crossFlightRow.missionId);
 
         return {
-            aircraft: aircraft, timeAxis: t, t0: qc.t0, t1: qc.t1, n: n,
+            aircraft: aircraft, timeAxis: t, t0: t[0], t1: qc.t1, n: n,
             phases: phases, families: families, derived: derived, summary: summary,
             recordingGaps: recordingGaps, crossFlightRow: crossFlightRow
         };
