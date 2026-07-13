@@ -121,7 +121,7 @@
         Object.values(customCharts).forEach(c => { try { c.destroy(); } catch (e) {} }); customCharts = {};
         if (typeof destroyClipPreviews === 'function') destroyClipPreviews();
 
-        // clear the loaded flight, storm-track, analysis, measure and scrub state.
+        // clear the loaded flight, storm-track, analysis and scrub state.
         allParsedData = []; filteredData = []; availableMetrics.clear(); currentIdx = 0; _lastStaticIdx = -1;
         customMarkers = []; tempBaseline = []; lastParseStats = null;
         flightMetaData = { id: 'Unknown', date: 'Unknown', aircraft: 'Unknown' };
@@ -129,8 +129,6 @@
         reconArchiveMeta = null; stormTrackPoints = []; stormTrackMeta = null;
         showStormTrack = false; hoveredStormIdx = -1; currentPointAnalysisData = null;
         window._appliedWindow = undefined;
-        isMeasuring = false; measurePointsGeo = []; drawnShapes = []; liveMouseGeo = null;
-        isDraggingShape = false; draggingShapeIndex = -1; hoveredShapeIndex = -1;
         isScrubbing = false; activeScrubChart = null;
         hasInitialSyncOccurred = false; forceOcrSyncNextTick = false; lastOcrVideoTime = 0;
 
@@ -146,8 +144,6 @@
 
         // wipe the tracker canvases; clear the 3d scene's dynamic content if it was ever built.
         try { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); } catch (e) {}
-        const pfdC = document.getElementById('pfdCanvas');
-        if (pfdC && pfdC.getContext) { const pc = pfdC.getContext('2d'); pc.clearRect(0, 0, pfdC.width, pfdC.height); }
         if (threeDInitialized) {
             while (threeMapGroup.children.length > 0) threeMapGroup.remove(threeMapGroup.children[0]);
             if (typeof sync3DMarkers === 'function') sync3DMarkers();   // customMarkers is [] now, so this empties the marker group
@@ -157,8 +153,6 @@
 
         // restore the fresh-load UI: show placeholders, hide the flight-only overlays, re-disable controls.
         mapPlaceholder.style.display = '';
-        hud.style.display = 'none';
-        const pfdOv = document.getElementById('pfdOverlay'); if (pfdOv) pfdOv.style.display = 'none';
         const stormLbl = document.getElementById('stormTrackToggleLabel'); if (stormLbl) stormLbl.style.display = 'none';
         const stormCb = document.getElementById('toggleStormTrack'); if (stormCb) stormCb.checked = false;
         const dataLine = document.getElementById('dataReportLine'); if (dataLine) dataLine.classList.add('hidden');
@@ -306,7 +300,6 @@
         
         resetMapView(); if (trackerModeSelect.value === '3d') build3DScene(); updateMasterGraphVisibility();
         
-        const pfdC = document.getElementById('pfdCanvas'); if(pfdC) { const pfdCtx = pfdC.getContext('2d'); pfdCtx.clearRect(0,0, pfdC.width, pfdC.height); }
 
         hasInitialSyncOccurred = false; clearTimeout(scrubSyncTimeout); clearTimeout(slideSyncTimer);
         satImageLoaded = false; lastSatFetchTime = ''; bgNeedsUpdate = true;
@@ -1075,8 +1068,7 @@
        Restoring dispatches 'change' so each control's normal handler runs; all of them
        no-op safely when no flight is loaded yet. */
     (function persistDisplayPrefs() {
-        // toggle8Hz and togglePfd dropped from the persisted set: their modules are not shipped in
-        // the QC tool, so a stale saved preference must not re-enable them.
+        // only controls that still exist persist; the 8hz and pfd toggles left with their modules.
         const PREF_IDS = ['toggleSI', 'simpleTrackerIcon', 'toggleRealScale', 'trackerModeSelect', 'pathColorSelect', 'barbColorSelect', 'trackAltSelect'];
         const KEY = 'aocVizPrefs';
         try {

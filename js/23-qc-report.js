@@ -340,8 +340,9 @@
         try { const db = await qcDBOpen(); return await new Promise((res, rej) => { const tx = db.transaction(QC_STORE, 'readonly'); const rq = tx.objectStore(QC_STORE).getAll(); rq.onsuccess = () => res(rq.result || []); rq.onerror = () => rej(rq.error); }); }
         catch (e) { return []; }
     }
-    async function qcExportStoreCSV() {
-        const all = await qcStoreAll();
+    async function qcExportStoreCSV(onlyIds) {
+        let all = await qcStoreAll();
+        if (onlyIds && onlyIds.size) all = all.filter(r => onlyIds.has(String(r.missionId)));
         if (!all.length) return;   // nothing saved yet (rows are auto-saved on each flight load)
         // one file per airframe, byte for byte like the script's N42/N43/N49_Stats.txt: headerless
         // comma separated lines, one per flight, in the script's exact column order, so a download
@@ -358,6 +359,55 @@
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = tails[letter] + '_Stats.txt'; a.click();
             setTimeout(() => URL.revokeObjectURL(a.href), 2000);
         });
+    }
+
+    // flight picker for the stats export: choose exactly which stored flights go into each
+    // plane's Stats file, so nobody has to delete cached flights just to shape the download
+    let qcStatsPicker = null;
+    async function qcShowStatsPicker() {
+        if (!qcStatsPicker) {
+            qcStatsPicker = document.createElement('div');
+            qcStatsPicker.id = 'qcStatsPicker'; qcStatsPicker.className = 'modal-overlay';
+            qcStatsPicker.innerHTML =
+                '<div class="modal-card" style="max-height:80vh;max-width:520px">' +
+                  '<button id="qcStatsPickerClose" class="qc-cmd-x" style="position:absolute;top:14px;right:14px" title="Close">✕</button>' +
+                  '<h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">Cross-flight Stats CSV</h2>' +
+                  '<div class="qc-picker-note">Every flight opened in this tool saves its stats row on this device automatically, so this list holds all flights of each plane, including flights from earlier sessions. Check the flights to include; one Stats file downloads per plane, in the script\'s exact format.</div>' +
+                  '<div id="qcStatsPickerBody" style="overflow-y:auto;min-height:0"></div>' +
+                  '<div class="qc-picker-foot">' +
+                    '<button id="qcStatsPickerAll" class="qc-ov-btn">All</button>' +
+                    '<button id="qcStatsPickerNone" class="qc-ov-btn">None</button>' +
+                    '<span style="flex:1"></span>' +
+                    '<button id="qcStatsPickerGo" class="qc-ov-btn qc-ov-btn-accent">Download Selected</button>' +
+                  '</div>' +
+                '</div>';
+            document.body.appendChild(qcStatsPicker);
+            document.getElementById('qcStatsPickerClose').addEventListener('click', () => { qcStatsPicker.style.display = 'none'; });
+            qcStatsPicker.addEventListener('click', e => { if (e.target === qcStatsPicker) qcStatsPicker.style.display = 'none'; });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') qcStatsPicker.style.display = 'none'; });
+            const setAll = on => qcStatsPicker.querySelectorAll('.qc-picker-row input').forEach(cb => { cb.checked = on; });
+            document.getElementById('qcStatsPickerAll').addEventListener('click', () => setAll(true));
+            document.getElementById('qcStatsPickerNone').addEventListener('click', () => setAll(false));
+            document.getElementById('qcStatsPickerGo').addEventListener('click', () => {
+                const ids = new Set(Array.from(qcStatsPicker.querySelectorAll('.qc-picker-row input:checked')).map(cb => cb.dataset.id));
+                if (!ids.size) return;   // nothing checked, nothing to download
+                qcStatsPicker.style.display = 'none';
+                qcExportStoreCSV(ids);
+            });
+        }
+        const all = await qcStoreAll();
+        const tails = { H: 'N42', I: 'N43', N: 'N49' };
+        let html = '';
+        Object.keys(tails).forEach(letter => {
+            const rows = all.filter(r => r.aircraft === letter).sort((a, b) => String(a.missionId).localeCompare(String(b.missionId)));
+            if (!rows.length) return;
+            html += '<div class="qc-picker-group">' + tails[letter] + '_Stats.txt (' + rows.length + ' flight' + (rows.length === 1 ? '' : 's') + ')</div>';
+            html += rows.map(r => r.scriptLine
+                ? '<label class="qc-picker-row"><input type="checkbox" checked data-id="' + String(r.missionId).replace(/"/g, '&quot;') + '">' + r.missionId + '</label>'
+                : '<div class="qc-picker-row qc-picker-stale">' + r.missionId + ' (reopen this flight once to refresh its saved row)</div>').join('');
+        });
+        document.getElementById('qcStatsPickerBody').innerHTML = html || '<div class="qc-empty">No flights saved yet. Load a flight and its row saves on its own.</div>';
+        qcStatsPicker.style.display = 'flex';
     }
 
     // ---- QC clock (there is no timeslider: graphs and arrow keys are the scrubber) --------------
@@ -406,14 +456,14 @@
               '<div class="qc-summary" id="qcSummaryPills"></div>' +
               '<div class="qc-ov-actions">' +
                 '<button id="qcPhaseStatsBtn" class="qc-ov-btn" title="Takeoff / mid-flight / landing max, mean, median for a variable (the script\'s PSM statement, for any sensor)">Max/Mean/Median</button>' +
-                '<button id="qcSideToggle" class="qc-ov-btn" title="Show or hide the 2D/3D flight-track map and per-sensor report sidebar">Flight 2D/3D</button>' +
+                '<button id="qcSideToggle" class="qc-ov-btn qc-ov-btn-accent" title="Show or hide the 2D/3D flight-track map and per-sensor report sidebar">Flight Context</button>' +
                 '<div class="qc-vdiv qc-vdiv-sm"></div>' +
                 '<div class="qc-export-wrap">' +
                   '<button id="qcExportMenuBtn" class="qc-ov-btn" title="Download reports and stats">Export ▾</button>' +
                   '<div id="qcExportMenu" class="qc-menu hidden">' +
                     '<button class="qc-menu-item" id="qcExportReportBtn" title="This flight\'s per-sensor QC report">Indiv. Sensor Report CSV</button>' +
                     '<button class="qc-menu-item" id="qcGapReportBtn" title="Recording gaps in the archive GapReport.dat format">Gap Report (.dat)</button>' +
-                    '<button class="qc-menu-item" id="qcExportStoreBtn" title="Downloads N42/N43/N49_Stats.txt in the script\'s exact format: headerless comma separated lines, one per flight, appendable straight onto your historical stats files. Every loaded flight saves automatically.">N42/3/9 Stats CSV</button>' +
+                    '<button class="qc-menu-item" id="qcExportStoreBtn" title="Shows all flights of each plane (includes any other flight you\'ve loaded previously too). Pick which flights go into the Stats files.">N42/3/9 Stats CSV</button>' +
                     '<button class="qc-menu-item" id="qcShareLinkBtn" title="Copy a link that reopens this mission in the QC tool at your current playhead, tracker view, and sidebar state (archive missions only)">Share QC Link</button>' +
                   '</div>' +
                 '</div>' +
@@ -530,7 +580,7 @@
 
                 '<h3>7. Flight track and playback</h3>' +
                 '<ul>' +
-                  '<li><b>Flight 2D/3D</b> opens the sidebar: the 2D/3D map tracker, the per-sensor report, <b>Play</b>, the playback speed, and the flight clock.</li>' +
+                  '<li><b>Flight Context</b> opens the sidebar: the 2D/3D map tracker, the per-sensor report, <b>Play</b>, the playback speed, the satellite overlay picker, and the flight clock.</li>' +
                   '<li>The 2D map starts centered on the aircraft and follows it. Pan away and <b>Recenter on Aircraft</b> appears. The wheel zooms and dragging pans.</li>' +
                   '<li>Scrub from any graph, the arrow keys, or the play button; every surface follows the same playhead.</li>' +
                 '</ul>' +
@@ -636,6 +686,10 @@
         // (download whole seasons to this device) right beside them
         qcRelocate('loadedPickerWrap', 'qcBrandActions');
         qcRelocate('preloadBtnWrap', 'qcBrandActions');
+        // the satellite overlay picker comes along too: out of the hidden map header, into the
+        // context bar next to the speed button (2d tracker only, exactly as in the visualizer)
+        const satGrp = document.getElementById('satControlGroup'), qcSpd = document.getElementById('qcSpeedBtn');
+        if (satGrp && qcSpd && qcSpd.parentElement) qcSpd.parentElement.insertBefore(satGrp, qcSpd.nextSibling);
 
         // relabel the reused map panel for a QC context, and hide the player-only map controls
         const sub = document.querySelector('#qcMapSlot .panel-subhead'); if (sub) sub.textContent = 'Flight Track';
@@ -656,7 +710,7 @@
         // wire actions
         document.getElementById('qcExportReportBtn').addEventListener('click', qcExportReportCSV);
         document.getElementById('qcGapReportBtn').addEventListener('click', qcExportGapReport);
-        document.getElementById('qcExportStoreBtn').addEventListener('click', qcExportStoreCSV);
+        document.getElementById('qcExportStoreBtn').addEventListener('click', qcShowStatsPicker);
         // share qc link: copies a url that reopens this archive mission in the qc tool at the
         // current playhead, tracker view, and sidebar state. feedback shows in place on the
         // export button; uploaded files have no mission id to share.

@@ -179,28 +179,16 @@
         chart.update('none'); buildDropdownMenus(); 
     }
 
-    let _lastStaticIdx = -1;   // last idx the HUD/badges/charts were rendered for
+    let _lastStaticIdx = -1;   // last idx the badges/charts were rendered for
     function updateVisualComponents(idx, skipCharts = false) {
         const currentRow = filteredData[idx]; if (!currentRow) return;
 
-        let visualRow = currentRow;
-        // 8Hz interpolation module is not shipped in the QC tool; the typeof guard keeps a stale
-        // saved toggle8Hz preference from calling into the removed module.
-        if (typeof getInterpolatedRow === 'function' && document.getElementById('toggle8Hz') && document.getElementById('toggle8Hz').checked) {
-            const tempRow = getInterpolatedRow();
-            if (tempRow) visualRow = tempRow;
-        }
-
-        // The HUD, storm badge, and chart playheads depend only on idx, so the 8Hz sub-sample
-        // ticks (skipCharts=true, same idx) skip rebuilding them; any idx change or full update
-        // (unit toggle, marker add, scrub) still redraws everything.
+        // the storm badge and chart playheads depend only on idx, so a same-idx refresh
+        // (skipCharts=true, from scrubbing) skips rebuilding them; any idx change or full
+        // update (unit toggle, marker add) still redraws everything.
         const skipStatic = skipCharts && idx === _lastStaticIdx;
 
-        if (trackerModeSelect.value === '2d') renderMapEngineFrame(idx, visualRow); else update3DFrame(idx, visualRow);
-        // PFD/HUD module is not shipped in the QC tool; guard so this shared update path works without it
-        if (!skipStatic && typeof renderHUD === 'function') renderHUD(currentRow);
-
-        if (typeof renderPFD === 'function' && document.getElementById('togglePfd').checked) renderPFD(visualRow);
+        if (trackerModeSelect.value === '2d') renderMapEngineFrame(idx, currentRow); else update3DFrame(idx, currentRow);
         if (!isScrubbing) timelineSlider.value = idx; 
 
         let displayStr = `${currentRow.time.slice(0,2)}:${currentRow.time.slice(2,4)}:${currentRow.time.slice(4)} UTC`;

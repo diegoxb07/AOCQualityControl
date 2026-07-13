@@ -1,27 +1,10 @@
-/* Mission Visualizer, OCR worker init + drop-zone helper
+/* Mission Visualizer, drop-zone helpers + inert video-sync state
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
+    // the tesseract ocr engine was removed with its vendored lib; the state stays declared,
+    // permanently "unavailable", because the video sync engine still reads these flags.
     let ocrWorker = null, isOcrRunning = false, lastOcrTime = 0, lastOcrVideoTime = 0, ocrHistory = [], ocrAvailable = false;
-    async function initOCR() {
-        if (ocrWorker) return;
-        if (typeof Tesseract === 'undefined') { ocrAvailable = false; return; }
-        try {
-            // Worker, wasm core, and eng language data are all vendored in lib/tesseract/ so
-            // Auto-Sync OCR works with no internet. Absolute URLs (resolved against the page)
-            // because the worker resolves relative corePath/langPath against ITS OWN location.
-            const base = new URL('lib/tesseract/', window.location.href).href;
-            ocrWorker = await Tesseract.createWorker({
-                workerPath: base + 'worker.min.js',
-                corePath: base.replace(/\/$/, ''),
-                langPath: base.replace(/\/$/, '')
-            });
-            await ocrWorker.loadLanguage('eng'); await ocrWorker.initialize('eng');
-            await ocrWorker.setParameters({ tessedit_char_whitelist: '0123456789:;.,|IloOZS ', tessjs_create_hocr: '0', tessjs_create_tsv: '0', tessjs_create_osd: '0' });
-            ocrAvailable = true;
-        } catch(e) { ocrAvailable = false; ocrWorker = null; console.warn("Auto-sync OCR unavailable."); }
-    }
-    window.addEventListener('load', initOCR);
 
     // --- Non-blocking "Syncing…" badge, shown while Auto-Sync is hunting for the MMR timestamp ---
     // State-driven (not a counter) so the multi-scan drift hunt stays solid instead of flickering.

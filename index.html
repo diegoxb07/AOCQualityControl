@@ -7,19 +7,17 @@
          only place a CSP can be set. 'unsafe-inline' is required for both script-src (inline onclick/
          oninput handlers throughout index.html) and style-src (inline style attributes built by JS),
          this app's whole architecture is classic inline-handler scripts, not a build step that could
-         move them out. 'wasm-unsafe-eval' is required for the vendored Tesseract.js OCR engine, which
-         compiles a WebAssembly module, narrower than 'unsafe-eval' (does not permit eval()/Function()
-         of arbitrary strings). connect-src/img-src list the external hosts the app actually calls: the
+         move them out. connect-src/img-src list the external hosts the app actually calls: the
          noaa-recon-api (satellite tiles + recon archive), NASA CMR/GIBS (MODIS/VIIRS lookup + imagery),
          and the GeoJSON basemap's GitHub fallback (js/19-bootstrap.js). -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gibs.earthdata.nasa.gov https://joshmurdock.net; font-src 'self' data:; connect-src 'self' https://joshmurdock.net https://cmr.earthdata.nasa.gov https://raw.githubusercontent.com; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gibs.earthdata.nasa.gov https://joshmurdock.net; font-src 'self' data:; connect-src 'self' https://joshmurdock.net https://cmr.earthdata.nasa.gov https://raw.githubusercontent.com; media-src 'self' blob:; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>AOC QC Tool</title>
     <meta name="description" content="NOAA AOC hurricane-hunter mission playback: flight-level data, synced MMR video, satellite overlay, and charts.">
     <meta name="theme-color" content="#1c1c1c">
     <link rel="icon" href="assets/noaa-emblem-64.png" type="image/png">
 
     <!-- Stamp the saved tracker mode onto <html> before the body paints, so the 2D-only map
-         controls (measure cluster, satellite dropdown) start hidden on a 3D-preference refresh
+         controls (satellite dropdown) start hidden on a 3D-preference refresh
          instead of flashing in and then being hidden when persistDisplayPrefs restores 3D. The
          tracker-mode change handler (js/07-ui-controls.js) toggles this class on every switch,
          so it always reflects the live mode. -->
@@ -35,8 +33,8 @@
          with no internet; only the recon-archive/satellite APIs need one.
          css/tailwind.css is COMPILED, not hand-written, regenerate after changing Tailwind
          classes in index.html or js/*.js:  npx tailwindcss@3 -i tailwind.input.css -o css/tailwind.css --minify -->
-    <link rel="stylesheet" href="css/fonts.css?v=20260714k">
-    <link rel="stylesheet" href="css/tailwind.css?v=20260714k">
+    <link rel="stylesheet" href="css/fonts.css?v=20260714m">
+    <link rel="stylesheet" href="css/tailwind.css?v=20260714m">
     <script src="lib/chart.umd.min.js"></script>
     <!-- hammer.js provides the drag gesture the zoom plugin's pan mode requires; without it pan is silently inert -->
     <script src="lib/hammer.min.js"></script>
@@ -44,9 +42,8 @@
     <script src="lib/three.min.js"></script>
     <script src="lib/OrbitControls.js"></script>
     <script src="lib/netcdfjs.min.js"></script>
-    <script src="lib/tesseract.min.js"></script>
 
-    <link rel="stylesheet" href="css/app.css?v=20260714k">
+    <link rel="stylesheet" href="css/app.css?v=20260714m">
 </head>
 <body class="font-sans antialiased">
     <!-- QC boot cover: paints from the first frame so the reused visualizer never flashes on refresh
@@ -254,10 +251,6 @@
                             <span id="missionSubline" class="hidden normal-case tracking-normal text-[9px] font-semibold text-accent leading-tight"></span>
                         </div>
                         <div class="map-controls flex flex-wrap items-center justify-end gap-x-2 gap-y-1 flex-grow ml-auto pr-9">
-                            <label class="flex items-center normal-case text-accent font-bold text-[10px] cursor-pointer whitespace-nowrap flex-none">
-                                <input type="checkbox" id="toggle8Hz" class="accent-accent w-3 h-3 mr-1">
-                                <span class="leading-tight">8Hz Smoothing<br><span class="text-faint" style="font-size:8px;font-weight:400;">(derived from 1Hz)</span></span>
-                            </label>
                             <label id="stormTrackToggleLabel" style="display:none;" class="items-center normal-case text-accent font-bold text-[10px] cursor-pointer whitespace-nowrap flex-none">
                                 <input type="checkbox" id="toggleStormTrack" class="accent-accent w-3 h-3 mr-1"> Storm Track
                             </label>
@@ -265,18 +258,6 @@
                                 <option value="2d">2D Map Tracker</option>
                                 <option value="3d">3D Tracker</option>
                             </select>
-                            <div id="measureCluster" class="relative flex items-center flex-none">
-                                <button id="measureBtn" class="px-1.5 py-0.5 bg-accent hover:bg-accent text-accent-ink text-[10px] rounded border border-accent transition-colors shadow-sm whitespace-nowrap" title="Measure distance / area">Measure</button>
-                                <div id="measureGroup" class="hidden absolute right-0 top-full mt-1 z-30 items-center gap-2 bg-[color-mix(in_oklab,var(--panel)_95%,transparent)] border border-hairline border-l-2 border-l-[color-mix(in_oklab,var(--accent)_60%,transparent)] rounded px-2 py-1.5 shadow-lg whitespace-nowrap">
-                                    <select id="measureShapeSelect" class="bg-panel-strip text-ink border border-hairline rounded px-2 py-0.5 text-[11px] outline-none cursor-pointer">
-                                        <option value="polygon">Polygon</option>
-                                        <option value="circle">Circle</option>
-                                        <option value="rectangle">Rectangle</option>
-                                    </select>
-                                    <button id="clearMeasureBtn" class="hidden px-2 py-1 bg-danger hover:bg-danger text-white text-[11px] rounded border border-danger transition-colors shadow-sm whitespace-nowrap">✕ Clear</button>
-                                    <span id="measureHint" class="hidden text-[10px] text-muted italic whitespace-nowrap"></span>
-                                </div>
-                            </div>
                             <div id="satControlGroup" class="relative flex gap-1 items-center flex-none">
                                 <!-- One combined picker: click to choose a satellite, then its product appears right
                                      below to pick consecutively. It drives the two hidden native selects below, which
@@ -337,12 +318,6 @@
                             <div id="satPrefetchLabel">Caching satellite imagery…</div>
                             <div id="satPrefetchTrack"><div id="satPrefetchFill"></div></div>
                             <button id="satPrefetchCancel" title="Stop caching">Cancel</button>
-                        </div>
-                        <div class="overlays-wrapper">
-                            <div id="hudOverlay"></div>
-                        </div>
-                        <div id="pfdOverlay">
-                            <canvas id="pfdCanvas"></canvas>
                         </div>
                         <div id="stormTrackTooltip" class="hidden fixed z-[3000] bg-[color-mix(in_oklab,var(--bg)_95%,transparent)] border border-[color-mix(in_oklab,var(--accent)_60%,transparent)] rounded px-2.5 py-1.5 text-[10px] font-mono text-ink leading-snug pointer-events-none"></div>
                     </div>
@@ -537,7 +512,6 @@
         <span class="cmd-label">Filters</span>
         <div class="cmd-row" id="filtersGrid">
             <div class="filter-col">
-                <label class="filter-lbl"><input type="checkbox" id="togglePfd" class="filter-cb" /> Cockpit PFD</label>
                 <label id="gpsAltContainer" class="filter-lbl filter-child child-off"><input type="checkbox" id="toggleGpsAlt" class="filter-cb" /> GPS&#8594;Press Alt</label>
             </div>
             <div class="filter-col">
@@ -864,32 +838,31 @@
      whole page. Classic scripts, one shared global scope, load order matters. -->
     <!-- ?v= cache-buster: bump this token after editing any css/js so browsers (and the Codespaces
          port-preview) fetch the new files instead of a stale cached copy. -->
-    <script src="js/00b-qc-catalog.js?v=20260714k"></script>
-    <script src="js/01-state.js?v=20260714k"></script>
-    <script src="js/02-satellite.js?v=20260714k"></script>
-    <script src="js/03-metrics.js?v=20260714k"></script>
-    <script src="js/04-geo-measure.js?v=20260714k"></script>
-    <script src="js/06-ocr.js?v=20260714k"></script>
-    <script src="js/07-ui-controls.js?v=20260714k"></script>
-    <script src="js/07b-plane-models.js?v=20260714k"></script>
-    <script src="js/07c-terrain.js?v=20260714k"></script>
-    <script src="js/09-interaction.js?v=20260714k"></script>
-    <script src="js/11-layout.js?v=20260714k"></script>
-    <script src="js/11b-parser-core.js?v=20260714k"></script>
-    <script src="js/12-file-parsing.js?v=20260714k"></script>
-    <script src="js/12b-recon-archive.js?v=20260714k"></script>
-    <script src="js/13-charts-master.js?v=20260714k"></script>
-    <script src="js/14-filters-sync.js?v=20260714k"></script>
-    <script src="js/15-map-render.js?v=20260714k"></script>
-    <script src="js/17-charts.js?v=20260714k"></script>
-    <script src="js/18-engine.js?v=20260714k"></script>
-    <script src="js/18b-flight-search.js?v=20260714k"></script>
-    <script src="js/19-bootstrap.js?v=20260714k"></script>
-    <script src="js/20-ui-polish.js?v=20260714k"></script>
+    <script src="js/00b-qc-catalog.js?v=20260714m"></script>
+    <script src="js/01-state.js?v=20260714m"></script>
+    <script src="js/02-satellite.js?v=20260714m"></script>
+    <script src="js/03-metrics.js?v=20260714m"></script>
+    <script src="js/06-ocr.js?v=20260714m"></script>
+    <script src="js/07-ui-controls.js?v=20260714m"></script>
+    <script src="js/07b-plane-models.js?v=20260714m"></script>
+    <script src="js/07c-terrain.js?v=20260714m"></script>
+    <script src="js/09-interaction.js?v=20260714m"></script>
+    <script src="js/11-layout.js?v=20260714m"></script>
+    <script src="js/11b-parser-core.js?v=20260714m"></script>
+    <script src="js/12-file-parsing.js?v=20260714m"></script>
+    <script src="js/12b-recon-archive.js?v=20260714m"></script>
+    <script src="js/13-charts-master.js?v=20260714m"></script>
+    <script src="js/14-filters-sync.js?v=20260714m"></script>
+    <script src="js/15-map-render.js?v=20260714m"></script>
+    <script src="js/17-charts.js?v=20260714m"></script>
+    <script src="js/18-engine.js?v=20260714m"></script>
+    <script src="js/18b-flight-search.js?v=20260714m"></script>
+    <script src="js/19-bootstrap.js?v=20260714m"></script>
+    <script src="js/20-ui-polish.js?v=20260714m"></script>
     <!-- QC Mode: catalog loads up top (00b); engine, charts, and report/controller load last so
          they can wrap the player's update path. See js/21..23 and js/11b parseFlightRawQC. -->
-    <script src="js/21-qc-engine.js?v=20260714k"></script>
-    <script src="js/22-qc-charts.js?v=20260714k"></script>
-    <script src="js/23-qc-report.js?v=20260714k"></script>
+    <script src="js/21-qc-engine.js?v=20260714m"></script>
+    <script src="js/22-qc-charts.js?v=20260714m"></script>
+    <script src="js/23-qc-report.js?v=20260714m"></script>
 </body>
 </html>

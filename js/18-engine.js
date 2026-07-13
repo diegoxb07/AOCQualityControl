@@ -66,12 +66,8 @@
                     return; 
                 } 
                 
-                let force8HzUpdate = document.getElementById('toggle8Hz') && document.getElementById('toggle8Hz').checked;
-                
                 if (updatedIdx) {
                     updateVisualComponents(currentIdx);
-                } else if (force8HzUpdate) {
-                    updateVisualComponents(currentIdx, true);
                 }
             }
             animationFrameId = requestAnimationFrame(masterSyncEngineTick); 

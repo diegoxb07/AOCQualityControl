@@ -29,7 +29,7 @@
         });
     });
 
-    const canvas = document.getElementById('mapCanvas'), ctx = canvas.getContext('2d'), video = document.getElementById('radarVideo'), hud = document.getElementById('hudOverlay'), mapPlaceholder = document.getElementById('mapPlaceholder'), playPauseBtn = document.getElementById('playPauseBtn'), timelineSlider = document.getElementById('timelineSlider'), timelineTimeDisplay = document.getElementById('timelineTimeDisplay'), speedDownBtn = document.getElementById('speedDownBtn'), speedDisplayBtn = document.getElementById('speedDisplayBtn'), speedUpBtn = document.getElementById('speedUpBtn'), replayBtn = document.getElementById('replayBtn'), videoSyncMode = document.getElementById('videoSyncMode'), ocrIndicator = document.getElementById('ocrIndicator'), fullscreenBtn = document.getElementById('fullscreenBtn'), fullscreenMapBtn = document.getElementById('fullscreenMapBtn'), fullscreenVideoBtn = document.getElementById('fullscreenVideoBtn'), mapPanel = document.getElementById('mapPanel'), videoPanel = document.getElementById('videoPanel'), trackerModeSelect = document.getElementById('trackerModeSelect'), threeDContainer = document.getElementById('threeDContainer'), attitudeHud = document.getElementById('attitudeHud'), stickyBottomBar = document.getElementById('stickyBottomBar'), pathColorSelect = document.getElementById('pathColorSelect'), barbColorSelect = document.getElementById('barbColorSelect');
+    const canvas = document.getElementById('mapCanvas'), ctx = canvas.getContext('2d'), video = document.getElementById('radarVideo'), mapPlaceholder = document.getElementById('mapPlaceholder'), playPauseBtn = document.getElementById('playPauseBtn'), timelineSlider = document.getElementById('timelineSlider'), timelineTimeDisplay = document.getElementById('timelineTimeDisplay'), speedDownBtn = document.getElementById('speedDownBtn'), speedDisplayBtn = document.getElementById('speedDisplayBtn'), speedUpBtn = document.getElementById('speedUpBtn'), replayBtn = document.getElementById('replayBtn'), videoSyncMode = document.getElementById('videoSyncMode'), ocrIndicator = document.getElementById('ocrIndicator'), fullscreenBtn = document.getElementById('fullscreenBtn'), fullscreenMapBtn = document.getElementById('fullscreenMapBtn'), fullscreenVideoBtn = document.getElementById('fullscreenVideoBtn'), mapPanel = document.getElementById('mapPanel'), videoPanel = document.getElementById('videoPanel'), trackerModeSelect = document.getElementById('trackerModeSelect'), threeDContainer = document.getElementById('threeDContainer'), attitudeHud = document.getElementById('attitudeHud'), stickyBottomBar = document.getElementById('stickyBottomBar'), pathColorSelect = document.getElementById('pathColorSelect'), barbColorSelect = document.getElementById('barbColorSelect');
 
     function applySyncModeLock() {
         // On Auto-Sync the timeline window is driven by the video clock, so the user must NOT type start/end times.
@@ -516,8 +516,8 @@
         // real height. null until the grid loads, while the flat coastline map above renders.
         if (typeof buildTerrainMesh3D === 'function') { const terrainMesh = buildTerrainMesh3D(); if (terrainMesh) threeMapGroup.add(terrainMesh); }
         if(filteredData.length > 0) {
-            // densify each 1 Hz segment with the same uniform catmull-rom the plane center rides
-            // (getInterpolatedRow), so the 3D track curves through turns and climbs like the plane.
+            // densify each 1 Hz segment with a uniform catmull-rom, so the 3D track curves
+            // through turns and climbs instead of kinking at every sample.
             // built once per flight, so the extra vertices are cheap. colors lerp across each segment.
             const pathPts = []; const colors = [];
             const n = filteredData.length, K = 6;   // sub-samples per 1 Hz segment
@@ -638,7 +638,7 @@
     // Real fullscreen is page-level ONLY. The panel ⛶ buttons "fake" fullscreen instead: pin the
     // panel over the whole viewport (.fake-fs, styled like :fullscreen via :is()) and take the page
     // fullscreen too if it isn't already, so panel/page switches are a single click.
-    const refreshAfterViewChange = () => setTimeout(() => { resizeCanvasLayout(); if (filteredData.length > 0) { if (trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]); if (typeof renderPFD === 'function' && document.getElementById('togglePfd').checked) renderPFD(filteredData[currentIdx]); } }, 100);
+    const refreshAfterViewChange = () => setTimeout(() => { resizeCanvasLayout(); if (filteredData.length > 0) { if (trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]); } }, 100);
     const setFakePanel = (panel) => {
         mapPanel.classList.toggle('fake-fs', panel === mapPanel);
         videoPanel.classList.toggle('fake-fs', panel === videoPanel);
@@ -669,8 +669,6 @@
     });
 
     trackerModeSelect.addEventListener('change', (e) => {
-        const measureBtn = document.getElementById('measureBtn');
-        const clearMeasureBtn = document.getElementById('clearMeasureBtn');
         const satSelect = document.getElementById('satelliteSelect');
         const satBandSelect = document.getElementById('satBandSelect');
 
@@ -680,8 +678,6 @@
 
         if (e.target.value === '3d') {
             canvas.style.display = 'none'; threeDContainer.style.display = 'block';
-            if (isMeasuring) stopMeasuringState();
-            document.getElementById('measureCluster').style.display = 'none';
 
             if (satSelect) satSelect.style.display = 'none';
             if (satBandSelect) satBandSelect.style.display = 'none';
@@ -700,9 +696,6 @@
             }, 50);
         } else {
             canvas.style.display = 'block'; threeDContainer.style.display = 'none';
-            document.getElementById('measureCluster').style.display = 'flex';
-            measureBtn.style.display = 'inline-block';
-            updateMeasureUI();
 
             if (satSelect) satSelect.style.display = '';
             if (satBandSelect && satSelect.value !== 'none') satBandSelect.style.display = '';
@@ -820,7 +813,7 @@
     }
 
     // the panel is position:fixed (see app.css) so it escapes the map header's z-20 stacking context
-    // and layers above the pfd and hud overlays. anchor it under the button, right aligned to it.
+    // and layers above the map overlays. anchor it under the button, right aligned to it.
     function positionSatPicker() {
         const panel = document.getElementById('satPickerPanel'), btn = document.getElementById('satPickerBtn');
         if (!panel || !btn || panel.classList.contains('hidden')) return;
@@ -895,7 +888,6 @@
     pathColorSelect.addEventListener('change', () => { if (filteredData.length > 0) { if (threeDInitialized) build3DScene(); renderMapEngineFrame(currentIdx, filteredData[currentIdx]); } });
     barbColorSelect.addEventListener('change', () => { if (filteredData.length > 0) { if (threeDInitialized) build3DScene(); renderMapEngineFrame(currentIdx, filteredData[currentIdx]); } });
     document.getElementById('trackAltSelect').addEventListener('change', () => { if (filteredData.length > 0 && threeDInitialized) { build3DScene(); updateVisualComponents(currentIdx); } });
-    document.getElementById('toggle8Hz').addEventListener('change', () => { if (filteredData.length > 0) updateVisualComponents(currentIdx); });
 
     document.getElementById('markBtn').addEventListener('click', () => {
         if (!customMarkers.find(m => m.idx === currentIdx)) {
@@ -905,15 +897,6 @@
     });
     document.getElementById('clearMarksBtn').addEventListener('click', () => { customMarkers = []; if (threeDInitialized) sync3DMarkers(); updateVisualComponents(currentIdx); });
     document.getElementById('simpleTrackerIcon').addEventListener('change', () => { if (filteredData.length > 0 && trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]); });
-
-    document.getElementById('togglePfd').addEventListener('change', (e) => {
-        // Reveal the Press->GPS Alt sub-option in its reserved slot (elbow-connected under PFD),
-        // rather than inserting a cell that reflows the other filters.
-        const gpsContainer = document.getElementById('gpsAltContainer');
-        gpsContainer.classList.toggle('child-off', !e.target.checked);
-        if (!e.target.checked) document.getElementById('toggleGpsAlt').checked = false;
-        if (filteredData.length > 0) { const pfd = document.getElementById('pfdOverlay'); pfd.style.display = e.target.checked ? 'block' : 'none'; resizeCanvasLayout(); updateVisualComponents(currentIdx); }
-    });
 
     document.getElementById('toggleSI').addEventListener('change', () => { if (filteredData.length > 0) { buildChartLayout(); updateVisualComponents(currentIdx); } });
     document.getElementById('toggleGpsAlt').addEventListener('change', () => { if (filteredData.length > 0) { if (trackerModeSelect.value === '3d') build3DScene(); updateVisualComponents(currentIdx); } });

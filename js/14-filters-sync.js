@@ -12,8 +12,7 @@
         filteredData = allParsedData.filter(d => d.absSeconds >= sLim && (d.absSeconds <= eLim || eLim < sLim && d.absSeconds <= eLim + 86400));
         if (filteredData.length === 0) return;
 
-        customMarkers = []; computeTempBaseline(); mapPlaceholder.style.display = 'none'; hud.style.display = 'block';
-        const pfd = document.getElementById('pfdOverlay'); pfd.style.display = document.getElementById('togglePfd').checked ? 'block' : 'none';
+        customMarkers = []; computeTempBaseline(); mapPlaceholder.style.display = 'none';
         ['replayBtn','playPauseBtn','markBtn','clearMarksBtn','timelineSlider','skipBack10Btn','skipFwd10Btn'].forEach(id => document.getElementById(id).disabled = false);
         
         timelineSlider.min = 0; timelineSlider.max = filteredData.length - 1; timelineSlider.value = 0;
@@ -115,7 +114,5 @@
         }
         if (newIdx === -1) newIdx = targetSec < filteredData[0].absSeconds ? 0 : filteredData.length - 1;
         
-        let force8HzUpdate = document.getElementById('toggle8Hz') && document.getElementById('toggle8Hz').checked;
-        if (newIdx !== currentIdx) { currentIdx = newIdx; updateVisualComponents(currentIdx); } 
-        else if (force8HzUpdate && !video.paused) { updateVisualComponents(currentIdx, true); }
+        if (newIdx !== currentIdx) { currentIdx = newIdx; updateVisualComponents(currentIdx); }
     }

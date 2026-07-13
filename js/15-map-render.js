@@ -351,9 +351,9 @@
 
         drawStormTrack2D();
 
-        // flight track drawn as the same uniform catmull-rom curve the plane center rides
-        // (getInterpolatedRow), one cubic bezier per 1 Hz segment, so the plane sits on the line through
-        // turns. control points are computed in screen space; cp is a single reused object (setSeg
+        // flight track drawn as a uniform catmull-rom curve, one cubic bezier per 1 Hz segment,
+        // so the line stays smooth through turns. control points are computed in screen space; cp
+        // is a single reused object (setSeg
         // mutates it) so a long flight doesn't allocate per segment per frame.
         const _n = filteredData.length;
         const _gx = j => getX(filteredData[j < 0 ? 0 : (j > _n - 1 ? _n - 1 : j)].lon);
@@ -476,140 +476,6 @@
                 ctx.save(); ctx.translate(mx, my); ctx.scale(1/mapScale, 1/mapScale); ctx.beginPath(); ctx.arc(0, 0, 8, 0, 2 * Math.PI); ctx.fillStyle = marker.color; ctx.fill(); ctx.strokeStyle = '#000000'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
             }
         });
-
-        const toScreenPt = (lon, lat) => ({ x: getX(lon) * mapScale + mapOffsetX, y: getY(lat) * mapScale + mapOffsetY });
-        const drawCanvasButton = (kind, shapeIndex, sx, sy, label, bg) => {
-            const r = 11;
-            ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-            ctx.beginPath(); ctx.arc(sx, sy, r, 0, 2 * Math.PI); ctx.fillStyle = bg; ctx.fill();
-            ctx.lineWidth = 1.5; ctx.strokeStyle = '#0b0e13'; ctx.stroke();
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, sx, sy + 0.5);
-            ctx.restore();
-            measureButtons.push({ kind, shapeIndex, sx, sy, r: r + 4 });
-        };
-        const shapeScreenBBox = (type, pts) => {
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            pts.forEach(p => { const s = toScreenPt(p.lon, p.lat); minX = Math.min(minX, s.x); maxX = Math.max(maxX, s.x); minY = Math.min(minY, s.y); maxY = Math.max(maxY, s.y); });
-            if (type === 'circle' && pts.length === 2) {
-                const c = toScreenPt(pts[0].lon, pts[0].lat); const ed = toScreenPt(pts[1].lon, pts[1].lat);
-                const rPx = Math.hypot(ed.x - c.x, ed.y - c.y); minX = c.x - rPx; maxX = c.x + rPx; minY = c.y - rPx; maxY = c.y + rPx;
-            }
-            return { minX, maxX, minY, maxY };
-        };
-        const statBox = (sx, sy, lines) => {
-            ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-            const w = 124, h = 14 + lines.length * 15;
-            let bx = sx - w - 6, by = sy; if (bx < 4) bx = sx + 6; if (by < 4) by = 4;
-            ctx.fillStyle = 'rgba(22, 27, 34, 0.9)'; ctx.fillRect(bx, by, w, h);
-            ctx.font = 'bold 11px sans-serif';
-            lines.forEach((ln, i) => { ctx.fillStyle = ln.c; ctx.fillText(ln.t, bx + 6, by + 18 + i * 15); });
-            ctx.restore();
-        };
-
-        const drawShapeGeometry = (type, pts, isActiveShape, shapeIndex, isHovered) => {
-            if (pts.length === 0) return;
-            const stroke = isHovered ? '#7dd3fc' : '#38bdf8';
-            const fill = isHovered ? 'rgba(56, 189, 248, 0.38)' : 'rgba(56, 189, 248, 0.25)';
-            // Measurement/preview line widths (original sizes, the DPR transform, not a fatter line, is what keeps them crisp).
-            ctx.save(); ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = (type === 'polygon' ? 5 : 3) / mapScale;
-            if (type === 'polygon') {
-                const P = pts.map(p => ({ x: getX(p.lon), y: getY(p.lat) }));
-                // Filled area for a closed polygon (3+ points).
-                if (pts.length >= 3) {
-                    ctx.setLineDash([]); ctx.beginPath();
-                    P.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-                    ctx.closePath(); ctx.fill();
-                }
-                // Build the WHOLE connecting-line path, then stroke once, drawing the vertex dots in
-                // between would call ctx.beginPath() and wipe the line.
-                let totalDist = 0, liveSegDist = 0;
-                ctx.setLineDash([9 / mapScale, 5 / mapScale]); ctx.beginPath();
-                P.forEach((p, i) => {
-                    if (i === 0) ctx.moveTo(p.x, p.y);
-                    else { ctx.lineTo(p.x, p.y); totalDist += getDistanceNM(pts[i-1].lat, pts[i-1].lon, pts[i].lat, pts[i].lon); }
-                });
-                if (isActiveShape && isMeasuring && liveMouseGeo) {
-                    ctx.lineTo(getX(liveMouseGeo.lon), getY(liveMouseGeo.lat));
-                    liveSegDist = getDistanceNM(pts[pts.length-1].lat, pts[pts.length-1].lon, liveMouseGeo.lat, liveMouseGeo.lon);
-                    totalDist += liveSegDist;
-                }
-                ctx.stroke();
-                ctx.setLineDash([]);
-                // Vertex dots, drawn AFTER the line so their own paths can't clobber it.
-                P.forEach(p => {
-                    ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1/mapScale, 1/mapScale);
-                    ctx.beginPath(); ctx.arc(0, 0, 5, 0, 2 * Math.PI); ctx.fillStyle = '#facc15'; ctx.fill();
-                    ctx.strokeStyle = '#0b0e13'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
-                });
-                // Readout boxes.
-                if (isActiveShape && isMeasuring && liveMouseGeo) {
-                    let maxDiam = 0; const tempPts = [...pts, liveMouseGeo];
-                    for (let i = 0; i < tempPts.length; i++) { for (let j = i + 1; j < tempPts.length; j++) { const d = getDistanceNM(tempPts[i].lat, tempPts[i].lon, tempPts[j].lat, tempPts[j].lon); if (d > maxDiam) maxDiam = d; } }
-                    const liveX = (getX(liveMouseGeo.lon) * mapScale) + mapOffsetX + 130; const liveY = (getY(liveMouseGeo.lat) * mapScale) + mapOffsetY;
-                    statBox(liveX, liveY - 45, [{t:`Seg: ${liveSegDist.toFixed(1)} NM`,c:'#38bdf8'},{t:`Tot: ${totalDist.toFixed(1)} NM`,c:'#fff'},{t:`Diam: ${maxDiam.toFixed(1)} NM`,c:'#facc15'}]);
-                } else if (!isMeasuring && isHovered && pts.length >= 3) {
-                    let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180; let maxDiam = 0;
-                    pts.forEach((p, i) => {
-                        if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat; if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon;
-                        for (let j = i + 1; j < pts.length; j++) { const d = getDistanceNM(p.lat, p.lon, pts[j].lat, pts[j].lon); if (d > maxDiam) maxDiam = d; }
-                    });
-                    const widthNM = getDistanceNM(minLat, minLon, minLat, maxLon); const heightNM = getDistanceNM(minLat, minLon, maxLat, minLon);
-                    const bb = shapeScreenBBox(type, pts);
-                    statBox(bb.minX, bb.minY - 4, [{t:'Bounds:',c:'#38bdf8'},{t:`${widthNM.toFixed(1)} x ${heightNM.toFixed(1)} NM`,c:'#fff'},{t:`Diam: ${maxDiam.toFixed(1)} NM`,c:'#facc15'}]);
-                } else if (!isMeasuring && isHovered && pts.length === 2) {
-                    const lenNM = getDistanceNM(pts[0].lat, pts[0].lon, pts[1].lat, pts[1].lon);
-                    const mid = toScreenPt((pts[0].lon + pts[1].lon) / 2, (pts[0].lat + pts[1].lat) / 2);
-                    statBox(mid.x, mid.y - 4, [{t:'Length:',c:'#38bdf8'},{t:`${lenNM.toFixed(1)} NM`,c:'#fff'}]);
-                }
-            } else if (type === 'circle') {
-                const centerGeo = pts[0]; const edgeGeo = pts.length === 2 ? pts[1] : (liveMouseGeo || centerGeo);
-                const rNM = getDistanceNM(centerGeo.lat, centerGeo.lon, edgeGeo.lat, edgeGeo.lon);
-                const cx = getX(centerGeo.lon), cy = getY(centerGeo.lat); const ex = getX(edgeGeo.lon), ey = getY(edgeGeo.lat); const rPx = Math.sqrt(Math.pow(ex-cx, 2) + Math.pow(ey-cy, 2));
-                ctx.beginPath(); ctx.arc(cx, cy, rPx, 0, 2*Math.PI); ctx.fill(); ctx.setLineDash([6 / mapScale, 4 / mapScale]); ctx.stroke();
-                ctx.beginPath(); ctx.arc(cx, cy, 4/mapScale, 0, 2 * Math.PI); ctx.fillStyle = '#facc15'; ctx.fill();
-                if (rPx > 0) {
-                    ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
-                    if ((isActiveShape && isMeasuring) || (!isMeasuring && isHovered)) {
-                        const anchor = (isActiveShape && isMeasuring) ? toScreenPt(edgeGeo.lon, edgeGeo.lat) : shapeScreenBBox(type, pts);
-                        const ax = (isActiveShape && isMeasuring) ? anchor.x + 130 : anchor.minX; const ay = (isActiveShape && isMeasuring) ? anchor.y : anchor.minY - 4;
-                        statBox(ax, ay - (isActiveShape ? 50 : 0), [{t:`Radius: ${rNM.toFixed(1)} NM`,c:'#38bdf8'},{t:`Area: ${(Math.PI * rNM * rNM).toFixed(1)} NM²`,c:'#fff'},{t:`Diam: ${(rNM * 2).toFixed(1)} NM`,c:'#facc15'}]);
-                    }
-                }
-            } else if (type === 'rectangle') {
-                const p1 = pts[0]; const p2 = pts.length === 2 ? pts[1] : (liveMouseGeo || p1);
-                const x1 = getX(p1.lon), y1 = getY(p1.lat); const x2 = getX(p2.lon), y2 = getY(p2.lat); const widthNM = getDistanceNM(p1.lat, p1.lon, p1.lat, p2.lon); const heightNM = getDistanceNM(p1.lat, p1.lon, p2.lat, p1.lon);
-                ctx.beginPath(); ctx.rect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2-x1), Math.abs(y2-y1)); ctx.fill(); ctx.setLineDash([6 / mapScale, 4 / mapScale]); ctx.stroke();
-                if (Math.abs(x2-x1) > 0) {
-                    if ((isActiveShape && isMeasuring) || (!isMeasuring && isHovered)) {
-                        const diamNM = getDistanceNM(p1.lat, p1.lon, p2.lat, p2.lon);
-                        const anchor = (isActiveShape && isMeasuring) ? toScreenPt(p2.lon, p2.lat) : shapeScreenBBox(type, pts);
-                        const ax = (isActiveShape && isMeasuring) ? anchor.x + 130 : anchor.minX; const ay = (isActiveShape && isMeasuring) ? anchor.y : anchor.minY - 4;
-                        statBox(ax, ay - (isActiveShape ? 50 : 0), [{t:`${widthNM.toFixed(1)} x ${heightNM.toFixed(1)} NM`,c:'#38bdf8'},{t:`Area: ${(widthNM * heightNM).toFixed(1)} NM²`,c:'#fff'},{t:`Diam: ${diamNM.toFixed(1)} NM`,c:'#facc15'}]);
-                    }
-                }
-            }
-            ctx.restore();
-
-            // On-canvas button: ✓ to finish the active shape (any type, once 2+ points exist). Deletion is via the Clear button.
-            if (isActiveShape && isMeasuring && pts.length >= 2) {
-                const bb = shapeScreenBBox(type, pts);
-                const fx = (bb.minX + bb.maxX) / 2; const fy = bb.minY - 16;
-                drawCanvasButton('finish', -1, fx, fy, '✓', '#0284c7');
-                // "Click ... to finish" caption around the checkmark.
-                ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.font = 'bold 11px sans-serif'; ctx.textBaseline = 'middle';
-                ctx.textAlign = 'right'; const lw = ctx.measureText('Click').width;
-                ctx.fillStyle = 'rgba(22,27,34,0.9)'; ctx.fillRect(fx - 18 - lw - 4, fy - 9, lw + 8, 18);
-                ctx.fillStyle = '#7dd3fc'; ctx.fillText('Click', fx - 18, fy + 1);
-                ctx.textAlign = 'left'; const rw = ctx.measureText('to finish').width;
-                ctx.fillStyle = 'rgba(22,27,34,0.9)'; ctx.fillRect(fx + 16, fy - 9, rw + 8, 18);
-                ctx.fillStyle = '#7dd3fc'; ctx.fillText('to finish', fx + 20, fy + 1);
-                ctx.restore();
-            }
-        };
-
-        measureButtons = [];
-        drawnShapes.forEach((shape, i) => drawShapeGeometry(shape.type, shape.points, false, i, i === hoveredShapeIndex));
-        if (measurePointsGeo.length > 0) drawShapeGeometry(measureShape, measurePointsGeo, true, -1, false);
 
         ctx.restore();
     }

@@ -28,18 +28,6 @@
             }
         }
 
-        // PFD backing store is DPR-scaled too (CSS keeps the display size at 100%); renderPFD
-        // draws in logical CSS pixels through a setTransform(dpr) base, so its text stays crisp.
-        const pfdC = document.getElementById('pfdCanvas');
-        if (pfdC && pfdC.parentElement && pfdC.parentElement.style.display !== 'none') {
-            const pRect = pfdC.parentElement.getBoundingClientRect();
-            const pbw = Math.round(pRect.width * dpr), pbh = Math.round(pRect.height * dpr);
-            if (pRect.width > 0 && pRect.height > 0 && (pfdC.width !== pbw || pfdC.height !== pbh)) {
-                pfdC.width = pbw; pfdC.height = pbh;
-                // PFD module is not shipped in the QC tool; guard every call so layout keeps working
-                if(filteredData.length > 0 && typeof renderPFD === 'function') renderPFD(filteredData[currentIdx]);
-            }
-        }
     }
     window.addEventListener('resize', () => {
         if (filteredData.length > 0) {
@@ -52,7 +40,6 @@
                 if (keepView) applyMapViewportGeo(keepView);
                 bgNeedsUpdate = true; renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
             }
-            if (typeof renderPFD === 'function' && document.getElementById('togglePfd').checked) renderPFD(filteredData[currentIdx]);
         }
     });
 
@@ -71,7 +58,6 @@
             bgNeedsUpdate = true;
             renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
         }
-        if (filteredData.length > 0 && typeof renderPFD === 'function' && document.getElementById('togglePfd').checked) renderPFD(filteredData[currentIdx]);
     }
 
     (function setupMediaResize() {
@@ -107,7 +93,7 @@
             }
             if (e.cancelable) e.preventDefault();
         }
-        function onUp() { if (!dragging) return; dragging = false; isResizingMedia = false; bar.classList.remove('resizing'); resizeCanvasLayout(); if (filteredData.length > 0) { if (trackerModeSelect.value === '2d') { calculateMapScales(); bgNeedsUpdate = true; renderMapEngineFrame(currentIdx, filteredData[currentIdx]); } if (typeof renderPFD === 'function' && document.getElementById('togglePfd').checked) renderPFD(filteredData[currentIdx]); } }
+        function onUp() { if (!dragging) return; dragging = false; isResizingMedia = false; bar.classList.remove('resizing'); resizeCanvasLayout(); if (filteredData.length > 0) { if (trackerModeSelect.value === '2d') { calculateMapScales(); bgNeedsUpdate = true; renderMapEngineFrame(currentIdx, filteredData[currentIdx]); } } }
         handle.addEventListener('mousedown', onDown); handle.addEventListener('touchstart', onDown, { passive: false });
         window.addEventListener('mousemove', onMove); window.addEventListener('touchmove', onMove, { passive: false }); window.addEventListener('mouseup', onUp); window.addEventListener('touchend', onUp);
 
@@ -144,7 +130,6 @@
             if (!collapsed) {
                 resizeCanvasLayout();
                 if (filteredData.length > 0 && trackerModeSelect.value === '2d') { calculateMapScales(); bgNeedsUpdate = true; renderMapEngineFrame(currentIdx, filteredData[currentIdx]); }
-                if (filteredData.length > 0 && typeof renderPFD === 'function' && document.getElementById('togglePfd').checked) renderPFD(filteredData[currentIdx]);
             }
         });
     })();

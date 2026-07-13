@@ -146,8 +146,8 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
 #satPickerBtnLabel { max-width: 190px; }
 #satPickerBtn.sat-on { border-color: color-mix(in oklab, var(--accent) 60%, transparent); color: var(--accent); }
 /* position:fixed (placed by positionSatPicker in js/07-ui-controls.js) escapes the map header's
-   z-20 stacking context so the panel layers above the pfd and hud overlays (z-2500) and scrolls. */
-.sat-picker-panel { position: fixed; z-index: 3200; width: 250px; max-height: 340px; overflow-y: auto; background: color-mix(in oklab, var(--panel) 97%, transparent); border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
+   z-20 stacking context so the panel layers above the map overlays (z-2500) and scrolls. */
+.sat-picker-panel { position: fixed; z-index: 4200; width: 250px; max-height: 340px; overflow-y: auto; background: color-mix(in oklab, var(--panel) 97%, transparent); border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
 .sat-picker-head { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 2px 4px 6px; }
 .sat-opacity-row { display: flex; align-items: center; gap: 6px; padding: 4px 4px 7px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
 .sat-opacity-label { font-size: 10px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
@@ -202,14 +202,12 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
 #mapPanel:is(:fullscreen, .fake-fs) { height: 100vh !important; }
 #mapPanel:is(:fullscreen, .fake-fs) .panel-title, #videoPanel:is(:fullscreen, .fake-fs) .panel-title { padding: 16px; background-color: color-mix(in oklab, var(--panel) 90%, transparent); margin-bottom: 0; position: absolute; width: 100%; z-index: 100; top: 0; border-bottom: 1px solid var(--border); }
 #mapPanel:is(:fullscreen, .fake-fs) .media-container, #videoPanel:is(:fullscreen, .fake-fs) .media-container { height: 100vh; border-radius: 0; flex-grow: 1; }
-#mapPanel:is(:fullscreen, .fake-fs) .overlays-wrapper { top: 80px; bottom: 170px; transform: scale(1) !important; transform-origin: bottom left; }
-#mapPanel:is(:fullscreen, .fake-fs) #pfdOverlay { bottom: 170px; width: 210px; height: 210px; }
 /* In fullscreen, put the storm card on the left under the satellite badge. */
 #mapPanel:is(:fullscreen, .fake-fs) #mapInfoStack { left: 16px; right: auto; align-items: flex-start; text-align: left; }
 /* 10-min satellite/playhead stepper: floats at the bottom-center of the map, above the timeline bar */
 /* Pre-hide the 2D-only controls on a 3D-preference refresh (class set by the inline head script
    in index.html) so they don't flash before persistDisplayPrefs restores the 3D tracker mode. */
-html.pref-tracker-3d #measureCluster, html.pref-tracker-3d #satPickerBtn { display: none; }
+html.pref-tracker-3d #satPickerBtn { display: none; }
 #satStepCluster { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 40; }
 #mapPanel:is(:fullscreen, .fake-fs) #satStepCluster { bottom: 130px; z-index: 2001; } /* above the timeline bar so its shadow gradient doesn't darken the buttons */
 #mapPanel:is(:fullscreen, .fake-fs) #mapHeader { padding: 16px 22px 0 22px; }
@@ -224,9 +222,8 @@ html.pref-tracker-3d #measureCluster, html.pref-tracker-3d #satPickerBtn { displ
    exit-fullscreen step. z-index stays below the sticky bottom bar (2000) so the playback
    controls remain usable on top. */
 #mapPanel.fake-fs, #videoPanel.fake-fs { position: fixed; inset: 0; width: 100vw; z-index: 1500; }
-/* Each panel is its own stacking context so one panel's overlays (#mapInfoStack z-2400, HUD,
-   PFD…) can't bleed over the OTHER panel while it's pinned at z-1500. The map panel sits higher
-   by default so its popups (measure group, day stepper) can still overflow onto the video panel. */
+/* Each panel is its own stacking context so one panel's overlays (#mapInfoStack z-2400) can't bleed over the OTHER panel while it's pinned at z-1500. The map panel sits higher
+   by default so its popups (the sat day stepper) can still overflow onto the video panel. */
 #mapPanel { z-index: 1; }
 #videoPanel { z-index: 0; }
 
@@ -329,24 +326,13 @@ video#radarVideo { width: 100%; height: 100%; display: block; object-fit: contai
 @keyframes loadCheckDraw { to { stroke-dashoffset: 0; } }
 
 /* In-map overlays: HUD, PFD, pills, badges - flat hairline borders, no accent-tinted glow */
-.overlays-wrapper { position: absolute; top: 44px; bottom: 18px; left: 16px; display: flex; gap: 16px; align-items: flex-end; z-index: 2500; pointer-events: none; transition: bottom 0.2s; transform: scale(var(--hud-scale, 1)); transform-origin: bottom left; }
-#hudOverlay { background-color: color-mix(in oklab, var(--panel) 92%, transparent); border: 1px solid var(--border); border-radius: 4px; padding: 10px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; line-height: 1.4; color: var(--text); display: none; min-width: 200px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6); position: relative; pointer-events: auto; max-height: 100%; overflow-y: auto; }
-#hudOverlay::-webkit-scrollbar { width: 6px; }
-#hudOverlay::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 3px; }
-#hudOverlay::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
-#hudOverlay::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-#hudOverlay d { display: block; white-space: pre; }
-#hudOverlay span { color: var(--accent); font-weight: bold; float: right; margin-left: 12px; }
-#hudOverlay span.temp-val { color: #ff9933; }
 
-#pfdOverlay { position: absolute; bottom: 30px; right: 16px; background-color: rgba(0, 0, 0, 0.9); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6); display: none; pointer-events: auto; overflow: hidden; width: 140px; height: 140px; flex-shrink: 0; transition: width 0.2s, height 0.2s, bottom 0.2s; z-index: 2500; transform: scale(var(--hud-scale, 1)); transform-origin: bottom right; }
-#pfdCanvas { width: 100%; height: 100%; display: block; }
 
 /* Non-invasive satellite fetch status, a small pill, not a full-screen cover */
 #satLoadingOverlay { display: none; position: absolute; top: 10px; right: 12px; z-index: 50; align-items: center; gap: 8px; background: color-mix(in oklab, var(--panel) 90%, transparent); border: 1px solid var(--accent); color: var(--accent); padding: 6px 12px; border-radius: 3px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); pointer-events: none; }
 
 /* satellite product color-scale legend: compact vertical bar tucked into the top-left corner of the
-   2d player, clear of the sat/storm info (top right), pfd (bottom right), and hud (bottom left). */
+   2d player, clear of the sat/storm info (top right). */
 #satColorLegend { position: absolute; left: 8px; top: 8px; z-index: 45; width: 58px; background: color-mix(in oklab, var(--bg) 82%, transparent); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); border-radius: 5px; padding: 4px 5px 4px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); pointer-events: none; font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
 #satColorLegend.hidden { display: none; }
 #satColorLegend .leg-title { font-size: 8px; font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 3px; text-align: center; }
@@ -397,7 +383,7 @@ video#radarVideo { width: 100%; height: 100%; display: block; object-fit: contai
 #recordProgress #recordStopBtn:hover { filter: brightness(1.15); }
 
 /* HUD + sat badges read in Inter with tabular digits for cleaner numbers */
-#hudOverlay, #satTimeBadge, #satDayLabel {
+#satTimeBadge, #satDayLabel {
     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
@@ -641,16 +627,13 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-head-controls #topRightControls { position: static !important; inset: auto !important; flex-direction: row; align-items: center; }
 /* slightly smaller than their tailwind size (px-3 py-1.5 text-xs) */
 .qc-head-controls #resetAppBtn, .qc-head-controls #fullscreenBtn { padding: 5px 10px; font-size: 11px; }
-/* strip the player chrome from the reused map: HUD, PFD, attitude readout, info badges, and the
-   satellite / storm / smoothing / measure controls. QC wants a clean track and raw data. */
-.qc-map-slot #satControlGroup, .qc-map-slot #stormTrackToggleLabel, .qc-map-slot #satStepCluster,
-.qc-map-slot #measureCluster, .qc-map-slot #hudOverlay, .qc-map-slot #pfdOverlay,
-.qc-map-slot #attitudeHud, .qc-map-slot #mapInfoStack, .qc-map-slot #satLoadingOverlay,
-.qc-map-slot #satColorLegend { display: none !important; }
-.qc-map-slot label:has(#toggle8Hz) { display: none !important; }
+/* strip the player chrome from the reused map: attitude readout, info badges, the storm
+   toggle, and the sat frame stepper. the satellite picker itself rides the context bar. */
+.qc-map-slot #stormTrackToggleLabel, .qc-map-slot #satStepCluster,
+.qc-map-slot #attitudeHud, .qc-map-slot #mapInfoStack { display: none !important; }
 
 .qc-actionbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--panel) 60%, var(--bg)); }
-.qc-ov-title { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 12.5px; color: var(--accent); white-space: nowrap; }
+.qc-ov-title { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 12.5px; color: var(--accent); white-space: nowrap; }
 .qc-summary { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
 .qc-ov-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .qc-ov-field { font-size: 11px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; display: inline-flex; align-items: center; gap: 4px; }
@@ -658,6 +641,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-ov-btn { background: var(--panel-strip); border: 1px solid var(--border); color: var(--text); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: background .12s, border-color .12s; }
 .qc-ov-btn:hover { background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); border-color: var(--accent); }
 .qc-ov-btn.active { color: var(--accent); border-color: var(--accent); }
+.qc-ov-btn-accent { background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); border-color: var(--accent); color: var(--accent); }
+.qc-ov-btn-accent:hover { background: color-mix(in oklab, var(--accent) 30%, var(--panel-strip)); }
 .qc-ov-btn:disabled, #qcExportMenuBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 #qcExportMenuBtn:disabled:hover { background: var(--warn); border-color: var(--warn); }
 /* short divider between action-bar button groups */
@@ -679,9 +664,9 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-map-slot { height: 320px; }
 .qc-map-slot #mapPanel { height: 100%; margin: 0; padding: 8px; }
 /* playback controls live inside the context panel, under the map */
-.qc-timeline { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.qc-timeline { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .qc-time-label { flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); white-space: nowrap; text-align: right; }
-.qc-context-note { margin-top: 5px; font-size: 9.5px; line-height: 1.45; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; }
+.qc-context-note { margin-top: 5px; font-size: 9.5px; line-height: 1.45; color: var(--text-faint); font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; }
 
 /* report list (now inside the side column, scrolls to fill) */
 .qc-report { flex: 1; overflow-y: auto; padding: 10px; min-height: 0; }
@@ -704,6 +689,12 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-gap-tip { position: fixed; z-index: 10095; pointer-events: none; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text); background: var(--panel); border: 1px solid color-mix(in oklab, var(--warn) 50%, var(--border)); border-radius: 6px; padding: 4px 9px; box-shadow: 0 4px 14px rgba(0,0,0,.3); white-space: nowrap; }
 .qc-gap-tip.hidden { display: none; }
 .qc-empty { color: var(--text-muted); font-size: 13px; padding: 24px; }
+.qc-picker-note { font-size: 11.5px; line-height: 1.55; color: var(--text-muted); }
+.qc-picker-group { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--accent); margin: 10px 0 4px; }
+.qc-picker-row { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--text); padding: 3px 2px; cursor: pointer; }
+.qc-picker-row input { accent-color: var(--accent); }
+.qc-picker-row.qc-picker-stale { color: var(--text-faint); cursor: default; }
+.qc-picker-foot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .qc-charts-empty { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 22px; }
 .qc-fam { border: 1px solid var(--border); border-radius: 9px; margin-bottom: 8px; overflow: hidden; }
 .qc-fam-issue { border-color: color-mix(in oklab, var(--warn) 40%, var(--border)); }
@@ -734,7 +725,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 #missionSearchInput::placeholder { color: var(--text); opacity: .75; }
 /* the reused map's reset zoom button, sized down for the compact qc slot */
 .qc-map-slot #resetMapZoomBtn { font-size: 8.5px; padding: 1px 5px; }
-.qc-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--panel-strip); border: 1px solid var(--border); color: var(--text-muted); font-size: 9.5px; }
+.qc-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--panel-strip); border: 1px solid var(--border); color: var(--text-muted); font-size: 9.5px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 .qc-canvas-wrap { position: relative; height: 300px; }
 .qc-canvas-diff { height: 180px; margin-top: 6px; }
 /* per-graph fullscreen (the toolbar's full button) */
@@ -756,7 +747,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-lg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .qc-lg-rowlabel { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
 /* legend definition of the gap marker: same triangle the plot draws, defined once */
-.qc-lg-gapnote { display: inline-flex; align-items: center; gap: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.qc-lg-gapnote { display: inline-flex; align-items: center; gap: 5px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 .qc-lg-caret { display: inline-block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--warn); }
 /* flight context card sits centered (middle right) beside the diff card */
 .qc-diff-context { width: 440px; max-width: 38vw; flex: none; display: flex; flex-direction: column; align-self: center; }
@@ -772,6 +763,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-diff-sep { display: none; }
 /* warn-tinted badge (ref switched sources mid-flight) */
 .qc-badge-warn { color: var(--warn); border-color: color-mix(in oklab, var(--warn) 45%, var(--border)); }
+.qc-ref-jump { text-decoration: underline dotted; text-underline-offset: 2px; cursor: pointer; }
+.qc-ref-jump:hover { color: var(--accent); }
 
 /* slim control bar above each graph: legend hint left, tools right, fullscreen set apart */
 .qc-graph-bar { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin: 4px 0 3px; }
@@ -798,7 +791,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    reads as "not shown" while the glow stays and the label stays readable behind the dots */
 .qc-lg-group .qc-lg-chip { position: relative; overflow: hidden; }
 .qc-lg-group .qc-lg-chip:not(.active)::after { content: ''; position: absolute; left: -8%; right: -8%; top: 50%; border-top: 1.5px dotted #7a8494; transform: rotate(-14deg); pointer-events: none; }
-.qc-lg-bandinfo { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.qc-lg-bandinfo { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap; }
 .qc-lg-bandval { color: var(--accent); }
 /* ref connector: the pipe chains the ref to every sensor it rode, in order. negative margins
    cancel the item's flex gap so pipes and names touch seamlessly. the pipe carries an accent
@@ -826,9 +819,9 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 :root[data-theme="light"] #qcExportMenuBtn, :root[data-theme="light"] #qcExportMenuBtn:hover { color: #ffffff; }
 /* whole family absent: a plain empty frame that says so */
 .qc-nodata-box { display: flex; align-items: center; justify-content: center; height: 140px; border: 1px dashed var(--border); border-radius: 8px; margin: 6px 0 2px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 700; letter-spacing: 0.3em; }
-/* per-kind flag breakdown on its own row under the +N more toggle, parenthesized, each kind
+/* per-kind flag breakdown, parenthesized, inline right after the +N more toggle, each kind
    colored like its chips */
-.qc-issue-totals { flex-basis: 100%; margin-top: 1px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; color: var(--text-muted); }
+.qc-issue-totals { align-self: center; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; color: var(--text-muted); }
 .qc-tot-check { color: var(--crit); }
 .qc-tot-gap { color: var(--warn); }
 .qc-tot-nodata { color: var(--text-faint); }
@@ -865,7 +858,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-report-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
 .qc-report-note { font-size: 10px; color: var(--text-faint); }
 .qc-report-confirm-text { font-size: 12.5px; line-height: 1.5; color: var(--text); margin: 4px 0 6px; }
-.qc-legend-hint { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; color: var(--text); padding-bottom: 2px; }
+.qc-legend-hint { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; font-weight: 600; color: var(--text); padding-bottom: 2px; }
 .qc-chart-tools { display: flex; gap: 4px; padding: 3px 4px; background: var(--panel-strip); border: 1px solid var(--border-strong); border-radius: 7px; }
 .qc-fs-btn { padding: 4px 8px; font-size: 13px; line-height: 1.35; background: var(--panel-strip); border: 1px solid var(--border-strong); border-radius: 7px; color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s; }
 .qc-fs-btn:hover { color: var(--text); border-color: var(--accent); }

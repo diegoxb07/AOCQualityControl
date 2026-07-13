@@ -648,7 +648,7 @@
         // coefficient of variation: mean sigma relative to the mean of the measured signal, as a
         // percent. meaningless when the signal averages near zero (vertical wind), so n/a there.
         const grand = Math.abs(mSum / sN);
-        const cv = grand > 1e-6 ? ((sSum / sN) / grand * 100).toFixed(2) : null;
+        const cv = grand > 1e-6 ? ((sSum / sN) / grand * 100).toFixed(4) : null;
         return { mean: (sSum / sN).toFixed(2), max: sMax.toFixed(2), at: qcTimeLabels[sMaxI] || '', cv: cv };
     }
 
@@ -1003,16 +1003,21 @@
             if (fam.flightMean) statBits += ' <span class="qc-badge">avg ' + fam.flightMean.var + ': ' + fam.flightMean.value + '</span>';
             // the ref channel is supposed to ride one sensor all flight; call it out when it moved
             if (fam.refInfo && fam.refInfo.switched) {
-                // every switch is named with its moment, not an ambiguous "mid flight"
+                // every switch is named with its moment, not an ambiguous "mid flight"; each
+                // time is clickable and jumps the playhead to that switch
                 const segs = fam.refInfo.segments || [];
                 const ride = segs.length > 1
-                    ? segs.map((s, i) => i ? s.source + ' at ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '?') : s.source).join(', then ')
+                    ? segs.map((s, i) => i ? s.source + ' at <span class="qc-ref-jump" data-idx="' + s.fromIdx + '" title="Jump to this switch">' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '?') + '</span>' : s.source).join(', then ')
                     : fam.refInfo.sources.join(' then ');
                 statBits += ' <span class="qc-badge qc-badge-warn">' + fam.ref + ' switched sources: ' + ride + '</span>';
             }
             head.innerHTML = '<span class="qc-chart-title">' + fam.label + '</span>' +
                 '<span class="qc-unit">' + qcUnitLabel(fam.unit) + '</span>' +
                 '<span class="qc-chart-meta">' + statBits + '</span>';
+            head.querySelectorAll('.qc-ref-jump').forEach(el => el.addEventListener('click', () => {
+                const i = parseInt(el.dataset.idx, 10);
+                if (qcAxisRef && qcAxisRef[i] != null && typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[i]));
+            }));
             panel.appendChild(head);
             // issues are visible on the panel itself, no interaction needed: one chip per absent
             // member and per in-flight gap (click a gap chip to jump there), ground gaps dimmed.

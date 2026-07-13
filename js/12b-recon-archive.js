@@ -793,7 +793,7 @@
         const tooltip = document.getElementById('stormTrackTooltip');
         if (!tooltip || !canvas) return;
         canvas.addEventListener('mousemove', (e) => {
-            if (isDraggingMap || isDraggingShape || isMeasuring) { tooltip.classList.add('hidden'); return; }
+            if (isDraggingMap) { tooltip.classList.add('hidden'); return; }
             const rect = canvas.getBoundingClientRect();
             const mx = e.clientX - rect.left, my = e.clientY - rect.top;
             const idx = stormPointIndexAt(mx, my);
@@ -817,7 +817,7 @@
                 canvas.style.cursor = 'pointer';
             } else {
                 tooltip.classList.add('hidden');
-                if (drawnShapes.length === 0) canvas.style.cursor = '';
+                canvas.style.cursor = '';
             }
         });
         canvas.addEventListener('mouseleave', () => {
