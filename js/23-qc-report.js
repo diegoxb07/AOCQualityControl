@@ -3,10 +3,9 @@
    Loaded as a classic (non-module) script; all parts share one global scope, in order.
 
    This owns the QC user surface: the always-on full-page app shell, with a per-sensor
-   presence/gap/flag report down the side and the family charts (js/22) filling the
-   rest. It also exports the current flight's report as CSV, keeps a cross-flight difference-stats
-   store in IndexedDB (replacing the script's N42/N43/N49_Stats.txt files) with its own CSV export,
-   and jumps the timeline (tracker, HUD, MMR, charts) to the exact second a sensor broke. */
+   presence/gap/flag report down the side and the family charts (js/22) filling the rest. It
+   exports the current flight's report as CSV, keeps a cross-flight difference-stats store in
+   IndexedDB with its own CSV export, and jumps the map and charts to the exact second a sensor broke. */
 
     // this is the QC tool, not the visualizer: tells the reused map to drop its player chrome
     // (ground-track + true-heading arrows) so the track reads clean. see js/15-map-render.js.
@@ -120,7 +119,7 @@
         const qapp = document.getElementById('qcApp');
         if (qapp && qapp.classList.contains('qc-side-open')) {
             qapp.classList.remove('qc-side-open');
-            const st = document.getElementById('qcSideToggle'); if (st) st.classList.remove('active');
+            const st = document.getElementById('qcSideToggle'); if (st) st.classList.remove('qc-ov-sel');
         }
     }
 
@@ -150,8 +149,6 @@
         qcRenderCharts(document.getElementById('qcChartsPanel'), qcResult);
         qcRefreshTimeline();
     }
-
-    function qcSecToHHMM(sec) { let s = Math.round(sec) % 86400; if (s < 0) s += 86400; const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return String(h).padStart(2, '0') + String(m).padStart(2, '0'); }
 
     function qcBuildReportTable() {
         const rep = document.getElementById('qcReportPanel'); if (!rep) return;
@@ -456,8 +453,7 @@
         qcStatsPicker.style.display = 'flex';
     }
 
-    // ---- QC clock (there is no timeslider: graphs and arrow keys are the scrubber) --------------
-    // kept as a shim; older call sites just refresh the clock now
+    // ---- QC clock (graphs and arrow keys are the scrubber; there is no timeslider) --------------
     function qcRefreshTimeline() { qcSyncTimeLabel(); }
     function qcSyncTimeLabel() {
         const lbl = document.getElementById('qcTimeLabel'); if (!lbl) return;
@@ -502,7 +498,7 @@
               '<div class="qc-summary" id="qcSummaryPills"></div>' +
               '<div class="qc-ov-actions">' +
                 '<button id="qcPhaseStatsBtn" class="qc-ov-btn" title="Takeoff / mid-flight / landing max, mean, median for a variable (the script\'s PSM statement, for any sensor)">Max/Mean/Median</button>' +
-                '<button id="qcSideToggle" class="qc-ov-btn qc-ov-btn-accent" title="Show or hide the 2D/3D flight-track map and per-sensor report sidebar">Flight Context</button>' +
+                '<button id="qcSideToggle" class="qc-ov-btn qc-ov-btn-flight" title="Show or hide the 2D/3D flight-track map and per-sensor report sidebar">Flight Context</button>' +
                 '<div class="qc-vdiv qc-vdiv-sm"></div>' +
                 '<div class="qc-export-wrap">' +
                   '<button id="qcExportMenuBtn" class="qc-ov-btn" title="Download reports and stats">Export ▾</button>' +
@@ -593,6 +589,7 @@
                     '<li><b>Gap markers:</b> the small triangle in the top strip marks a gap; the faint yellow pillar under it spans the missing seconds. Click the triangle itself to jump the playhead there AND zoom into the gap; clicking anywhere else just moves the playhead. Hover the pillar for the exact window and length.</li>' +
                     '<li><b>Lines:</b> dotted verticals are takeoff and landing, the solid white line is the playhead, and NO DATA appears in place when a family has nothing to plot.</li>' +
                     '<li><b>Hover:</b> the tooltip picks the point nearest the cursor in both axes, so aiming at a spike grabs the spike; every other visible sensor at that second lists below it.</li>' +
+                    '<li><b>Flight Track:</b> latitude and longitude share one map panel (longitude across, latitude up) with faint geography behind the tracks and takeoff, landing, and playhead dots; click a track to jump the playhead there.</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -602,7 +599,7 @@
                     '<li><b>Archive (API online):</b> search by id, storm, or date, or pick Year, Storm, Flight, then Load Flight + Storm Track.</li>' +
                     '<li><b>Manual upload:</b> drop a .txt or .nc on the upload zone; works with no internet.</li>' +
                     '<li><b>Already loaded:</b> every flight is stored on this device and reopens instantly; the red cross removes one. The store keeps the 40 most recent.</li>' +
-                    '<li><b>Pre-load Flight Data:</b> download whole seasons for instant, offline reopening.</li>' +
+                    '<li><b>Batch Load Flight Data:</b> download whole seasons for instant, offline reopening.</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -620,7 +617,7 @@
                     '<li>One checkbox per variable; click to select or unselect it.</li>' +
                     '<li><b>Group chips:</b> a chip toggles its whole sensor group on or off, and several groups can be lit on one graph at the same time.</li>' +
                     '<li><b>Standard deviation and coefficient of variation</b> for the selected sensors sit under each graph, with the worst moment named.</li>' +
-                    '<li><b>Ref linkage:</b> the pipe connector chains the ref to every sensor it rode. A badge in the title lists each switch; click a switch time to jump there.</li>' +
+                    '<li><b>Ref linkage:</b> the pipe connector chains the ref to every sensor it rode; the source in force at the playhead reads blue as you scrub. A badge in the title lists each switch; click a switch time to jump there.</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -853,13 +850,16 @@
         });
         document.getElementById('qcCmdViewGraph').addEventListener('click', () => qcScrollToVar(document.getElementById('qcCmdVar').value));
         document.getElementById('qcPhaseStatsBtn').addEventListener('click', qcToggleCmdPanel);
-        document.getElementById('qcCmdClose').addEventListener('click', () => document.getElementById('qcCmdPanel').classList.add('hidden'));
+        document.getElementById('qcCmdClose').addEventListener('click', () => {
+            document.getElementById('qcCmdPanel').classList.add('hidden');
+            document.getElementById('qcPhaseStatsBtn').classList.remove('qc-ov-sel');
+        });
         document.getElementById('qcCmdVar').addEventListener('change', qcRenderPhaseStats);
         // flight 2D/3D sidebar (map + per-sensor report): hidden by default, toggled on demand. the
         // map canvas needs a resize kick when it becomes visible so it sizes to its slot.
         document.getElementById('qcSideToggle').addEventListener('click', () => {
             const on = app.classList.toggle('qc-side-open');
-            document.getElementById('qcSideToggle').classList.toggle('active', on);
+            document.getElementById('qcSideToggle').classList.toggle('qc-ov-sel', on);
             if (on) setTimeout(() => {
                 try { window.dispatchEvent(new Event('resize')); } catch (e) {}
                 // the player was not driven while hidden; pull a free-roaming playhead back into
@@ -954,9 +954,10 @@
         const p = document.getElementById('qcCmdPanel');
         const show = p.classList.contains('hidden');
         p.classList.toggle('hidden', !show);
+        const b = document.getElementById('qcPhaseStatsBtn');
+        if (b) b.classList.toggle('qc-ov-sel', show);
         if (show) {
-            // the dock pops out right under its button instead of the bottom corner
-            const b = document.getElementById('qcPhaseStatsBtn');
+            // the dock pops out right under its button
             if (b) {
                 const r = b.getBoundingClientRect(), w = p.offsetWidth || 340;
                 p.style.left = Math.max(8, Math.min(Math.round(r.left), window.innerWidth - w - 8)) + 'px';

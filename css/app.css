@@ -662,6 +662,13 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-ov-btn.active { color: var(--accent); border-color: var(--accent); }
 .qc-ov-btn-accent { background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); border-color: var(--accent); color: var(--accent); }
 .qc-ov-btn-accent:hover { background: color-mix(in oklab, var(--accent) 30%, var(--panel-strip)); }
+/* the flight context button stands out in blue without reading as selected */
+.qc-ov-btn-flight { background: color-mix(in oklab, var(--accent) 22%, var(--panel-strip)); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.qc-ov-btn-flight:hover { background: color-mix(in oklab, var(--accent) 34%, var(--panel-strip)); }
+/* the shared selected state for the max/mean/median and flight context toggles: solid fill,
+   pressed in, so an open panel reads unmistakably as on */
+.qc-ov-btn.qc-ov-sel { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3); }
+.qc-ov-btn.qc-ov-sel:hover { background: var(--accent); filter: brightness(1.08); }
 .qc-ov-btn:disabled, #qcExportMenuBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 #qcExportMenuBtn:disabled:hover { background: var(--warn); border-color: var(--warn); }
 /* short divider between action-bar button groups */

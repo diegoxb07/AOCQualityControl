@@ -12,12 +12,6 @@
     function qcRound(x, n) { if (x === null || x === undefined || Number.isNaN(x)) return NaN; const p = Math.pow(10, n); return Math.round(x * p) / p; }
     function qcMean(arr) { let s = 0, c = 0; for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (!Number.isNaN(v)) { s += v; c++; } } return c ? s / c : NaN; }
 
-    // presence: 'nodata' if the channel is entirely absent, 'gap' if it has holes, 'ok' if full.
-    function qcPresence(v) {
-        let n = 0; for (let i = 0; i < v.length; i++) if (!Number.isNaN(v[i])) n++;
-        return n === 0 ? 'nodata' : n < v.length ? 'gap' : 'ok';
-    }
-
     // gaps: runs of missing seconds INSIDE a channel's active window, i.e. holes strictly between its
     // first and last real sample. the lead-in before a sensor comes online and the tail after it stops
     // are not gaps (a sensor that simply starts late is not "missing data"). returns { from, to, secs }.
@@ -118,34 +112,6 @@
         return out;
     }
 
-    // isolated discontinuity: one second that jumps far and returns with no sloped transition
-    // (2 -> 200 -> 2 is a sensor fault, a ramp is not). the one erroneous-value check that needs
-    // no per-regime baseline (see spec: general thresholds are deferred until a flight corpus lands).
-    function qcIsolatedSpike(v, i, jump) {
-        const a = v[i - 1], b = v[i], c = v[i + 1];
-        if (Number.isNaN(a) || Number.isNaN(b) || Number.isNaN(c)) return false;
-        return Math.abs(b - a) > jump && Math.abs(b - c) > jump && Math.sign(b - a) !== Math.sign(c - b);
-    }
-
-    // scan a channel for isolated spikes. the jump threshold auto-scales to the channel: it is a
-    // large multiple of the channel's typical second-to-second step (median absolute first
-    // difference), so it fires the same way on a 1000 mb pressure and a 10 m/s wind without a fixed
-    // bound that would misfire across regimes.
-    function qcScanSpikes(v) {
-        // typical step = median of |v[i]-v[i-1]| over consecutive real samples
-        const steps = [];
-        for (let i = 1; i < v.length; i++) { const a = v[i - 1], b = v[i]; if (!Number.isNaN(a) && !Number.isNaN(b)) steps.push(Math.abs(b - a)); }
-        if (steps.length < 8) return [];
-        steps.sort((p, q) => p - q);
-        const medStep = steps[steps.length >> 1];
-        // guard against a flat channel (medStep ~ 0): fall back to a fraction of the value range
-        let range = 0; { let lo = Infinity, hi = -Infinity; for (let i = 0; i < v.length; i++) { const x = v[i]; if (!Number.isNaN(x)) { if (x < lo) lo = x; if (x > hi) hi = x; } } if (hi > lo) range = hi - lo; }
-        const jump = Math.max(medStep * 20, range * 0.25, 1e-6);
-        const flags = [];
-        for (let i = 1; i < v.length - 1; i++) if (qcIsolatedSpike(v, i, jump)) flags.push(i);
-        return flags;
-    }
-
     // auto-detect the in-air window. takeoff = first second the aircraft is clearly airborne, landing
     // = last such second. driven by GPS altitude (rises above ground + 60.96 m / 200 ft) with an
     // airspeed fallback. optional overrides let the UI pin exact takeoff/landing seconds.
@@ -180,7 +146,7 @@
 
         if (landIdx <= toIdx) { toIdx = 0; landIdx = n - 1; }
         const midIdx = Math.floor((toIdx + landIdx) / 2);
-        return { toIdx: toIdx, landIdx: landIdx, midIdx: midIdx, takeoffSec: timeAxis[toIdx], landingSec: timeAxis[landIdx], altChannel: alt ? true : false };
+        return { toIdx: toIdx, landIdx: landIdx, midIdx: midIdx, takeoffSec: timeAxis[toIdx], landingSec: timeAxis[landIdx] };
     }
 
     // the derived pressure block, ported verbatim from qc_plots_with_map_v2.py (Dr. Willoughby SLP).

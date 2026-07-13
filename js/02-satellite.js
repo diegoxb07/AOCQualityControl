@@ -366,7 +366,7 @@
                 target.appendChild(manualUploadWrap);
             }
         }
-        // "API Offline" cover over the season dropdown in the pre-load flight data modal
+        // "API Offline" cover over the season dropdown in the batch load flight data modal
         const preloadApiOfflineToast = document.getElementById('preloadApiOfflineToast');
         if (preloadApiOfflineToast) preloadApiOfflineToast.classList.toggle('hidden', !apiDown);
         // "Preload selected" only downloads the checked ARCHIVE missions, so it's dead while the API is

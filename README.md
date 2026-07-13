@@ -1,52 +1,130 @@
 # AOC QC Tool
 
-An HTML frontend quality-control tool for NOAA Aircraft Operations Center (AOC) flight-level data. It is based on the `qc_plots_with_map_v2.py` script that was previously used, that required a more extensive and much less autonomous workflow.
+A browser quality-control tool for **Aircraft Operations Center** flight-level data. It loads a hurricane-hunter flight, grades every sensor against its redundant siblings and reference, separates recorder gaps from per-sensor gaps, flags physically implausible values, reproduces the legacy `qc_plots_with_map_v2.py` statistics, and exports the same reports the archive workflow expects.
 
-This new tool can automatically load a hurricane-hunter flight (`.nc`), but has the option to also upload manually in case the API is offline. The QC tool does not filter any data unlike the AOCVisualizer tool on a continuous 1-second axis, separates recorder-level data gaps from per-sensor gaps, reproduces the script's statistics, draws every sensor family with its redundant members and their differences, and can put the flight on a 2D/3D map for context.
+Built for the AOC Science Branch to replace a slower, manual script workflow. Runs entirely in the browser, API-backend optional.
 
-It is a purpose-built QC tool that reuses selected pieces of the AOC Mission Visualizer (the design system, NetCDF parser, archive loader, and the 2D/3D map). 
+- **Tool Link:** https://diegoxb07.github.io/AOCQualityControl/ (GitHub Pages)
+- **Repository:** https://github.com/diegoxb07/AOCQualityControl
 
-## Specifications
+It reuses selected pieces of the AOC Mission Visualizer (the design system, NetCDF parser, archive loader, and the 2D/3D map for spatial context), but QC is the whole tool, not a button bolted onto the visualizer.
 
-- **Raw data.** The QC parser (`parseFlightRawQC` in `js/11b-parser-core.js`) does no cleanup: no minimum-altitude cut, no low-airspeed cut, no glitch or duplicate-time filters either. Every catalog variable is indexed onto a continuous 1-second axis; a missing second is an explicit gap, never a silently dropped row.
-- **Three kinds of gap, told apart.**
-  - Recording gaps: seconds where no instrument recorded at all. Reported once at flight level, phrased exactly like the archive's `GapReport.dat` ("Data gap from 13:31:59 - 13:33:05"), and exportable in that same format with the Gap Report button.
-  - Late-start gaps: (a sensor quiet before takeoff) Flagged but not counted against the sensor's status, since warm-up on the ramp is normal ops.
-  - In-flight sensor gaps: the real QC signal. These drive the GAP status, the summary counts, and the chart shading.
-- **Check flags**: physically implausible values (humidity above 200 percent, wind changes of 100 m/s in under 15 seconds, vertical wind beyond 40 m/s, latitude or longitude moving more than 5 degrees within 30 minutes) are flagged red as regions, prioritized over gaps, shaded on the graphs, and rolled into every report surface. Users judge each region in its flight context (eyewall penetration vs cruise).
-- **Stacked family graphs**, one family per row in the script's panel order with SFMR families last; the difference graph opens from its button and plots every combination within a sensor group (cross-group pairs selectable for curiosity), with each combination's max difference listed under the graph. Each graph has a toolbar (scrub, pan, select zoom), wheel zoom, a floating Reset Zoom while zoomed, save-png and fullscreen buttons at its corner, and a 2D-nearest hover that grabs spikes and reads every sensor's exact value at that second. The issue strip lists Check regions, gaps, absent sensors, and late start / early stop notes with color-coded per-kind totals; clicking a chip or any point jumps the timeline and map to that second. Gaps are shaded with width-matched carets on top; empty families say NO DATA in place.
-- **Legend system**: one checkbox per variable, glowing group chips that swap sensor kinds (direct vs GPS) exclusively, an always-listed standard deviation between the selected sensors (whole-flight mean sigma and the worst disagreement moment, bottom right of each block), and a ref pipe connector chaining the ref to every sensor it rode across the flight in order (mid-flight switches get a red badge).
-- **Statistics**: takeoff / mid-flight / landing max, mean, median for any variable on request (the Max/Mean/Median dock), whole-flight mean UWZ, and each pair's max difference beside every diff plot (the cross-flight store still records the mean differences, matching the script's stats files).
-- **Navigation and feedback**: a graph search bar jumps to any variable, sensor, or graph title; the sidebar player has play, speed, and the flight clock; a report button opens a form that mails feedback to diegoxiaobarbero@gmail.com with the mission id attached. A Share QC Link reopens an archive mission for anyone at the sharer's playhead, tracker view, and sidebar state. Takeoff and landing are auto-detected from the flight data.
-- **Derived surface pressure**: the Dr. Willoughby SLP block and standard SLP, ported verbatim from the script.
-- **Exports**: the Indiv. Sensor Report CSV, the archive-format Gap Report, and `N42/N43/N49_Stats.txt` in the script's exact format (headerless comma-separated lines, one per flight, same column order and quirks, so downloads append straight onto historical stats files). Every loaded flight is saved to the on-device cross-flight store automatically (no button needed).
-- **Context on demand**: the flight-track map (2D or 3D) and the per-sensor report live in a sidebar that is hidden by default; the Flight 2D/3D button opens it. Playback controls (play and the flight clock) live inside that sidebar.
+---
 
-## Moving the recon API host
+## What it's for
 
-Everything currently points at `https://joshmurdock.net/api`. When the API moves to its new host, change exactly two things:
+| Use case | What the tool gives you |
+| --- | --- |
+| **Post-flight QC** | Load a flight, read every sensor family on stacked graphs with its members and reference overlaid, spot gaps and disagreement at a glance, confirm takeoff/landing, and export the sensor, gap, and plane stats the archive expects. |
+| **Error summary** | Fill and download the mission's Error Summary PDF, prefilled from the flight (id, times, ground locations, ref-derived sensor designations) and editable before export. |
+| **Sharing** | Hand a colleague a self-contained interactive HTML of the whole report, or a link that reopens an archive mission at your exact playhead and view. |
 
-1. `RECON_API_BASE` in `js/02-satellite.js` (single constant; every API call in the app derives from it).
-2. The Content-Security-Policy `<meta>` tag in `index.html`: replace `https://joshmurdock.net` in both `connect-src` and `img-src` with the new host.
+---
 
-Doc comments in `js/01-state.js` and `js/12b-recon-archive.js` also mention the old URL and can be updated for tidiness, but they do not affect behavior. `docs/CONNECTIVITY.md` describes what the API is used for.
+## 1. Loading a mission
+
+Both paths feed the **same** QC parser, so the graphs, report, and exports behave identically either way.
+
+**Archive browser (needs the API online).** Pick **Year → Storm → Flight**, then **⤓ Load Flight + Storm Track**. The search box takes a full mission id to load it directly, or a storm name alone to find that storm across every season. Every flight you load is saved on this device and reopens instantly from the **already loaded** list, newest first.
+
+**Manual upload (always works, no internet).** Drop a **`.txt`** or **`.nc`** file on the **"or upload:"** zone.
+
+> Archive controls greyed out with an **"API Offline"** banner mean the archive service is unreachable; use manual upload. It re-checks periodically and re-enables itself.
+
+**⤓ Batch Load Flight Data** downloads whole seasons for instant, offline reopening.
+
+---
+
+## 2. Takeoff, landing & trimming
+
+Takeoff and landing are auto-detected from altitude (airspeed as fallback). Everything recorded more than five minutes before takeoff is trimmed away and never reaches the graphs, gaps, or stats; those five minutes are the **takeoff phase** of the phase statistics.
+
+To override, type `HHMMSS` times in the **T/O** and **LND** boxes in the header and press **Apply**; the whole report (trim, phases, stats, references, graphs) recomputes. **Auto** returns to detection.
+
+---
+
+## 3. Reading a graph
+
+One family per row, in the script's panel order, SFMR families last.
+
+- **Gap markers.** A small triangle in the top strip marks a gap; the faint yellow pillar under it spans the missing seconds. Click the triangle to jump the playhead there and zoom into the gap; hover the pillar for its window and length. One-second gaps draw as thin lines until you zoom in.
+- **Check regions.** Red shading marks physically implausible values (humidity above 200 percent, a 100 m/s wind change in under 15 s, vertical wind beyond 40 m/s, a 5 degree position move within 30 minutes). Judge each in flight context: a 20 m/s vertical wind is suspect at cruise, plausible in an eyewall.
+- **Markers.** Dotted verticals are takeoff and landing; the solid line is the playhead. `NO DATA` appears in place when a family has nothing to plot.
+- **Hover.** The tooltip picks the point nearest the cursor in both axes, so aiming at a spike grabs it; every other visible sensor's value at that second lists below.
+
+**Tools:** scrub (drag moves the playhead), pan (drag the window, vertically too), and select zoom (drag a box); the wheel always zooms time. **Reset Zoom** floats on a zoomed graph, as does save-PNG and fullscreen. The **graph search** bar jumps to any variable, sensor, or title.
+
+---
+
+## 4. Legend & references
+
+One checkbox per variable. **Group chips** toggle a whole sensor set (direct vs GPS, and so on); several groups can be lit at once. Each block lists the **standard deviation** and **coefficient of variation** between the selected sensors, with the worst-disagreement moment named.
+
+A pipe connector chains the **reference** to every sensor it rode across the flight, in order. If it switched mid-flight, a badge in the title names each switch with its time (click a time to jump there), and the source in force at the playhead reads blue as you scrub.
+
+---
+
+## 5. Issues, pills & statistics
+
+**Summary pills** (Check, OK, gaps, no data) list their sensors on click and jump to the first issue and its graph. The per-graph **chip strip** does the same per family, with the flag breakdown in parentheses beside the **+N more** toggle.
+
+**Max/Mean/Median** pops out under its button: takeoff, mid-flight, and landing max, mean, and median for any variable. The **Difference Between Sensors** graph plots every in-group pair with its max difference listed; cross-group pairs sit on their own row.
+
+The **Flight Track** panel fuses latitude and longitude into one map (longitude x, latitude y) with faint geography behind the tracks, takeoff/landing/playhead dots, and a GPS / Blended Inertial group chip; clicking a track jumps the playhead there.
+
+---
+
+## 6. Flight context
+
+**Flight Context** opens the sidebar: the 2D/3D map tracker, the per-sensor report, **Play**, the speed control, the satellite overlay picker, and the flight clock. The 2D map follows the aircraft; pan away and **Recenter on Aircraft** appears. Scrub from any graph, the arrow keys, or Play, and every surface follows the same playhead.
+
+Keyboard: **Space** play/pause, **← / →** step one second (**Shift** for ten), **Ctrl/Cmd + Z** step a zoom back, **Esc** close panels.
+
+---
+
+## 7. Exporting
+
+| Export | What it is |
+| --- | --- |
+| **Indiv. Sensor Stats CSV** | One row per sensor (presence, gaps, missing seconds, early stop) plus each pair's max difference. |
+| **Indiv. Plane Stats CSV** | Pick which stored flights go into each plane's `N42/N43/N49_Stats.txt`, byte-for-byte in the legacy format so downloads append onto historical files. Every loaded flight saves automatically. |
+| **Gap Report (.dat)** | Recorder gaps in the archive's `GapReport.dat` wording. |
+| **Interactive Report (.html)** | One self-contained file: every graph interactive (zoom, hover), the gap markers, the flight track, and the summary. Opens anywhere, no flight load needed, sendable to anyone. |
+| **Error Summary (.pdf)** | The `qc_Error_Summary` form, prefilled by the tool and editable; the PDF layout matches the script exactly. |
+| **Share QC Link** | Reopens an archive mission at your playhead, tracker view, and sidebar state. |
+
+The **Error Summary** modal prefills the flight id, takeoff/landing times, flight directory, ground locations (nearest airport within a few miles of the aircraft at takeoff/landing), and sensor designations (from what the reference variables rode). Fields the tool can't derive are left blank rather than guessed; required fields flag red while empty. Click a designation row to graph its candidate sensors beside the form.
+
+---
 
 ## Architecture
 
-Classic scripts in `index.html`, one global scope, load order matters, `?v=YYYYMMDD<letter>` cache-buster on every asset (bump it after editing any css/js).
+Classic scripts in `index.html`, one global scope, load order matters, a `?v=YYYYMMDD<letter>` cache-buster on every asset (bump it after editing any css/js). No build step, no dependencies; all libraries, fonts, basemap, and the airport table ship in the repo, so manual uploads work with no internet.
 
 QC-specific files:
 
 | File | Role |
-|---|---|
-| `js/00b-qc-catalog.js` | sensor catalog: families, per-airframe members (P-3 `H`/`I`, G-IV `N`), references, difference pairs. The catalog is the allow-list |
-| `js/11b-parser-core.js` | adds `parseFlightRawQC` (keep-all-rows, 1 s axis) alongside the visualizer's cleaning parser |
-| `js/parse-worker.js` | returns the QC raw dataset alongside the cleaned playback rows |
-| `js/21-qc-engine.js` | presence, coverage, recording/ground/in-flight gap classification, phase stats, diffs, derived SLP |
-| `js/22-qc-charts.js` | stacked family + diff graphs, gap shading, playhead, toolbar, issue strips, theme recolor |
-| `js/23-qc-report.js` | the app shell, per-sensor report, exports, cross-flight store, timeline, sidebar, map relocation |
+| --- | --- |
+| `js/00b-qc-catalog.js` | sensor catalog: families, per-airframe members (P-3 `H`/`I`, G-IV `N`), references, difference pairs. The allow-list. |
+| `js/11b-parser-core.js` | `parseFlightRawQC`: keeps every row on a continuous 1-second axis, no cleanup. |
+| `js/21-qc-engine.js` | presence, coverage, gap classification, phase stats, differences, derived SLP. |
+| `js/22-qc-charts.js` | stacked family and difference graphs, the flight-track map, gap shading, playhead, toolbar, issue strips. |
+| `js/23-qc-report.js` | the app shell, per-sensor report, exports, cross-flight store, sidebar, map relocation. |
+| `js/24-qc-export-html.js` | the self-contained interactive HTML export. |
+| `js/25-qc-error-summary.js` | the Error Summary PDF and its prefill logic. |
+| `data/airports.json` | large/medium airports worldwide (OurAirports, public domain), for ground-location lookup. |
 
-The remaining `js/` files are the reused visualizer subsystems (parser, map, archive loader, playback engine, layout, theming). The visualizer's own page stays in the DOM underneath the QC app so its wiring keeps working, but only the map panel, mission loader, and top-right controls are shown (relocated into the QC layout).
+The remaining `js/` files are the reused visualizer subsystems (parser, map, archive loader, layout, theming). The visualizer's own page stays in the DOM underneath the QC app so its wiring keeps working; only the map panel, mission loader, and top-right controls are relocated into the QC layout.
+
+---
+
+## Running & deploying
+
+- **No build step.** Open the tool link, or serve the directory statically (`python3 -m http.server`).
+- **Deployment:** GitHub Pages.
+- **No test suite.** Verify changes by opening the page and exercising the load → read → export flow.
+
+---
 
 ## Note
 

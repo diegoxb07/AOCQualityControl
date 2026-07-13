@@ -1,12 +1,11 @@
-/* QC Mode, family panels + difference sub-plots (forked from js/17-charts.js style)
+/* QC Mode, family panels + difference sub-plots
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   For each catalog family we emit one main panel that overlays every member + reference, plus a
-   difference sub-panel whose badges carry each pair's max diff, following the script's p / pa
-   pairing. Charts read the raw arrays on the continuous 1-second axis (not the cleaned playback
-   rows), so gaps render as real breaks. Two Chart.js plugins add QC signal on top: gapShade fills
-   whole-family data holes, flagMarks dots isolated spikes, and a playhead line tracks the timeline. */
+   Each catalog family draws one main panel overlaying every member and its reference, plus a
+   difference sub-panel whose badges carry each pair's max diff. Charts read the raw arrays on
+   the continuous 1-second axis, so gaps render as real breaks. Chart.js overlay plugins draw
+   the gap shading and markers, the check regions, and the playhead line. */
 
     let qcCharts = {};                 // canvasId -> Chart instance
     let qcTimeLabels = null;           // HH:MM:SS label per axis second, built once per flight
@@ -416,16 +415,13 @@
         });
         if (mn === Infinity) return null;
         if (mn === mx) { mn -= 1; mx += 1; }
-        // extra pad on top keeps the caret strip clear, standing in for the axis headroom
-        // that no longer applies once the scale is pinned
+        // extra pad on top keeps the gap-marker strip clear of the data
         const r = mx - mn;
         return { min: mn - r * 0.06, max: mx + r * 0.16 };
     }
 
-    // after any gesture: re-slice to the new window and update the toolbar. an xy wheel-out (or a
-    // stale box zoom) can leave the y window grossly wider than the visible data, which flattens
-    // every line; whenever that happens the y axis snaps back to fit the data. never after a pan:
-    // a pan is a deliberate move of the window, so the axes must stay exactly where the user put them
+    // after a gesture: re-slice to the new window. a wide y window that flattens every line snaps
+    // back to fit the visible data, except after a pan, which must leave the axes where the user put them
     function qcZoomChanged(chart, panned) {
         qcActiveChart = chart;
         qcRefreshResolution(chart);
@@ -467,10 +463,8 @@
         }
     }
 
-    // reset zoom: back to the default view, deterministically. resetZoom and option juggling both
-    // proved unreliable (the options resolver treats undefined as "fall through to the previous
-    // pinned value"), so the home window is set with concrete numbers through the plugin's own
-    // zoomScale api: full flight on x, then y fitted to the data actually visible
+    // reset zoom: set the home window with concrete numbers through the plugin's zoomScale api,
+    // full flight on x, then y fitted to the data actually visible
     function qcResetChart(chart) {
         if (chart.$qcIsMap) {
             // the map's home is its own lat/lon extents, not the time axis
@@ -698,7 +692,7 @@
             const box = document.createElement('span'); box.className = 'qc-lg-box' + (on ? '' : ' off');
             if (on) { box.style.background = String(d.borderColor); box.style.borderColor = String(d.borderColor); }
             const txt = document.createElement('span'); txt.textContent = d.label;
-            it.appendChild(box); it.appendChild(txt); it.$txt = txt;
+            it.appendChild(box); it.appendChild(txt);
             it.addEventListener('click', () => { chart.setDatasetVisibility(k, !chart.isDatasetVisible(k)); rerender(); });
             return it;
         };
@@ -746,9 +740,8 @@
             }
             bar.appendChild(it);
         });
-        // no button anymore: the standard deviation between the selected sensors is always
-        // listed, at the right end of the panel's bottom strip. families with fewer than two
-        // similar sensors selected list nothing.
+        // the standard deviation between the selected sensors, at the right end of the panel's
+        // bottom strip. families with fewer than two similar sensors selected list nothing.
         const bandHost = chart.$qcBandSlot || bar;
         if (chart.$qcBandSlot) chart.$qcBandSlot.innerHTML = '';
         const st = qcBandStats(chart);

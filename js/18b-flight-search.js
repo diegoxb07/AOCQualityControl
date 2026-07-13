@@ -149,7 +149,7 @@
         box.innerHTML = '';
         fsFlights = fsSearchableFlights();
         if (!fsFlights.length) {
-            box.innerHTML = '<div style="color:var(--text-faint);padding:4px 0;">No flights loaded yet. Load a mission or use Pre-load Flight Data, then search across them.</div>';
+            box.innerHTML = '<div style="color:var(--text-faint);padding:4px 0;">No flights loaded yet. Load a mission or use Batch Load Flight Data, then search across them.</div>';
         } else {
             fsFlights.forEach((f) => {
                 const label = document.createElement('label');
@@ -337,7 +337,7 @@
     const modal = $('flightSearchModal');
     if (modal) modal.addEventListener('mousedown', (e) => { if (e.target === modal) closeModal(); });
 
-    // "Load more flights" hands off to the Pre-load Flight Data modal (which also takes uploads), then
+    // "Load more flights" hands off to the Batch Load Flight Data modal (which also takes uploads), then
     // reopens this modal when that one closes so the newly loaded flights show up in the checklist.
     const preloadJump = $('fsPreloadBtn');
     if (preloadJump) preloadJump.addEventListener('click', () => {
