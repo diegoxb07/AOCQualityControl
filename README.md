@@ -1,6 +1,6 @@
 # AOC QC Tool
 
-A browser-based quality-control tool for NOAA Aircraft Operations Center (AOC) flight-level data. It is based on the `qc_plots_with_map_v2.py` script that was previously used, that required a more extensive and much less autonomous workflow.
+An HTML frontend quality-control tool for NOAA Aircraft Operations Center (AOC) flight-level data. It is based on the `qc_plots_with_map_v2.py` script that was previously used, that required a more extensive and much less autonomous workflow.
 
 This new tool can automatically load a hurricane-hunter flight (`.nc`), but has the option to also upload manually in case the API is offline. The QC tool does not filter any data unlike the AOCVisualizer tool on a continuous 1-second axis, separates recorder-level data gaps from per-sensor gaps, reproduces the script's statistics, draws every sensor family with its redundant members and their differences, and can put the flight on a 2D/3D map for context.
 
