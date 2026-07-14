@@ -935,13 +935,11 @@
     function qcBuildMainChart(canvas, fam, famModel) {
         const plotted = famModel.members.filter(m => m.series);              // only members with data
         const last = qcTimeLabels.length - 1, first = 0;
-        // when a family splits into two sensor groups (explicit catalog groups like AccAZI vs
-        // AccZI or AltPaADDU vs AltBCADDU, or the direct-vs-GPS name heuristic), only the first
-        // group starts checked: two different measurements both lit on one graph read as one
-        // broken sensor set. the group chips swap between them; the reference always starts checked.
+        // a family can split into two sensor groups (explicit catalog groups like AccAZI vs
+        // AccZI or AltPaADDU vs AltBCADDU, or the direct-vs-GPS name heuristic). every group
+        // starts checked; the group chips let the user isolate one when needed.
         const groupNames = plotted.filter(m => !m.isRef && !m.isDerived).map(m => m.name);
         const legendGroups = qcFamilyLegendGroups(famModel, groupNames);
-        const startUnchecked = legendGroups ? (n => legendGroups[1].names.includes(n)) : null;
         // the ref linkage lives in the legend bar (source sequence chips + a live label that
         // follows the playhead), so the dataset label itself stays plain for tooltips
         const refInfo = famModel.refInfo;
@@ -954,7 +952,7 @@
             borderColor: m.isRef ? qcRefColor() : QC_SERIES_COLORS[k % QC_SERIES_COLORS.length],
             $qcBaseWidth: m.isRef ? 1.9 : 1.4, borderWidth: m.isRef ? 1.9 : 1.4,
             borderDash: m.isDerived ? [4, 3] : [], pointRadius: 0, pointHitRadius: 6, fill: false, spanGaps: false,
-            hidden: !!(startUnchecked && !m.isRef && !m.isDerived && startUnchecked(m.name))
+            hidden: false
         }));
         const opts = qcChartOptions(fam.label + ' (' + qcUnitLabel(fam.unit) + ')');
         if (QC_HTML_LEGEND) opts.plugins.legend.display = false;

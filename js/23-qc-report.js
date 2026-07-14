@@ -508,6 +508,7 @@
                     '<button class="qc-menu-item" id="qcGapReportBtn" title="Recording gaps in the archive GapReport.dat format">Gap Report (.dat)</button>' +
                     '<button class="qc-menu-item" id="qcExportHtmlBtn" title="One self-contained interactive file: every graph with zoom and hover, the gap markers, the flight track, and the summary. Opens anywhere, no flight load needed, sendable to anyone.">Interactive Report (.html)</button>' +
                     '<button class="qc-menu-item" id="qcErrorSummaryBtn" title="The qc_Error_Summary script\'s PDF, prefilled by the tool and fully editable before download">Error Summary (.pdf)</button>' +
+                    '<button class="qc-menu-item" id="qcTrackPdfBtn" title="A landscape PDF map of the flight track with a country basemap, heading arrows, and time markers, like the python script">Flight Track Map (.pdf)</button>' +
                     '<button class="qc-menu-item" id="qcShareLinkBtn" title="Copy a link that reopens this mission in the QC tool at your current playhead, tracker view, and sidebar state (archive missions only)">Share QC Link</button>' +
                   '</div>' +
                 '</div>' +
@@ -826,6 +827,7 @@
         document.getElementById('qcGapReportBtn').addEventListener('click', qcExportGapReport);
         document.getElementById('qcExportHtmlBtn').addEventListener('click', () => { if (typeof qcExportInteractiveHTML === 'function') qcExportInteractiveHTML(); });
         document.getElementById('qcErrorSummaryBtn').addEventListener('click', () => { if (typeof qcShowErrorSummary === 'function') qcShowErrorSummary(); });
+        document.getElementById('qcTrackPdfBtn').addEventListener('click', () => { if (typeof qcShowTrackPdf === 'function') qcShowTrackPdf(); });
         document.getElementById('qcExportStoreBtn').addEventListener('click', qcShowStatsPicker);
         // share qc link: copies a url that reopens this archive mission in the qc tool at the
         // current playhead, tracker view, and sidebar state. feedback shows in place on the

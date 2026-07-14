@@ -8,26 +8,38 @@
    modal prefills what the tool knows (flight id, takeoff/landing times, sensor designations
    from what the refs actually rode); everything stays editable, like the script's form. */
 
-    // ---- tiny pdf writer: base-14 Courier only, text + lines, multi page ------------------------
+    // ---- tiny pdf writer: base-14 fonts (Courier + Helvetica), text, lines, polylines, fills,
+    // dots, clipping, portrait or landscape pages, multi page --------------------------------------
     function qcPdfDoc() {
-        const PW = 612, PH = 792;   // letter, points
         const pages = []; let cur = null;
         const esc = s => String(s == null ? '' : s).replace(/[\\()]/g, m => '\\' + m).replace(/[^\x20-\x7e]/g, ' ');
+        const n = v => Math.round(v * 100) / 100;
+        const rgb = c => c ? (n(c[0]) + ' ' + n(c[1]) + ' ' + n(c[2])) : '0 0 0';
         return {
-            H: PH,
-            page() { cur = []; pages.push(cur); },
-            text(x, y, str, size, bold) { cur.push('BT /' + (bold ? 'F2' : 'F1') + ' ' + size + ' Tf 1 0 0 1 ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' Tm (' + esc(str) + ') Tj ET'); },
-            line(x1, y1, x2, y2) { cur.push('1 w ' + x1.toFixed(2) + ' ' + y1.toFixed(2) + ' m ' + x2.toFixed(2) + ' ' + y2.toFixed(2) + ' l S'); },
+            H: 792,
+            page(landscape) { cur = { ops: [], w: landscape ? 792 : 612, h: landscape ? 612 : 792 }; pages.push(cur); return { w: cur.w, h: cur.h }; },
+            text(x, y, str, size, bold) { cur.ops.push('BT /' + (bold ? 'F2' : 'F1') + ' ' + size + ' Tf 1 0 0 1 ' + n(x) + ' ' + n(y) + ' Tm (' + esc(str) + ') Tj ET'); },
+            // helvetica label, optional fill color (used by the flight-track map)
+            mtext(x, y, str, size, bold, color) { cur.ops.push(rgb(color) + ' rg BT /' + (bold ? 'F4' : 'F3') + ' ' + size + ' Tf 1 0 0 1 ' + n(x) + ' ' + n(y) + ' Tm (' + esc(str) + ') Tj ET 0 0 0 rg'); },
+            line(x1, y1, x2, y2) { cur.ops.push('1 w ' + n(x1) + ' ' + n(y1) + ' m ' + n(x2) + ' ' + n(y2) + ' l S'); },
+            poly(pts, w, color, close) { if (!pts || !pts.length) return; let s = n(w || 1) + ' w ' + rgb(color) + ' RG ' + n(pts[0][0]) + ' ' + n(pts[0][1]) + ' m '; for (let i = 1; i < pts.length; i++) s += n(pts[i][0]) + ' ' + n(pts[i][1]) + ' l '; cur.ops.push(s + (close ? 'h ' : '') + 'S 0 0 0 RG'); },
+            fill(pts, color) { if (!pts || pts.length < 3) return; let s = rgb(color) + ' rg ' + n(pts[0][0]) + ' ' + n(pts[0][1]) + ' m '; for (let i = 1; i < pts.length; i++) s += n(pts[i][0]) + ' ' + n(pts[i][1]) + ' l '; cur.ops.push(s + 'h f 0 0 0 rg'); },
+            dot(x, y, r, color) { const k = r * 0.5523; cur.ops.push(rgb(color) + ' rg ' + n(x + r) + ' ' + n(y) + ' m ' + n(x + r) + ' ' + n(y + k) + ' ' + n(x + k) + ' ' + n(y + r) + ' ' + n(x) + ' ' + n(y + r) + ' c ' + n(x - k) + ' ' + n(y + r) + ' ' + n(x - r) + ' ' + n(y + k) + ' ' + n(x - r) + ' ' + n(y) + ' c ' + n(x - r) + ' ' + n(y - k) + ' ' + n(x - k) + ' ' + n(y - r) + ' ' + n(x) + ' ' + n(y - r) + ' c ' + n(x + k) + ' ' + n(y - r) + ' ' + n(x + r) + ' ' + n(y - k) + ' ' + n(x + r) + ' ' + n(y) + ' c f 0 0 0 rg'); },
+            save() { cur.ops.push('q'); },
+            restore() { cur.ops.push('Q'); },
+            clip(x, y, w, h) { cur.ops.push(n(x) + ' ' + n(y) + ' ' + n(w) + ' ' + n(h) + ' re W n'); },
             blob() {
-                const objs = [];   // 1 catalog, 2 pages, 3 F1, 4 F2, then page+stream pairs
-                const kids = pages.map((_, i) => (5 + i * 2) + ' 0 R').join(' ');
+                const objs = [];   // 1 catalog, 2 pages, 3-6 fonts, then page+stream pairs from 7
+                const kids = pages.map((_, i) => (7 + i * 2) + ' 0 R').join(' ');
                 objs.push('<< /Type /Catalog /Pages 2 0 R >>');
                 objs.push('<< /Type /Pages /Kids [' + kids + '] /Count ' + pages.length + ' >>');
                 objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>');
                 objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>');
-                pages.forEach((ops, i) => {
-                    objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ' + (6 + i * 2) + ' 0 R >>');
-                    const s = ops.join('\n');
+                objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+                objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
+                pages.forEach((pg, i) => {
+                    objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pg.w + ' ' + pg.h + '] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents ' + (8 + i * 2) + ' 0 R >>');
+                    const s = pg.ops.join('\n');
                     objs.push('<< /Length ' + s.length + ' >>\nstream\n' + s + '\nendstream');
                 });
                 let out = '%PDF-1.4\n';

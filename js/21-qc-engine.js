@@ -307,8 +307,10 @@
         if (!qc || !qc.timeAxis || qc.timeAxis.length === 0) return null;
         let t = qc.timeAxis, raw = qc.raw, present = qc.present;
         let phases = qcDetectPhases(raw, t, override);
-        // everything recorded before five minutes ahead of takeoff is trimmed away, so it never
-        // reaches the graphs, gaps, or stats; those five minutes are exactly the takeoff phase
+        // trim only the recording BEFORE five minutes ahead of takeoff, so it never reaches the
+        // graphs, gaps, or stats. the detected takeoff itself is NOT moved: its absolute time is
+        // preserved and its index just shifts onto the shorter axis. those five kept minutes
+        // before takeoff are exactly the takeoff phase for the stats.
         const trim = Math.max(0, phases.toIdx - 300);
         if (trim > 0) {
             t = Array.prototype.slice.call(t, trim);
@@ -316,7 +318,9 @@
             Object.keys(raw).forEach(k => { const a = raw[k]; cutRaw[k] = (a && a.subarray) ? a.subarray(trim) : a; });
             raw = cutRaw;
             present = null;   // the stored per-channel counts refer to the untrimmed arrays
-            phases = qcDetectPhases(raw, t, override);
+            // reindex the already-detected phases onto the trimmed axis; do NOT re-detect (that
+            // could drift the takeoff off the real detected moment)
+            phases = { toIdx: phases.toIdx - trim, landIdx: phases.landIdx - trim, midIdx: phases.midIdx - trim, takeoffSec: phases.takeoffSec, landingSec: phases.landingSec };
         }
         const n = t.length;
         const cov = qcComputeCoverage(raw, n);
