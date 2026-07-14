@@ -629,17 +629,19 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-brand-txt { display: flex; flex-direction: column; line-height: 1.2; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; color: var(--text); white-space: nowrap; }
 .qc-brand-txt small { font-weight: 500; font-size: 9px; letter-spacing: .03em; color: var(--text-faint); }
 /* already loaded flights: a touch smaller, lower, and inset to the right */
-.qc-brand-actions { display: flex; align-items: flex-start; gap: 6px; margin-top: 26px; margin-left: 152px; }
-.qc-brand-actions #loadedPickerWrap { flex: none; width: 190px; min-width: 0; }
-.qc-brand-actions #loadedPickerBtn { font-size: 11px; padding: 4px 8px; }
+.qc-brand-actions:empty { display: none; }
+/* flight library row (loaded-mission picker + batch loader) in the header right column, above the pins */
+.qc-flight-lib { display: flex; align-items: flex-start; gap: 6px; }
+.qc-flight-lib #loadedPickerWrap { flex: none; width: 190px; min-width: 0; }
+.qc-flight-lib #loadedPickerBtn { font-size: 11px; padding: 4px 8px; }
 /* vertical hairline divider, same as the visualizer's header divider (w-px h-9 bg-border) */
 .qc-vdiv { width: 1px; height: 36px; background: var(--border); flex: none; align-self: center; }
 .qc-loader-slot { flex: 1; min-width: 260px; }
 .qc-loader-slot #missionLoadConsole { max-width: 100%; }
 /* hug the top-right corner of the header */
-.qc-head-controls { flex: none; margin-left: auto; align-self: flex-start; margin-top: 0; }
+.qc-head-controls { flex: none; margin-left: auto; align-self: flex-start; margin-top: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 /* manual takeoff/landing pins: their own row a good bit under the top right buttons */
-.qc-phase-override { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 28px; }
+.qc-phase-override { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 6px; }
 .qc-ov-input.qc-bad { border-color: var(--danger); }
 /* the relocated top-right controls sit inline in the header, not fixed. the help button stays:
    qcInitUI repoints it at the qc help modal (the visualizer manual is not this app) */
@@ -670,6 +672,9 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-ov-btn.qc-ov-sel { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3); }
 .qc-ov-btn.qc-ov-sel:hover { background: var(--accent); filter: brightness(1.08); }
 .qc-ov-btn:disabled, #qcExportMenuBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* export button font: black on dark theme, white on light theme */
+#qcExportMenuBtn { color: #000; }
+:root[data-theme="light"] #qcExportMenuBtn { color: #fff; }
 #qcExportMenuBtn:disabled:hover { background: var(--warn); border-color: var(--warn); }
 /* short divider between action-bar button groups */
 .qc-vdiv-sm { height: 20px; }
@@ -679,6 +684,10 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-menu.hidden { display: none; }
 .qc-menu-item { text-align: left; background: none; border: none; border-radius: 5px; color: var(--text); font-size: 11.5px; font-weight: 600; padding: 6px 10px; cursor: pointer; }
 .qc-menu-item:hover { background: color-mix(in oklab, var(--accent) 14%, transparent); }
+/* the share link is not a file export, so a divider sets it apart and accent text marks it as an action */
+.qc-menu-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+.qc-menu-share { color: var(--accent); font-weight: 500; }
+.qc-menu-share:hover { background: color-mix(in oklab, var(--accent) 20%, transparent); }
 .qc-app-body { flex: 1; display: flex; min-height: 0; }
 
 /* context sidebar (map + report): hidden by default, expanded via the flight 2d/3d button */
@@ -830,7 +839,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 #qcpanel_lat .qc-lg-item { font-size: 11px; }
 
 /* slim control bar above each graph: legend hint left, tools right, fullscreen set apart */
-.qc-graph-bar { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin: 4px 0 3px; }
+.qc-graph-bar { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin: 12px 0 3px; }
 .qc-graph-tools-group { display: flex; align-items: center; gap: 10px; }
 /* html legend row under the toolbar: group chips, one checkbox per variable, std dev toggle.
    the left padding clears the y axis gutter so entries never sit over the axis title */
@@ -894,8 +903,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-pill-check { color: var(--crit); background: color-mix(in oklab, var(--crit) 13%, transparent); font-weight: 700; }
 .qc-issue-check { color: var(--crit); background: color-mix(in oklab, var(--crit) 12%, transparent); font-weight: 600; }
 /* the season preloader rides next to the flight library under the title */
-.qc-brand-actions #preloadBtnWrap { width: auto; flex: none; }
-.qc-brand-actions #reconPreloadBtn { width: auto; font-size: 11px; padding: 4px 10px; }
+.qc-flight-lib #preloadBtnWrap { width: auto; flex: none; margin-top: -1.5px; }
+.qc-flight-lib #reconPreloadBtn { width: auto; font-size: 11px; padding: 4px 10px; }
 #preloadBtnStatus { max-width: 230px; }
 /* fullscreen + png float on the graph's own top right corner */
 .qc-graph-corner { position: absolute; top: 6px; right: 8px; z-index: 6; display: flex; gap: 4px; }

@@ -705,7 +705,7 @@
             const cluster = document.createElement('span'); cluster.className = 'qc-lg-group';
             const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'qc-lg-chip';
             chip.textContent = g.label;
-            chip.title = 'Select or unselect the ' + g.label + ' sensors (other groups keep their own selection)';
+            chip.title = 'Select or unselect the ' + g.label + ' sensors';
             const idx = []; ds.forEach((d, k) => { if (!d.$qcBand && g.names.includes(d.$qcName)) idx.push(k); });
             const allOn = idx.length > 0 && idx.every(k => chart.isDatasetVisible(k));
             chip.classList.toggle('active', allOn);
@@ -751,7 +751,7 @@
             const val = document.createElement('span'); val.className = 'qc-lg-bandval';
             val.textContent = 'mean σ ' + st.mean + ' · max σ ' + st.max + ' at ' + st.at;
             info.appendChild(lbl); info.appendChild(val);
-            info.title = 'Average disagreement (one standard deviation) across the flight between the selected similar sensors, and the worst moment';
+            info.title = 'Std deviation between the selected sensors';
             bandHost.appendChild(info);
             // coefficient of variation rides right below: disagreement relative to the size of
             // what is being measured, so sensors on big signals compare fairly with small ones
@@ -760,7 +760,7 @@
             const cval = document.createElement('span'); cval.className = 'qc-lg-bandval';
             cval.textContent = st.cv != null ? st.cv + '%' : 'n/a (mean near zero)';
             cv.appendChild(cl); cv.appendChild(cval);
-            cv.title = 'Mean sigma divided by the mean value of the selected sensors, as a percent';
+            cv.title = 'Mean sigma as a percent of the mean value';
             bandHost.appendChild(cv);
         }
         // the gap marker is defined ONCE here instead of a word under every caret on the plot
@@ -1128,7 +1128,7 @@
         // flight context toggle lives at the BOTTOM RIGHT of the card, next to the max diff list
         const ctxBtn = document.createElement('button'); ctxBtn.type = 'button'; ctxBtn.className = 'qc-ov-btn';
         ctxBtn.textContent = 'Flight Context';
-        ctxBtn.title = 'Show the flight track map beside this graph, following the playhead';
+        ctxBtn.title = 'Show the flight track map beside this graph';
         ctxBtn.addEventListener('click', () => { qcToggleDiffContext(); ctxBtn.classList.toggle('active', document.getElementById('qcDiffContext').style.display !== 'none'); });
         const ctxSlot = m.querySelector('#qcDiffCtxBtnSlot'); if (ctxSlot) { ctxSlot.innerHTML = ''; ctxSlot.appendChild(ctxBtn); }
         tools.appendChild(qcBuildToolbar(chart));
@@ -1249,7 +1249,7 @@
                 tools.appendChild(qcBuildToolbar(chart));
                 // fullscreen + png ride the top right of the whole graph BLOCK, and fullscreen
                 // takes the block with them (title, legend, and toolbar included)
-                panel.appendChild(qcBuildCornerTools(chart, pngName));
+                panel.appendChild(qcBuildCornerTools(chart, pngName, chart.$qcFam && chart.$qcFam.key));
                 c.appendChild(qcBuildResetFloat(chart));
             };
             container.appendChild(panel);
@@ -1334,7 +1334,7 @@
     function qcBuildResetFloat(chart) {
         const b = document.createElement('button'); b.type = 'button'; b.className = 'qc-reset-float';
         b.textContent = '⟲ Reset Zoom';
-        b.title = 'Zoom all the way back out to the default full flight view (double-click the graph, or ctrl+z steps back)';
+        b.title = 'Reset the zoom';
         b.addEventListener('click', () => qcResetChart(chart));
         chart.$qcResetBtn = b;
         return b;
@@ -1342,15 +1342,24 @@
 
     // fullscreen + png save ride the top right corner of the graph itself, apart from the toolbar
     // (and, living inside the canvas wrap, they stay reachable in fullscreen)
-    function qcBuildCornerTools(chart, pngName) {
+    function qcBuildCornerTools(chart, pngName, htmlKey) {
         const c = document.createElement('div'); c.className = 'qc-graph-corner';
-        const png = document.createElement('button'); png.type = 'button'; png.className = 'qc-fs-btn';
-        png.innerHTML = QC_TOOL_ICONS.png; png.title = 'Save this graph as a PNG image';
-        png.addEventListener('click', () => { try { const a = document.createElement('a'); a.href = chart.toBase64Image(); a.download = pngName; a.click(); } catch (e) {} });
+        // one download button on the same icon the png used: family panels download the
+        // interactive html (the graph travels with zoom, pan, hover, and the playhead); the diff
+        // modal, which has no standalone panel to rebuild, keeps the flat png on the same icon.
+        const dl = document.createElement('button'); dl.type = 'button'; dl.className = 'qc-fs-btn';
+        dl.innerHTML = QC_TOOL_ICONS.png;
+        if (htmlKey && typeof qcExportSingleGraphHTML === 'function') {
+            dl.title = 'Download this graph as an interactive HTML file';
+            dl.addEventListener('click', () => qcExportSingleGraphHTML(htmlKey));
+        } else {
+            dl.title = 'Save this graph as a PNG';
+            dl.addEventListener('click', () => { try { const a = document.createElement('a'); a.href = chart.toBase64Image(); a.download = pngName; a.click(); } catch (e) {} });
+        }
         const fs = document.createElement('button'); fs.type = 'button'; fs.className = 'qc-fs-btn';
         fs.textContent = '⛶'; fs.title = 'Fullscreen this graph';
         fs.addEventListener('click', () => qcToggleGraphFullscreen(chart));
-        c.appendChild(png); c.appendChild(fs);
+        c.appendChild(dl); c.appendChild(fs);
         return c;
     }
 

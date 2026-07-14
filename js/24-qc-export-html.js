@@ -50,81 +50,102 @@
         return rings;
     }
 
+    // build one export panel from a family's live chart (a line graph, or the fused lat/lon map);
+    // null when the family has no chart or folds into another panel
+    function qcBuildExportPanel(fam) {
+        if (fam.key === 'lon' && qcCharts['qc_latlon']) return null;   // folded into the lat map panel
+        const isMap = fam.key === 'lat' && qcCharts['qc_latlon'];
+        const chart = qcCharts[isMap ? 'qc_latlon' : 'qc_' + fam.key];
+        if (!chart) return null;
+        const pid = '#qcpanel_' + fam.key + ' ';
+        const common = {
+            key: fam.key, label: fam.label, unit: qcUnitLabel(fam.unit),
+            headHtml: qcHtmlOf(pid + '.qc-chart-head'),
+            issuesHtml: qcHtmlOf(pid + '.qc-issues'),
+            legendHtml: (chart.$qcLegendBar && chart.$qcLegendBar.innerHTML) || '',
+            bandHtml: qcHtmlOf(pid + '.qc-band-slot'),
+            groups: (chart.$qcGroups || []).map(g => ({ label: g.label, names: g.names.slice() }))
+        };
+        if (isMap) {
+            const tracks = chart.data.datasets.map(d => ({
+                label: d.label, name: d.$qcName || d.label, color: String(d.borderColor),
+                isRef: !!d.$qcIsRef, w: d.borderWidth || 1.4, on: chart.isDatasetVisible(chart.data.datasets.indexOf(d)) ? 1 : 0,
+                pts: (d.data || []).map(p => [p.x, p.y, p.i])
+            }));
+            return Object.assign(common, {
+                type: 'map', tracks: tracks,
+                refLat: chart.$qcMapLat ? qcB64FromF32(chart.$qcMapLat) : null,
+                refLon: chart.$qcMapLon ? qcB64FromF32(chart.$qcMapLon) : null,
+                geo: chart.$qcMapLat && chart.$qcMapLon ? qcExportGeo(chart.$qcMapLat, chart.$qcMapLon) : []
+            });
+        }
+        const series = [];
+        chart.data.datasets.forEach((d, k) => {
+            if (d.$qcBand || !d.$full) return;
+            series.push({ label: d.label, name: d.$qcName || d.label, color: String(d.borderColor), dash: (d.borderDash && d.borderDash.length) ? 1 : 0, w: d.$qcBaseWidth || 1.4, on: chart.isDatasetVisible(k) ? 1 : 0, b64: qcB64FromF32(d.$full) });
+        });
+        if (!series.length) return null;
+        const pack = list => (list || []).map(g => [g.fromIdx, g.toIdx]);
+        return Object.assign(common, { type: 'line', series: series, gaps: pack(chart.$qcGapRanges), marks: pack(chart.$qcGapMarks), checks: pack(chart.$qcCheckMarks), allEmpty: !!chart.$qcAllEmpty });
+    }
+
+    const qcMissionSlug = () => String((flightMetaData && flightMetaData.id) || 'flight').replace(/\s*\([^)]*\)/g, '').trim();
+
+    // shared assembly: inline the libs, app css, and bundled fonts, wrap the panels in the viewer
+    // shell, and download the one self-contained file
+    async function qcAssembleExport(panels, filename) {
+        if (!panels.length) return;
+        const scrub = /<\/script/gi;
+        const inline = async p => (await (await fetch(p)).text()).replace(scrub, '<\\/script');
+        const libs = (await Promise.all(['lib/chart.umd.min.js', 'lib/hammer.min.js', 'lib/chartjs-plugin-zoom.min.js'].map(inline))).join('\n;\n');
+        const appCss = (await (await fetch('css/app.css')).text());
+        const fontFiles = [['Manrope', '400 800', 'fonts/Manrope-400.woff2'], ['IBM Plex Mono', '400', 'fonts/IBMPlexMono-400.woff2'], ['IBM Plex Mono', '500', 'fonts/IBMPlexMono-500.woff2'], ['IBM Plex Mono', '600', 'fonts/IBMPlexMono-600.woff2']];
+        const fontCss = (await Promise.all(fontFiles.map(async f =>
+            "@font-face{font-family:'" + f[0] + "';font-style:normal;font-weight:" + f[1] + ";font-display:swap;src:url(data:font/woff2;base64," + await qcFetchB64(f[2]) + ") format('woff2');}"
+        ))).join('\n');
+        const payload = {
+            theme: document.documentElement.dataset.theme || 'dark',
+            mission: (flightMetaData && flightMetaData.id) || 'flight',
+            date: (flightMetaData && flightMetaData.date) || '',
+            aircraft: qcResult.aircraft || '',
+            t0: Math.round(qcAxisRef[0]), n: qcAxisRef.length,
+            toIdx: qcResult.phases ? qcResult.phases.toIdx : 0,
+            landIdx: qcResult.phases ? qcResult.phases.landIdx : qcAxisRef.length - 1,
+            summaryHtml: qcHtmlOf('#qcSummaryPills'),
+            icons: (typeof QC_TOOL_ICONS !== 'undefined') ? QC_TOOL_ICONS : {},
+            panels: panels
+        };
+        const html = qcExportHtmlShell(libs, appCss, fontCss, payload.theme, JSON.stringify(payload).replace(scrub, '<\\/script'));
+        const blob = new Blob([html], { type: 'text/html' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = filename; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+
+    // the whole report: every family graph plus the flight-track map, one interactive file
     async function qcExportInteractiveHTML() {
         if (!qcResult || !qcAxisRef || !qcAxisRef.length) return;
         const btn = document.getElementById('qcExportHtmlBtn');
         if (btn) btn.textContent = 'Building file...';
         try {
-            const scrub = /<\/script/gi;
-            const inline = async p => (await (await fetch(p)).text()).replace(scrub, '<\\/script');
-            const libs = (await Promise.all(['lib/chart.umd.min.js', 'lib/hammer.min.js', 'lib/chartjs-plugin-zoom.min.js'].map(inline))).join('\n;\n');
-            const appCss = (await (await fetch('css/app.css')).text());
-            // the bundled fonts, embedded so the file renders in Manrope + IBM Plex Mono offline
-            const fontFiles = [['Manrope', '400 800', 'fonts/Manrope-400.woff2'], ['IBM Plex Mono', '400', 'fonts/IBMPlexMono-400.woff2'], ['IBM Plex Mono', '500', 'fonts/IBMPlexMono-500.woff2'], ['IBM Plex Mono', '600', 'fonts/IBMPlexMono-600.woff2']];
-            const fontCss = (await Promise.all(fontFiles.map(async f =>
-                "@font-face{font-family:'" + f[0] + "';font-style:normal;font-weight:" + f[1] + ";font-display:swap;src:url(data:font/woff2;base64," + await qcFetchB64(f[2]) + ") format('woff2');}"
-            ))).join('\n');
-
             const panels = [];
-            (qcResult.families || []).forEach(fam => {
-                if (fam.key === 'lon' && qcCharts['qc_latlon']) return;   // folded into the lat map panel
-                const isMap = fam.key === 'lat' && qcCharts['qc_latlon'];
-                const chart = qcCharts[isMap ? 'qc_latlon' : 'qc_' + fam.key];
-                if (!chart) return;
-                const pid = '#qcpanel_' + fam.key + ' ';
-                const common = {
-                    key: fam.key, label: fam.label, unit: qcUnitLabel(fam.unit),
-                    headHtml: qcHtmlOf(pid + '.qc-chart-head'),
-                    issuesHtml: qcHtmlOf(pid + '.qc-issues'),
-                    legendHtml: (chart.$qcLegendBar && chart.$qcLegendBar.innerHTML) || '',
-                    bandHtml: qcHtmlOf(pid + '.qc-band-slot'),
-                    groups: (chart.$qcGroups || []).map(g => ({ label: g.label, names: g.names.slice() }))
-                };
-                if (isMap) {
-                    const tracks = chart.data.datasets.map(d => ({
-                        label: d.label, name: d.$qcName || d.label, color: String(d.borderColor),
-                        isRef: !!d.$qcIsRef, w: d.borderWidth || 1.4, on: chart.isDatasetVisible(chart.data.datasets.indexOf(d)) ? 1 : 0,
-                        pts: (d.data || []).map(p => [p.x, p.y, p.i])
-                    }));
-                    panels.push(Object.assign(common, {
-                        type: 'map', tracks: tracks,
-                        refLat: chart.$qcMapLat ? qcB64FromF32(chart.$qcMapLat) : null,
-                        refLon: chart.$qcMapLon ? qcB64FromF32(chart.$qcMapLon) : null,
-                        geo: chart.$qcMapLat && chart.$qcMapLon ? qcExportGeo(chart.$qcMapLat, chart.$qcMapLon) : []
-                    }));
-                } else {
-                    const series = [];
-                    chart.data.datasets.forEach((d, k) => {
-                        if (d.$qcBand || !d.$full) return;
-                        series.push({ label: d.label, name: d.$qcName || d.label, color: String(d.borderColor), dash: (d.borderDash && d.borderDash.length) ? 1 : 0, w: d.$qcBaseWidth || 1.4, on: chart.isDatasetVisible(k) ? 1 : 0, b64: qcB64FromF32(d.$full) });
-                    });
-                    if (!series.length) return;
-                    const pack = list => (list || []).map(g => [g.fromIdx, g.toIdx]);
-                    panels.push(Object.assign(common, { type: 'line', series: series, gaps: pack(chart.$qcGapRanges), marks: pack(chart.$qcGapMarks), checks: pack(chart.$qcCheckMarks), allEmpty: !!chart.$qcAllEmpty }));
-                }
-            });
-            if (!panels.length) { if (btn) btn.textContent = 'Interactive Report (.html)'; return; }
-
-            const payload = {
-                theme: document.documentElement.dataset.theme || 'dark',
-                mission: (flightMetaData && flightMetaData.id) || 'flight',
-                date: (flightMetaData && flightMetaData.date) || '',
-                aircraft: qcResult.aircraft || '',
-                t0: Math.round(qcAxisRef[0]), n: qcAxisRef.length,
-                toIdx: qcResult.phases ? qcResult.phases.toIdx : 0,
-                landIdx: qcResult.phases ? qcResult.phases.landIdx : qcAxisRef.length - 1,
-                summaryHtml: qcHtmlOf('#qcSummaryPills'),
-                icons: (typeof QC_TOOL_ICONS !== 'undefined') ? QC_TOOL_ICONS : {},
-                panels: panels
-            };
-
-            const html = qcExportHtmlShell(libs, appCss, fontCss, payload.theme, JSON.stringify(payload).replace(scrub, '<\\/script'));
-            const blob = new Blob([html], { type: 'text/html' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-            a.download = payload.mission + '_QC_Interactive.html'; a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+            (qcResult.families || []).forEach(fam => { const p = qcBuildExportPanel(fam); if (p) panels.push(p); });
+            await qcAssembleExport(panels, qcMissionSlug() + '_QC_Interactive.html');
         } catch (e) { console.warn('interactive export failed:', e); }
         if (btn) btn.textContent = 'Interactive Report (.html)';
+    }
+
+    // one graph on its own, downloaded as the same self-contained interactive file (the per-graph
+    // download button, so a single graph travels with zoom, pan, hover, and the playhead intact)
+    async function qcExportSingleGraphHTML(famKey) {
+        if (!qcResult || !qcAxisRef || !qcAxisRef.length || !famKey) return;
+        const key = (famKey === 'lon' && qcCharts['qc_latlon']) ? 'lat' : famKey;
+        const fam = (qcResult.families || []).find(f => f.key === key);
+        if (!fam) return;
+        try {
+            const p = qcBuildExportPanel(fam);
+            if (p) await qcAssembleExport([p], qcMissionSlug() + '_' + key + '_Interactive.html');
+        } catch (e) { console.warn('single graph export failed:', e); }
     }
 
     // the exported page: the app's own stylesheet and fonts, plus a thin frame for the report
@@ -203,16 +224,25 @@
 // clickable switch times inside a captured head badge
 "function wireHead(panelEl){ panelEl.querySelectorAll('.qc-ref-jump').forEach(function(el){ el.style.cursor='pointer'; el.addEventListener('click', function(){ var i=parseInt(el.dataset.idx,10); if(!isNaN(i)) setPlay(i); }); });",
 "  panelEl.querySelectorAll('.qc-ref-morebtn').forEach(function(b){ b.style.cursor='pointer'; b.addEventListener('click', function(){ var rest=b.previousElementSibling; var open=rest&&rest.classList.toggle('qc-ref-rest-open'); b.textContent=open?'less':b.dataset.n; }); }); }",
-// a slim toolbar per graph: pan / select zoom / reset / png, matching the app's tools
-"function toolbar(ch, home){ var tb=document.createElement('div'); tb.className='qc-chart-tools';",
+// per-graph tools matching the app: scrub / pan / select zoom, plus a floating reset, png, fullscreen
+"function zoomVisual(ch){ var z=false; try{z=ch.isZoomedOrPanned();}catch(e){} if(ch.$resetBtn) ch.$resetBtn.classList.toggle('show',z); }",
+"function doReset(ch,home,isMap){ try{ch.resetZoom('none');}catch(e){} ch.zoomScale('x',home.x,'none'); if(isMap&&home.y) ch.zoomScale('y',home.y,'none'); refresh(ch); zoomVisual(ch); if(ch.$resetBtn) ch.$resetBtn.classList.remove('show'); if(ch.$selectTool) ch.$selectTool(isMap?'pan':'scrub'); }",
+"function toolbar(ch, home, isMap){ var tb=document.createElement('div'); tb.className='qc-chart-tools';",
 "  function mk(icon,label,title){ var b=document.createElement('button'); b.type='button'; b.className='qc-tool'; b.innerHTML=(QCX.icons[icon]||'')+'<span>'+label+'</span>'; b.title=title; tb.appendChild(b); return b; }",
-"  var pan=mk('pan','pan','Drag moves the view, wheel zooms'), box=mk('box','select zoom','Drag a box to zoom'), rst=mk('reset','reset scale','Back to the full view'), png=mk('png','png','Save as PNG');",
-"  function setActive(x){ [pan,box].forEach(function(b){ b.classList.toggle('active',b===x); }); }",
-"  function tool(t){ var z=ch.options.plugins.zoom; z.pan.enabled=(t==='pan'); z.zoom.drag.enabled=(t==='box'); ch.canvas.style.cursor=(t==='pan'?'grab':'crosshair'); ch.update('none'); }",
-"  pan.addEventListener('click',function(){ tool('pan'); setActive(pan); }); box.addEventListener('click',function(){ tool('box'); setActive(box); });",
-"  rst.addEventListener('click',function(){ try{ch.resetZoom('none');}catch(e){} ch.zoomScale('x',home.x,'none'); if(home.y) ch.zoomScale('y',home.y,'none'); refresh(ch); });",
-"  png.addEventListener('click',function(){ try{ var a=document.createElement('a'); a.href=ch.toBase64Image(); a.download='graph.png'; a.click(); }catch(e){} });",
-"  setActive(pan); tool('pan'); return tb; }",
+"  var scrubBtn=isMap?null:mk('scrub','scrub','Drag anywhere on the graph and the playhead follows the cursor');",
+"  var pan=mk('pan','pan',isMap?'Drag moves the map, wheel zooms':'Drag moves the time window, wheel zooms');",
+"  var box=mk('box','select zoom','Drag a box to zoom into that area');",
+"  var btns=scrubBtn?[scrubBtn,pan,box]:[pan,box];",
+"  function tool(t){ ch.$tool=t; var z=ch.options.plugins.zoom; z.pan.enabled=(t==='pan'); z.zoom.drag.enabled=(t==='box'); z.zoom.mode=(t==='box'||isMap)?'xy':'x'; ch.canvas.style.cursor=(t==='scrub'?'ew-resize':t==='pan'?'grab':'crosshair'); btns.forEach(function(b){ b.classList.toggle('active', b===(t==='pan'?pan:t==='box'?box:scrubBtn)); }); ch.update('none'); }",
+"  if(scrubBtn) scrubBtn.addEventListener('click',function(){tool('scrub');}); pan.addEventListener('click',function(){tool('pan');}); box.addEventListener('click',function(){tool('box');});",
+"  ch.$selectTool=tool; tool(isMap?'pan':'scrub'); return tb; }",
+"function cornerTools(ch, wrap, name){ var c=document.createElement('div'); c.className='qc-graph-corner';",
+"  var png=document.createElement('button'); png.type='button'; png.className='qc-fs-btn'; png.innerHTML=QCX.icons.png||'PNG'; png.title='Save this graph as a PNG image';",
+"  png.addEventListener('click',function(){ try{ var a=document.createElement('a'); a.href=ch.toBase64Image(); a.download=name; a.click(); }catch(e){} });",
+"  var fs=document.createElement('button'); fs.type='button'; fs.className='qc-fs-btn'; fs.textContent='\\u26f6'; fs.title='Fullscreen this graph';",
+"  fs.addEventListener('click',function(){ var t=ch.canvas.closest('.qc-chart-panel')||ch.canvas.parentElement; if(!t)return; if(document.fullscreenElement===t){ if(document.exitFullscreen)document.exitFullscreen(); } else if(t.requestFullscreen) t.requestFullscreen(); });",
+"  c.appendChild(png); c.appendChild(fs); wrap.appendChild(c); }",
+"function resetFloat(ch, wrap, home, isMap){ var b=document.createElement('button'); b.type='button'; b.className='qc-reset-float'; b.textContent='\\u27f2 Reset Zoom'; b.title='Zoom back out to the full view (double-click the graph too)'; b.addEventListener('click',function(){ doReset(ch,home,isMap); }); wrap.appendChild(b); ch.$resetBtn=b; }",
 // build every panel in catalog order
 "QCX.panels.forEach(function(p){",
 "  var panel=document.createElement('div'); panel.className='qc-chart-panel'; panel.id='qcxp_'+p.key;",
@@ -223,7 +253,7 @@
 "  var wrap=document.createElement('div'); wrap.className='qc-canvas-wrap'+(p.type==='map'?' qc-canvas-map':''); var cv=document.createElement('canvas'); wrap.appendChild(cv); panel.appendChild(wrap);",
 "  if(p.bandHtml){ var bottom=document.createElement('div'); bottom.className='qc-fam-bottom'; var slot=document.createElement('div'); slot.className='qc-band-slot'; slot.innerHTML=p.bandHtml; bottom.appendChild(slot); panel.appendChild(bottom); }",
 "  document.getElementById('charts').appendChild(panel);",
-"  p.__panelEl=panel; p.__tools=tools; p.__legend=panel.querySelector('.qc-legend-bar');",
+"  p.__panelEl=panel; p.__tools=tools; p.__wrap=wrap; p.__legend=panel.querySelector('.qc-legend-bar');",
 "  if(p.type==='map') buildMap(p); else buildLine(p);",
 "  wireHead(panel);",
 "});",
@@ -233,15 +263,21 @@
 "  var home={x:{min:0,max:QCX.n-1}};",
 "  var ch=new Chart(p.__panelEl.querySelector('canvas'),{ type:'line', data:{datasets:dsets}, options:{",
 "    responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:'nearest',axis:'xy',intersect:false},",
-"    onClick:function(e,els,c){ var v=c.scales.x.getValueForPixel(e.x); if(v!=null) setPlay(v); },",
+"    onClick:function(e,els,c){ if(c.$tool==='scrub')return; if(e.native&&c.$downX!=null&&(Math.abs(e.native.clientX-c.$downX)>5||Math.abs(e.native.clientY-c.$downY)>5))return; var v=c.scales.x.getValueForPixel(e.x); if(v!=null) setPlay(v); },",
 "    scales:{ x:{type:'linear',bounds:'data',grid:{color:'rgba(148,163,184,0.08)'},ticks:Object.assign({maxTicksLimit:10,callback:function(v){return lbl(Math.round(v));}},{color:tickColor(),font:MONO})},",
 "             y:{type:'linear',position:'left',grid:{color:'rgba(148,163,184,0.10)'},ticks:{color:tickColor(),font:MONO},title:{display:true,text:p.label+' ('+p.unit+')',color:tickColor(),font:{family:\"'Manrope', sans-serif\",size:11,weight:'600'}}, afterDataLimits:function(s){ var o=s.options; if(typeof o.min==='number'||typeof o.max==='number')return; var r=s.max-s.min; if(r>0&&isFinite(r)) s.max+=r*0.10; }} },",
 "    plugins:{ legend:{display:false},",
 "      tooltip:{ bodyFont:{family:\"'IBM Plex Mono', monospace\",size:11,weight:'700'}, footerFont:{family:\"'IBM Plex Mono', monospace\",size:10}, footerColor:'#94a3b8', callbacks:{ title:function(it){return it.length?lbl(Math.round(it[0].parsed.x))+' UTC':'';}, label:function(it){ var y=it.parsed.y; return (it.dataset.label||'')+': '+(y===y?Math.round(y*1000)/1000:'no data'); }, footer:function(items){ if(!items.length)return''; var it=items[0], c=it.chart, i=Math.round(it.parsed.x), out=[]; c.data.datasets.forEach(function(d,k){ if(k===it.datasetIndex||!d.$full||!c.isDatasetVisible(k))return; var v=d.$full[i]; out.push((d.label||'')+': '+(v===v?Math.round(v*1000)/1000:'no data')); }); return out; } } },",
-"      zoom:{ zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x',drag:{enabled:false,backgroundColor:'rgba(91,157,255,0.14)',borderColor:'#5b9dff',borderWidth:1},onZoomComplete:function(o){refresh(o.chart);}}, pan:{enabled:true,mode:'x',onPanComplete:function(o){refresh(o.chart);}}, limits:{x:{min:'original',max:'original'}} } } }, plugins:[overlay]});",
+"      zoom:{ zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x',drag:{enabled:false,backgroundColor:'rgba(91,157,255,0.14)',borderColor:'#5b9dff',borderWidth:1},onZoomComplete:function(o){refresh(o.chart); zoomVisual(o.chart);}}, pan:{enabled:true,mode:'x',onPanComplete:function(o){refresh(o.chart); zoomVisual(o.chart);}}, limits:{x:{min:'original',max:'original'}} } } }, plugins:[overlay]});",
 "  ch.$gaps=p.gaps; ch.$marks=p.marks; ch.$checks=p.checks; ch.$allEmpty=p.allEmpty; ch.$groups=p.groups; charts.push(ch);",
-"  p.__panelEl.querySelector('canvas').addEventListener('dblclick',function(){ try{ch.resetZoom('none');}catch(e){} ch.zoomScale('x',home.x,'none'); refresh(ch); });",
-"  p.__tools.appendChild(toolbar(ch,{x:home.x}));",
+"  var cv=p.__wrap.querySelector('canvas');",
+"  cv.addEventListener('dblclick',function(){ doReset(ch,home,false); });",
+"  var scrubbing=false;",
+"  cv.addEventListener('mousedown',function(e){ ch.$downX=e.clientX; ch.$downY=e.clientY; });",
+"  cv.addEventListener('mousedown',function(e){ if(ch.$tool!=='scrub'||!ch.chartArea)return; var r=cv.getBoundingClientRect(),a=ch.chartArea,px=e.clientX-r.left,py=e.clientY-r.top; if(px<a.left||px>a.right||py<a.top||py>a.bottom)return; scrubbing=true; setPlay(ch.scales.x.getValueForPixel(px)); });",
+"  window.addEventListener('mousemove',function(e){ if(!scrubbing||!ch.chartArea)return; var r=cv.getBoundingClientRect(),a=ch.chartArea,px=Math.max(a.left,Math.min(a.right,e.clientX-r.left)); setPlay(ch.scales.x.getValueForPixel(px)); });",
+"  window.addEventListener('mouseup',function(){ scrubbing=false; });",
+"  p.__tools.appendChild(toolbar(ch,home,false)); cornerTools(ch,p.__wrap,(p.label||'graph')+'.png'); resetFloat(ch,p.__wrap,home,false);",
 "  if(p.__legend) wireLegend(p.__legend,ch);",
 "}",
 // the fused flight-track map
@@ -256,15 +292,17 @@
 "  var ax=function(t){return {display:true,text:t,color:tickColor(),font:{family:\"'Manrope', sans-serif\",size:11,weight:'600'}};};",
 "  var ch=new Chart(p.__panelEl.querySelector('canvas'),{ type:'scatter', data:{datasets:dsets}, options:{",
 "    responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:'nearest',axis:'xy',intersect:false},",
-"    onClick:function(e,els,c){ var best=null,bd=18; c.data.datasets.forEach(function(d,k){ if(!c.isDatasetVisible(k))return; d.data.forEach(function(pt){ if(pt.i==null||isNaN(pt.x))return; var dist=Math.hypot(c.scales.x.getPixelForValue(pt.x)-e.x,c.scales.y.getPixelForValue(pt.y)-e.y); if(dist<bd){bd=dist;best=pt;} }); }); if(best) setPlay(best.i); },",
+"    onClick:function(e,els,c){ if(e.native&&c.$downX!=null&&(Math.abs(e.native.clientX-c.$downX)>5||Math.abs(e.native.clientY-c.$downY)>5))return; var best=null,bd=18; c.data.datasets.forEach(function(d,k){ if(!c.isDatasetVisible(k))return; d.data.forEach(function(pt){ if(pt.i==null||isNaN(pt.x))return; var dist=Math.hypot(c.scales.x.getPixelForValue(pt.x)-e.x,c.scales.y.getPixelForValue(pt.y)-e.y); if(dist<bd){bd=dist;best=pt;} }); }); if(best) setPlay(best.i); },",
 "    scales:{ x:{type:'linear',min:mnx-padX,max:mxx+padX,grid:{color:'rgba(148,163,184,0.08)'},ticks:{maxTicksLimit:9,color:tickColor(),font:MONO},title:ax('Longitude (degrees)')},",
 "             y:{type:'linear',min:mny-padY,max:mxy+padY,grid:{color:'rgba(148,163,184,0.10)'},ticks:{color:tickColor(),font:MONO},title:ax('Latitude (degrees)')} },",
 "    plugins:{ legend:{display:false},",
 "      tooltip:{ bodyFont:{family:\"'IBM Plex Mono', monospace\",size:11,weight:'700'}, callbacks:{ title:function(items){return (items.length&&items[0].raw&&items[0].raw.i!=null)?(lbl(items[0].raw.i)+' UTC'):'';}, label:function(it){ return (it.dataset.label||'')+': '+Math.round(it.parsed.y*10000)/10000+', '+Math.round(it.parsed.x*10000)/10000; } } },",
-"      zoom:{ zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'xy',drag:{enabled:false,backgroundColor:'rgba(91,157,255,0.14)',borderColor:'#5b9dff',borderWidth:1},onZoomComplete:function(o){o.chart.update('none');}}, pan:{enabled:true,mode:'xy',onPanComplete:function(o){o.chart.update('none');}} } } }, plugins:[mapOverlay(p.geo,refLa,refLo)]});",
+"      zoom:{ zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'xy',drag:{enabled:false,backgroundColor:'rgba(91,157,255,0.14)',borderColor:'#5b9dff',borderWidth:1},onZoomComplete:function(o){o.chart.update('none'); zoomVisual(o.chart);}}, pan:{enabled:true,mode:'xy',onPanComplete:function(o){o.chart.update('none'); zoomVisual(o.chart);}} } } }, plugins:[mapOverlay(p.geo,refLa,refLo)]});",
 "  ch.$groups=p.groups; maps.push(ch);",
-"  p.__panelEl.querySelector('canvas').addEventListener('dblclick',function(){ try{ch.resetZoom('none');}catch(e){} ch.zoomScale('x',home.x,'none'); ch.zoomScale('y',home.y,'none'); ch.update('none'); });",
-"  p.__tools.appendChild(toolbar(ch,home));",
+"  var cv=p.__wrap.querySelector('canvas');",
+"  cv.addEventListener('mousedown',function(e){ ch.$downX=e.clientX; ch.$downY=e.clientY; });",
+"  cv.addEventListener('dblclick',function(){ doReset(ch,home,true); });",
+"  p.__tools.appendChild(toolbar(ch,home,true)); cornerTools(ch,p.__wrap,'flight-track.png'); resetFloat(ch,p.__wrap,home,true);",
 "  if(p.__legend) wireLegend(p.__legend,ch);",
 "}",
 "document.getElementById('ttl').textContent='QC Interactive Report \\u00b7 '+QCX.mission;",

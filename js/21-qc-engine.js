@@ -242,6 +242,17 @@
         return missionId + ',' + vals.join(',');
     }
 
+    // the header row for the plane-stats CSV: one column per difference, in the same order as
+    // qcScriptStatsLine. each value is the flight-average difference (first sensor minus second)
+    // over takeoff to landing, so every column is tagged "avg diff" to say what the number is.
+    // same-sensor pairs compact to the script's plot notation (AccAXI.1-2); cross-sensor pairs
+    // keep both full names (AltPaADDU.1-AltBCADDU.1).
+    function qcScriptStatsHeader(aircraft) {
+        const pairs = aircraft === 'N' ? QC_SCRIPT_PAIRS.N : QC_SCRIPT_PAIRS.HI;
+        const lbl = (a, b) => { const ma = /^(.*)\.(\d+)$/.exec(a), mb = /^(.*)\.(\d+)$/.exec(b); return (ma && mb && ma[1] === mb[1]) ? ma[1] + '.' + ma[2] + '-' + mb[2] : a + '-' + b; };
+        return 'Mission,' + pairs.map(pr => lbl(pr[0], pr[1]) + ' avg diff').join(',');
+    }
+
     // which sensor is the ref channel actually carrying? a ref (ALTref, PSMref, ...) duplicates the
     // chosen sensor's values exactly, so equality-matching the series identifies the source. a full
     // match names it; several partial matches mean the operators switched the ref mid-flight.

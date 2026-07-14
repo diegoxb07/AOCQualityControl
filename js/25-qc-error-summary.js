@@ -189,7 +189,7 @@
             qcEsModal.id = 'qcEsModal'; qcEsModal.className = 'modal-overlay';
             // every select opens with a blank choice: rows no ref can verify stay empty on purpose
             const sensorRows = QC_ES_SENSORS.map(([label, opts], i) =>
-                '<label class="qc-es-row qc-es-sensor-row" data-si="' + i + '" title="Click to graph the candidate sensors beside this form"><span>' + label + '</span><select id="qcEsSensor' + i + '" class="qc-ov-input qc-es-sel">' +
+                '<label class="qc-es-row qc-es-sensor-row" data-si="' + i + '" title="Click to graph the candidate sensors"><span>' + label + '</span><select id="qcEsSensor' + i + '" class="qc-ov-input qc-es-sel">' +
                 '<option></option>' + opts.map(o => '<option>' + o + '</option>').join('') + '</select></label>').join('').replace(/class="qc-ov-input qc-es-sel"/g, 'class="qc-ov-input qc-es-sel qc-es-req"');
             const expRows = QC_ES_EXPENDABLES.map((t, i) =>
                 '<div class="qc-es-exp-row"><span>' + t + '</span>' +
@@ -205,7 +205,7 @@
                     '<label class="qc-es-row"><span>Flight ID</span><input id="qcEsFlightId" class="qc-ov-input qc-es-wide qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Flight Director</span><input id="qcEsDirector" class="qc-ov-input qc-es-wide qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Email</span><input id="qcEsEmail" class="qc-ov-input qc-es-wide qc-es-req"></label>' +
-                    '<label class="qc-es-row"><span>Flight Directory</span><input id="qcEsDir" class="qc-ov-input qc-es-wide" readonly tabindex="-1" title="Derived from the flight id, exactly as the PDF prints it"></label>' +
+                    '<label class="qc-es-row"><span>Flight Directory</span><input id="qcEsDir" class="qc-ov-input qc-es-wide" readonly tabindex="-1" title="Derived from the flight id"></label>' +
                     '<div class="qc-es-sec">Takeoff / landing</div>' +
                     '<label class="qc-es-row"><span>Takeoff Location</span><input id="qcEsToLoc" class="qc-ov-input qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Takeoff Time (Z)</span><input id="qcEsToTime" class="qc-ov-input qc-es-req" maxlength="6" placeholder="HHMMSS"></label>' +

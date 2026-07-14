@@ -158,7 +158,7 @@
         // are the data system's event, and blaming every sensor for them was pure noise.
         if (qcResult.recordingGaps && qcResult.recordingGaps.length) {
             const rg = qcResult.recordingGaps;
-            html += '<div class="qc-recording" title="Seconds where no instrument recorded at all: a data-system event, not any one sensor. Same events the archive GapReport.dat documents.">' +
+            html += '<div class="qc-recording" title="Seconds where no instrument recorded at all">' +
                 '<span class="qc-pill qc-pill-gap">DATA GAP' + (rg.length > 1 ? 'S' : '') + '</span>' +
                 '<span>' + rg.slice(0, 4).map(g => 'Data gap from ' + qcSecToLabel(g.from) + ' - ' + qcSecToLabel(g.to)).join('<br>') +
                 (rg.length > 4 ? '<br>plus ' + (rg.length - 4) + ' more (see Gap Report)' : '') + '</span></div>';
@@ -387,19 +387,20 @@
         let all = await qcStoreAll();
         if (onlyIds && onlyIds.size) all = all.filter(r => onlyIds.has(String(r.missionId)));
         if (!all.length) return;   // nothing saved yet (rows are auto-saved on each flight load)
-        // one file per airframe, byte for byte like the script's N42/N43/N49_Stats.txt: headerless
-        // comma separated lines, one per flight, in the script's exact column order, so a download
-        // can be appended straight onto a user's historical stats file. airframes with no stored
-        // flights produce no file; rows saved by older builds (no scriptLine) regenerate when that
-        // flight is reopened.
+        // one .csv per airframe: a header row naming every difference column, then one row per
+        // flight in the script's exact column order. the data cells stay byte identical to the
+        // legacy N42/N43/N49_Stats values (drop the header row and it appends onto a historical
+        // file), the header just makes flights easy to compare column by column. airframes with no
+        // stored flights produce no file; rows saved by older builds regenerate when reopened.
         const tails = { H: 'N42', I: 'N43', N: 'N49' };
         Object.keys(tails).forEach(letter => {
-            const lines = all.filter(r => r.aircraft === letter && r.scriptLine)
+            const rows = all.filter(r => r.aircraft === letter && r.scriptLine)
                 .sort((a, b) => String(a.missionId).localeCompare(String(b.missionId)))
                 .map(r => r.scriptLine);
-            if (!lines.length) return;
-            const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = tails[letter] + '_Stats.txt'; a.click();
+            if (!rows.length) return;
+            const csv = qcScriptStatsHeader(letter) + '\n' + rows.join('\n') + '\n';
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = tails[letter] + '_Stats.csv'; a.click();
             setTimeout(() => URL.revokeObjectURL(a.href), 2000);
         });
     }
@@ -444,7 +445,7 @@
         Object.keys(tails).forEach(letter => {
             const rows = all.filter(r => r.aircraft === letter).sort((a, b) => String(a.missionId).localeCompare(String(b.missionId)));
             if (!rows.length) return;
-            html += '<div class="qc-picker-group">' + tails[letter] + '_Stats.txt (' + rows.length + ' flight' + (rows.length === 1 ? '' : 's') + ')</div>';
+            html += '<div class="qc-picker-group">' + tails[letter] + '_Stats.csv (' + rows.length + ' flight' + (rows.length === 1 ? '' : 's') + ')</div>';
             html += rows.map(r => r.scriptLine
                 ? '<label class="qc-picker-row"><input type="checkbox" checked data-id="' + String(r.missionId).replace(/"/g, '&quot;') + '">' + r.missionId + '</label>'
                 : '<div class="qc-picker-row qc-picker-stale">' + r.missionId + ' (reopen this flight once to refresh its saved row)</div>').join('');
@@ -497,19 +498,20 @@
               '<div class="qc-ov-title" id="qcMissionName"></div>' +
               '<div class="qc-summary" id="qcSummaryPills"></div>' +
               '<div class="qc-ov-actions">' +
-                '<button id="qcPhaseStatsBtn" class="qc-ov-btn" title="Takeoff / mid-flight / landing max, mean, median for a variable (the script\'s PSM statement, for any sensor)">Max/Mean/Median</button>' +
-                '<button id="qcSideToggle" class="qc-ov-btn qc-ov-btn-flight" title="Show or hide the 2D/3D flight-track map and per-sensor report sidebar">Flight Context</button>' +
+                '<button id="qcPhaseStatsBtn" class="qc-ov-btn" title="Takeoff, mid-flight, and landing max, mean, and median for a variable">Max/Mean/Median</button>' +
+                '<button id="qcSideToggle" class="qc-ov-btn qc-ov-btn-flight" title="Show or hide the flight-track map and sensor report sidebar">Flight Context</button>' +
                 '<div class="qc-vdiv qc-vdiv-sm"></div>' +
                 '<div class="qc-export-wrap">' +
                   '<button id="qcExportMenuBtn" class="qc-ov-btn" title="Download reports and stats">Export ▾</button>' +
                   '<div id="qcExportMenu" class="qc-menu hidden">' +
-                    '<button class="qc-menu-item" id="qcExportReportBtn" title="This flight\'s per-sensor QC stats">Indiv. Sensor Stats CSV</button>' +
-                    '<button class="qc-menu-item" id="qcExportStoreBtn" title="Shows all flights of each plane (includes any other flight you\'ve loaded previously too). Pick which flights go into the Stats files.">Indiv. Plane Stats CSV</button>' +
+                    '<button class="qc-menu-item" id="qcErrorSummaryBtn" title="Fill out and download the Error Summary PDF">Error Summary (.pdf)</button>' +
+                    '<button class="qc-menu-item" id="qcTrackPdfBtn" title="Download a PDF map of the flight track">Flight Track Map (.pdf)</button>' +
                     '<button class="qc-menu-item" id="qcGapReportBtn" title="Recording gaps in the archive GapReport.dat format">Gap Report (.dat)</button>' +
-                    '<button class="qc-menu-item" id="qcExportHtmlBtn" title="One self-contained interactive file: every graph with zoom and hover, the gap markers, the flight track, and the summary. Opens anywhere, no flight load needed, sendable to anyone.">Interactive Report (.html)</button>' +
-                    '<button class="qc-menu-item" id="qcErrorSummaryBtn" title="The qc_Error_Summary script\'s PDF, prefilled by the tool and fully editable before download">Error Summary (.pdf)</button>' +
-                    '<button class="qc-menu-item" id="qcTrackPdfBtn" title="A landscape PDF map of the flight track with a country basemap, heading arrows, and time markers, like the python script">Flight Track Map (.pdf)</button>' +
-                    '<button class="qc-menu-item" id="qcShareLinkBtn" title="Copy a link that reopens this mission in the QC tool at your current playhead, tracker view, and sidebar state (archive missions only)">Share QC Link</button>' +
+                    '<button class="qc-menu-item" id="qcExportHtmlBtn" title="Download an interactive report as one self-contained HTML file">Interactive Report (.html)</button>' +
+                    '<button class="qc-menu-item" id="qcExportReportBtn" title="This flight\'s per-sensor QC stats">Indiv. Sensor Stats CSV</button>' +
+                    '<button class="qc-menu-item" id="qcExportStoreBtn" title="Pick which stored flights go into each plane\'s Stats file">Indiv. Plane Stats CSV</button>' +
+                    '<div class="qc-menu-sep"></div>' +
+                    '<button class="qc-menu-item qc-menu-share" id="qcShareLinkBtn" title="Copy a shareable link to this view">Share QC Link</button>' +
                   '</div>' +
                 '</div>' +
               '</div>' +
@@ -675,7 +677,7 @@
                     '<li><b>Gap Report (.dat):</b> recorder gaps in the archive GapReport.dat wording.</li>' +
                     '<li><b>Interactive Report (.html):</b> one self-contained file with every graph interactive, the gap markers, the track, and the summary; send it to anyone, no flight load needed.</li>' +
                     '<li><b>Error Summary (.pdf):</b> the qc_Error_Summary script form, prefilled by the tool (flight id, times, sensor designations) and editable before download; the PDF layout matches the script exactly.</li>' +
-                    '<li><b>Indiv. Plane Stats CSV:</b> pick which stored flights go into each plane Stats file, in the legacy script format.</li>' +
+                    '<li><b>Indiv. Plane Stats CSV:</b> pick which stored flights go into each plane .csv. Each value is the flight-average difference between a sensor pair (first sensor minus second, over takeoff to landing); a value near zero means the two sensors agree. Columns are labeled and match the legacy script values.</li>' +
                     '<li><b>Share QC Link:</b> reopens an archive mission at your playhead, view, and sidebar state.</li>' +
                   '</ul>' +
                 '</div>' +
@@ -778,14 +780,20 @@
         qcRelocate('missionLoadConsole', 'qcLoaderSlot');
         qcRelocate('mapPanel', 'qcMapSlot');
         qcRelocate('topRightControls', 'qcHeadControls');
-        // manual takeoff/landing pins live under those top-right buttons, in the same block.
-        // apply reruns the whole report with the pinned seconds; auto returns to detection.
+        // flight library row: the loaded-mission picker and the batch flight-data loader, stacked
+        // in the right column above the manual takeoff/landing pins
+        const lib = document.createElement('div'); lib.className = 'qc-flight-lib'; lib.id = 'qcFlightLib';
+        document.getElementById('qcHeadControls').appendChild(lib);
+        qcRelocate('loadedPickerWrap', 'qcFlightLib');
+        qcRelocate('preloadBtnWrap', 'qcFlightLib');
+        // manual takeoff/landing pins, below the flight library. apply reruns the report with the
+        // pinned seconds; auto returns to detection.
         const ovr = document.createElement('div');
         ovr.className = 'qc-phase-override';
         ovr.innerHTML =
-            '<span class="qc-ov-field">T/O <input id="qcToInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Manual takeoff time (HHMMSS UTC). The recording is trimmed to five minutes before this time."></span>' +
+            '<span class="qc-ov-field">T/O <input id="qcToInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Manual takeoff time (HHMMSS UTC)"></span>' +
             '<span class="qc-ov-field">LND <input id="qcLandInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Manual landing time (HHMMSS UTC)"></span>' +
-            '<button id="qcPhaseApply" class="qc-ov-btn" title="Recompute the report, stats, and graphs with these takeoff and landing times">Apply</button>' +
+            '<button id="qcPhaseApply" class="qc-ov-btn" title="Recompute with these takeoff and landing times">Apply</button>' +
             '<button id="qcPhaseAuto" class="qc-ov-btn" title="Back to automatic takeoff and landing detection">Auto</button>';
         document.getElementById('qcHeadControls').appendChild(ovr);
         document.getElementById('qcPhaseApply').addEventListener('click', () => {
@@ -797,14 +805,6 @@
             qcOverride = null;
             qcRecomputeReport();
         });
-        // the flight library controls live under the QC Tool title, with the season preloader
-        // (download whole seasons to this device) right beside them
-        qcRelocate('loadedPickerWrap', 'qcBrandActions');
-        qcRelocate('preloadBtnWrap', 'qcBrandActions');
-        // the satellite overlay picker comes along too: out of the hidden map header, into the
-        // context bar next to the speed button (2d tracker only, exactly as in the visualizer)
-        const satGrp = document.getElementById('satControlGroup'), qcSpd = document.getElementById('qcSpeedBtn');
-        if (satGrp && qcSpd && qcSpd.parentElement) qcSpd.parentElement.insertBefore(satGrp, qcSpd.nextSibling);
 
         // relabel the reused map panel for a QC context, and hide the player-only map controls
         const sub = document.querySelector('#qcMapSlot .panel-subhead'); if (sub) sub.textContent = 'Flight Track';
