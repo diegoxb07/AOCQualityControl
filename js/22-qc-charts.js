@@ -1194,17 +1194,17 @@
             const switchedBadge = f => {
                 if (!f || !f.refInfo || !f.refInfo.switched) return '';
                 const segs = f.refInfo.segments || [];
-                if (segs.length <= 1) return ' <span class="qc-badge qc-badge-warn">' + f.ref + ' switched sources: ' + f.refInfo.sources.join(' then ') + '</span>';
-                const parts = segs.map((s, i) => i ? s.source + ' at <span class="qc-ref-jump" data-idx="' + s.fromIdx + '" title="Jump to this switch">' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '?') + '</span>' : s.source);
-                // a long switch history folds behind a +N more toggle so the badge never crowds
-                // out the sensor legend; every time stays clickable once expanded
-                const SHOW = 3;
-                let ride;
-                if (parts.length <= SHOW) ride = parts.join(', then ');
-                else ride = parts.slice(0, SHOW).join(', then ') +
-                    '<span class="qc-ref-rest">, then ' + parts.slice(SHOW).join(', then ') + '</span>' +
-                    '<button type="button" class="qc-ref-morebtn" data-n="+' + (parts.length - SHOW) + ' more">+' + (parts.length - SHOW) + ' more</button>';
-                return ' <span class="qc-badge qc-badge-warn">' + f.ref + ' switched sources: ' + ride + '</span>';
+                if (segs.length <= 1) return ' <span class="qc-badge qc-badge-warn qc-switch-badge">' + f.ref + ' switched sources: ' + f.refInfo.sources.join(' then ') + '</span>';
+                // the first source is inline; each later switch is its own span so the fit pass can
+                // fold the switches that would overflow the row into a +N more toggle, and only
+                // then (when there is no horizontal room for another switch)
+                let ride = segs[0].source;
+                for (let i = 1; i < segs.length; i++) {
+                    const t = (qcTimeLabels && qcTimeLabels[segs[i].fromIdx]) || '?';
+                    ride += '<span class="qc-ref-switch">, then ' + segs[i].source + ' at <span class="qc-ref-jump" data-idx="' + segs[i].fromIdx + '" title="Jump to this switch">' + t + '</span></span>';
+                }
+                ride += '<button type="button" class="qc-ref-morebtn" style="display:none"></button>';
+                return ' <span class="qc-badge qc-badge-warn qc-switch-badge">' + f.ref + ' switched sources: ' + ride + '</span>';
             };
             let statBits = '';
             if (fam.phaseStat) statBits += qcPhaseStatBadge(fam);
@@ -1219,9 +1219,9 @@
                 if (qcAxisRef && qcAxisRef[i] != null && typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[i]));
             }));
             head.querySelectorAll('.qc-ref-morebtn').forEach(btn => btn.addEventListener('click', () => {
-                const rest = btn.previousElementSibling;
-                const open = rest && rest.classList.toggle('qc-ref-rest-open');
-                btn.textContent = open ? 'less' : btn.dataset.n;
+                const badge = btn.closest('.qc-switch-badge'); if (!badge) return;
+                const open = badge.classList.toggle('qc-switch-open');   // css reveals the folded switches
+                btn.textContent = open ? 'less' : (btn.dataset.n || '');
             }));
             panel.appendChild(head);
             // issues are visible on the panel itself, no interaction needed: one chip per absent
@@ -1289,6 +1289,36 @@
         // charts scrolled back into view would otherwise show the playhead where it was when they
         // scrolled out; refresh the visible ones as the column scrolls
         if (!container.$qcScrollWired) { container.$qcScrollWired = true; container.addEventListener('scroll', () => qcSyncPlayhead(), { passive: true }); }
+        // fold each switched-sources flag to whatever fits its row, and re-fit on window resize
+        qcFitSwitchBadges(container);
+        if (!container.$qcFitWired) {
+            container.$qcFitWired = true;
+            let ft; window.addEventListener('resize', () => { clearTimeout(ft); ft = setTimeout(() => qcFitSwitchBadges(container), 150); });
+        }
+    }
+
+    // show as many switches as fit the badge's row; fold the overflow into a +N more toggle, and
+    // only then (badges the user has expanded are left alone)
+    function qcFitSwitchBadges(root) {
+        (root || document).querySelectorAll('.qc-switch-badge').forEach(badge => {
+            const switches = Array.prototype.slice.call(badge.querySelectorAll('.qc-ref-switch'));
+            const more = badge.querySelector('.qc-ref-morebtn');
+            if (!switches.length || !more) return;
+            if (badge.classList.contains('qc-switch-open')) return;   // user expanded it
+            if (!badge.clientWidth) return;                           // not laid out yet
+            switches.forEach(s => s.classList.remove('qc-ref-ovf'));
+            more.style.display = 'none';
+            if (badge.scrollWidth <= badge.clientWidth + 1) return;   // all switches fit
+            more.style.display = '';
+            let hidden = 0;
+            for (let i = switches.length - 1; i >= 0; i--) {
+                switches[i].classList.add('qc-ref-ovf');   // folded until the badge is opened
+                hidden++;
+                more.textContent = '+' + hidden + ' more';
+                if (badge.scrollWidth <= badge.clientWidth + 1) break;
+            }
+            more.dataset.n = '+' + hidden + ' more';
+        });
     }
 
     // small stroke icons for the graph toolbar, drawn in the button's current text color

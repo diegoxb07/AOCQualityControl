@@ -223,7 +223,7 @@
 "}",
 // clickable switch times inside a captured head badge
 "function wireHead(panelEl){ panelEl.querySelectorAll('.qc-ref-jump').forEach(function(el){ el.style.cursor='pointer'; el.addEventListener('click', function(){ var i=parseInt(el.dataset.idx,10); if(!isNaN(i)) setPlay(i); }); });",
-"  panelEl.querySelectorAll('.qc-ref-morebtn').forEach(function(b){ b.style.cursor='pointer'; b.addEventListener('click', function(){ var rest=b.previousElementSibling; var open=rest&&rest.classList.toggle('qc-ref-rest-open'); b.textContent=open?'less':b.dataset.n; }); }); }",
+"  panelEl.querySelectorAll('.qc-ref-morebtn').forEach(function(b){ b.style.cursor='pointer'; b.addEventListener('click', function(){ var badge=b.closest('.qc-switch-badge'); if(!badge)return; var open=badge.classList.toggle('qc-switch-open'); b.textContent=open?'less':(b.dataset.n||''); }); }); }",
 // per-graph tools matching the app: scrub / pan / select zoom, plus a floating reset, png, fullscreen
 "function zoomVisual(ch){ var z=false; try{z=ch.isZoomedOrPanned();}catch(e){} if(ch.$resetBtn) ch.$resetBtn.classList.toggle('show',z); }",
 "function doReset(ch,home,isMap){ try{ch.resetZoom('none');}catch(e){} ch.zoomScale('x',home.x,'none'); if(isMap&&home.y) ch.zoomScale('y',home.y,'none'); refresh(ch); zoomVisual(ch); if(ch.$resetBtn) ch.$resetBtn.classList.remove('show'); if(ch.$selectTool) ch.$selectTool(isMap?'pan':'scrub'); }",
