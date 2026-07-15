@@ -1120,6 +1120,9 @@
             if (filteredData.length && trackerModeSelect.value === '2d' && typeof renderMapEngineFrame === 'function') {
                 renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
             }
+            // the 3D terrain/coastline colors are baked per-vertex/per-material, so rebuild the scene
+            // when it is showing to recolor land, water, and borders for the new theme.
+            if (filteredData.length && trackerModeSelect.value === '3d' && typeof build3DScene === 'function') build3DScene();
             // Legend label colors are theme-aware (js/17-charts.js generateLabels), baked at build
             // time, so rebuild the legends on toggle. update('none') re-runs generateLabels without
             // animation; the zoom plugin preserves any pan/zoom across it.

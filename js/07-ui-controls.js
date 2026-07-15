@@ -260,18 +260,42 @@
                 const in3d = !trackerModeSelect || trackerModeSelect.value === '3d';
                 const show = in3d && camera3D && planeGroup3D && filteredData.length;
                 const px = show ? planeGroup3D.position.x : 0, pz = show ? planeGroup3D.position.z : 0, R0 = 26, R1 = 74;
+                // the state the plane is OVER gets its label placed directly under the plane, so a
+                // straight-down look reads it (a plane deep inside a big state is far from every
+                // border, so nearest-border alone would hide the state you are actually in).
+                let over = null, gx = px, gy = 5, gz = pz;
+                if (show && filteredData[currentIdx]) {
+                    const prow = filteredData[currentIdx], plon = prow.lon, plat = prow.lat;
+                    if (isFinite(plon) && isFinite(plat)) {
+                        for (let i = 0; i < _countryLabels.length; i++) {
+                            const cl = _countryLabels[i];
+                            if (cl.rings && cl.rings.some(r => ptInRing(plon, plat, r))) { over = cl; break; }
+                        }
+                        const gAlt = (typeof isTerrainLoaded === 'function' && isTerrainLoaded() && typeof terrainElevationMeters === 'function') ? terrainElevationMeters(plat, plon) + 90 : 5;
+                        const gp = get3DCoord(plon, plat, gAlt); gx = gp.x; gy = gp.y; gz = gp.z;
+                    }
+                }
                 for (let i = 0; i < _countryLabels.length; i++) {
                     const cl = _countryLabels[i];
                     if (!show) { cl.sprite.visible = false; continue; }
+                    if (cl === over) {   // the state under the plane: park the label right below it, always lit
+                        cl.sprite.visible = true;
+                        const camDist = camera3D.position.distanceTo(cl.sprite.position.set(gx, gy, gz)) || 1;
+                        const sc = camDist * 0.032, f = cl.base || 1;
+                        cl.sprite.position.y = gy + sc * 0.7;
+                        cl.sprite.scale.set(sc * cl.aspect * f, sc * f, 1);
+                        cl.mat.opacity = 1;
+                        continue;
+                    }
                     let best = Infinity, bx = 0, by = 0, bz = 0;
                     for (let k = 0; k < cl.pts.length; k++) { const p = cl.pts[k]; const dx = px - p.x, dz = pz - p.z, dd = dx * dx + dz * dz; if (dd < best) { best = dd; bx = p.x; by = p.y; bz = p.z; } }
                     const dist = Math.sqrt(best);
                     if (dist < R1) {
                         cl.sprite.visible = true;
                         const camDist = camera3D.position.distanceTo(cl.sprite.position.set(bx, by, bz)) || 1;
-                        const sc = camDist * 0.032;
+                        const sc = camDist * 0.032, f = cl.base || 1;   // states ride a bit smaller
                         cl.sprite.position.y = by + sc * 0.7;
-                        cl.sprite.scale.set(sc * cl.aspect, sc, 1);
+                        cl.sprite.scale.set(sc * cl.aspect * f, sc * f, 1);
                         cl.mat.opacity = dist <= R0 ? 1 : (R1 - dist) / (R1 - R0);
                     } else cl.sprite.visible = false;
                 }
@@ -288,7 +312,7 @@
     let windStreaks3D = null;   // small vertical wind streaks on the plane for updrafts/downdrafts
     let _vertBump = 0;          // signed vertical bump at the current frame (updraft +, downdraft -)
     let _borderLines = [];      // { line, mat, box, base } coastline/border lines, faded by distance to the plane
-    let _countryLabels = [];    // { sprite, mat, aspect, pts } country name labels shown near visible coastlines
+    let _countryLabels = [];    // { sprite, mat, aspect, base, pts } country and US state name labels shown near visible borders
     let _reframeRealScale = false;   // set when the plane is (re)built with real-scale on; consumed once the plane is positioned (update3DFrame)
     const PLANE_REAL_LEN_M = { p3: 35.61, giv: 26.90 };
     function planeModelLocalLength() {
@@ -442,22 +466,34 @@
         return Math.max(-1.3, Math.min(1.3, s));
     }
 
-    // A small text sprite for a country name (white with a dark outline so it reads on any terrain).
-    // The label keeps a constant on-screen size in animate3D by scaling with its camera distance.
-    function countryLabelSprite(name) {
+    // ray-cast point-in-polygon on a lon/lat ring, for finding which state the plane is over
+    function ptInRing(lon, lat, ring) {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+            if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+        }
+        return inside;
+    }
+
+    // A small text sprite for a country (or US state) name, white with a dark outline so it reads on
+    // any terrain. state names are smaller and dimmer so the countries still lead. The label keeps a
+    // constant on-screen size in animate3D by scaling with its camera distance.
+    function countryLabelSprite(name, isState) {
+        const fs = isState ? 32 : 40, h = Math.round(fs * 1.45);
         const cv = document.createElement('canvas');
         let c = cv.getContext('2d');
-        c.font = 'bold 40px sans-serif';
+        c.font = 'bold ' + fs + 'px sans-serif';
         const w = Math.min(560, Math.ceil(c.measureText(name).width) + 30);
-        cv.width = w; cv.height = 58;
+        cv.width = w; cv.height = h;
         c = cv.getContext('2d');
-        c.font = 'bold 40px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-        c.lineWidth = 7; c.strokeStyle = 'rgba(5,12,20,0.92)'; c.strokeText(name, w / 2, 30);
-        c.fillStyle = '#eef4fb'; c.fillText(name, w / 2, 30);
+        c.font = 'bold ' + fs + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.lineWidth = 7; c.strokeStyle = 'rgba(5,12,20,0.92)'; c.strokeText(name, w / 2, h / 2);
+        c.fillStyle = isState ? '#c3d2e2' : '#eef4fb'; c.fillText(name, w / 2, h / 2);
         const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter;
         const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
         const spr = new THREE.Sprite(mat); spr.renderOrder = 5; spr.visible = false;
-        return { sprite: spr, mat, aspect: w / 58, pts: [] };
+        return { sprite: spr, mat, aspect: w / h, base: isState ? 0.72 : 1, pts: [] };
     }
 
     function build3DScene() {
@@ -469,11 +505,13 @@
         // country labels live on the scene (not threeMapGroup), so drop the previous set here.
         _countryLabels.forEach(cl => { if (cl.sprite.parent) cl.sprite.parent.remove(cl.sprite); if (cl.mat.map) cl.mat.map.dispose(); cl.mat.dispose(); });
         _countryLabels = [];
-        const landMat = new THREE.MeshBasicMaterial({ color: 0x0d4a22, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
-        // bright coastlines and dimmer internal (state) borders, so countries read clearly against the
-        // terrain shading. depthWrite off keeps them from occluding the streaks and each other.
-        const coastMat = new THREE.LineBasicMaterial({ color: 0xf0f6fc, transparent: true, opacity: 0.9, depthWrite: false });
-        const stateMat = new THREE.LineBasicMaterial({ color: 0xaac2d6, transparent: true, opacity: 0.55, depthWrite: false });
+        const light3d = document.documentElement.dataset.theme === 'light';
+        const landMat = new THREE.MeshBasicMaterial({ color: light3d ? 0x8fbf76 : 0x0d4a22, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+        // coastlines and dimmer internal (state) borders, so countries read clearly against the
+        // terrain. dark ink lines on the light theme, bright on dark. depthWrite off keeps them from
+        // occluding the streaks and each other.
+        const coastMat = new THREE.LineBasicMaterial({ color: light3d ? 0x1c3f63 : 0xf0f6fc, transparent: true, opacity: light3d ? 0.85 : 0.9, depthWrite: false });
+        const stateMat = new THREE.LineBasicMaterial({ color: light3d ? 0x5a7fa0 : 0xaac2d6, transparent: true, opacity: 0.55, depthWrite: false });
         // when the bundled terrain grid (js/07c-terrain.js) is loaded, coastlines and borders drape onto
         // the terrain surface at their sampled elevation and the flat land fill is skipped. c is GeoJSON
         // [lon, lat], so terrainElevationMeters takes (c[1], c[0]).
@@ -499,15 +537,19 @@
             const geom = feature.geometry; if (!geom) return;
             const isState = feature.properties && feature.properties.isState === true;
             if (geom.type === 'Polygon') processPolygon(geom.coordinates, isState); else if (geom.type === 'MultiPolygon') geom.coordinates.forEach(poly => processPolygon(poly, isState));
-            // one small name label per country (not states); positioned at the nearest coastline point to
-            // the plane each frame (animate3D) and only shown while that coastline is in range.
-            if (!isState && scene3D && feature.properties && feature.properties.NAME) {
+            // one small name label per country, plus US state names, positioned at the nearest border
+            // point to the plane each frame (animate3D) and only shown while that border is in range.
+            // the "United States of America" label is suppressed: it is huge so it showed almost
+            // always, and the state labels now carry US context.
+            const labelName = feature.properties && (isState ? feature.properties.name : feature.properties.NAME);
+            if (labelName && labelName !== 'United States of America' && scene3D) {
                 const polys = geom.type === 'Polygon' ? [geom.coordinates] : (geom.type === 'MultiPolygon' ? geom.coordinates : []);
                 const all = []; polys.forEach(poly => poly.forEach(ring => ring.forEach(cc => all.push(cc))));
                 if (all.length) {
                     const step = Math.max(1, Math.floor(all.length / 40));
-                    const lbl = countryLabelSprite(feature.properties.NAME);
+                    const lbl = countryLabelSprite(labelName, isState);
                     for (let k = 0; k < all.length; k += step) { const cc = all[k]; lbl.pts.push(get3DCoord(cc[0], cc[1], borderAlt(cc))); }
+                    if (isState) lbl.rings = polys.map(poly => poly[0]);   // exterior rings (lon/lat) for the look-down containment test
                     scene3D.add(lbl.sprite); _countryLabels.push(lbl);
                 }
             }
@@ -702,7 +744,18 @@
             syncSatSplit();
             buildSatDayStepper();
 
-            setTimeout(() => { resizeCanvasLayout(); if (filteredData.length > 0) { updateVisualComponents(currentIdx); } }, 50);
+            setTimeout(() => {
+                resizeCanvasLayout();
+                if (filteredData.length > 0) {
+                    // the 2d map may have been fitted against a zero-size canvas (flight loaded while
+                    // in 3d), leaving a stale, off-target view; recompute the frame and re-center on
+                    // the plane while still following, so it lands where it should instead of blank sea
+                    if (typeof calculateMapScales === 'function') calculateMapScales();
+                    bgNeedsUpdate = true;
+                    if (followAircraft2D && typeof engageFollowAircraft === 'function') engageFollowAircraft();
+                    updateVisualComponents(currentIdx);
+                }
+            }, 50);
         }
         if (typeof updateFollowButton === 'function') updateFollowButton();
         if (typeof updateSatColorLegend === 'function') updateSatColorLegend();   // hide in 3d, show in 2d

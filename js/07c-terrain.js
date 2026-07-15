@@ -27,12 +27,23 @@
         return (e00 * (1 - tx) + e10 * tx) * (1 - ty) + (e01 * (1 - tx) + e11 * tx) * ty;
     }
 
-    // Elevation-shaded color (0..1 rgb): bathymetry blues below sea level, green->tan->snow above.
-    function terrainColorRGB(e) {
-        if (e < 0) { const t = Math.max(0, Math.min(1, -e / 5000)); return [0.04 + 0.03 * (1 - t), 0.20 - 0.11 * t, 0.32 - 0.15 * t]; }
+    // Elevation-shaded color (0..1 rgb): a clear ocean blue below sea level, land green->tan->snow
+    // above, so land and water read distinctly. Theme-aware (lighter on the light theme).
+    function terrainColorRGB(e, light) {
+        if (e < 0) {   // water: bright shore blue darkening with depth
+            const t = Math.max(0, Math.min(1, -e / 4000));
+            return light ? [0.60 - 0.18 * t, 0.76 - 0.18 * t, 0.90 - 0.14 * t]
+                         : [0.11 - 0.05 * t, 0.34 - 0.16 * t, 0.55 - 0.24 * t];
+        }
         const t = Math.max(0, Math.min(1, e / 4000));
-        if (t < 0.5) { const s = t / 0.5; return [0.17 + 0.36 * s, 0.42 - 0.05 * s, 0.20 - 0.01 * s]; }   // green -> tan
-        const s = (t - 0.5) / 0.5; return [0.53 + 0.30 * s, 0.37 + 0.34 * s, 0.18 + 0.55 * s];             // tan -> snow
+        if (t < 0.5) {   // lowland green -> upland tan
+            const s = t / 0.5;
+            return light ? [0.63 + 0.21 * s, 0.79 - 0.02 * s, 0.49 + 0.09 * s]
+                         : [0.22 + 0.39 * s, 0.50 - 0.06 * s, 0.26 - 0.02 * s];
+        }
+        const s = (t - 0.5) / 0.5;   // tan -> snow
+        return light ? [0.84 + 0.14 * s, 0.77 + 0.20 * s, 0.58 + 0.40 * s]
+                     : [0.61 + 0.28 * s, 0.44 + 0.30 * s, 0.24 + 0.52 * s];
     }
 
     // A terrain surface over the flight's horizontal extent (plus margin), sampled from the grid and
@@ -46,15 +57,17 @@
         const lon0 = plotMinLon - spanLon * pad, lon1 = plotMaxLon + spanLon * pad;
         const lat0 = plotMinLat - spanLat * pad, lat1 = plotMaxLat + spanLat * pad;
         const NX = 96, NY = 96;
+        const light = document.documentElement.dataset.theme === 'light';
         const grp = new THREE.Group();
         const verts = [], colors = [], idx = [];
         for (let iy = 0; iy < NY; iy++) {
             for (let ix = 0; ix < NX; ix++) {
                 const lon = lon0 + (lon1 - lon0) * ix / (NX - 1);
                 const lat = lat0 + (lat1 - lat0) * iy / (NY - 1);
-                const p = get3DCoord(lon, lat, terrainElevationMeters(lat, lon));
+                const el = terrainElevationMeters(lat, lon);
+                const p = get3DCoord(lon, lat, el);
                 verts.push(p.x, p.y, p.z);
-                const c = terrainColorRGB(terrainElevationMeters(lat, lon));
+                const c = terrainColorRGB(el, light);
                 colors.push(c[0], c[1], c[2]);
             }
         }
@@ -73,7 +86,7 @@
         grp.add(terrain);
         // faint sea-level surface at y=0 (get3DCoord centers the flight on the origin).
         const seaGeom = new THREE.PlaneGeometry((lon1 - lon0) * 20, (lat1 - lat0) * 20); seaGeom.rotateX(-Math.PI / 2);
-        const sea = new THREE.Mesh(seaGeom, new THREE.MeshBasicMaterial({ color: 0x2f6fa6, transparent: true, opacity: 0.20, side: THREE.DoubleSide, depthWrite: false }));
+        const sea = new THREE.Mesh(seaGeom, new THREE.MeshBasicMaterial({ color: light ? 0x9fc4e8 : 0x2f6fa6, transparent: true, opacity: light ? 0.26 : 0.20, side: THREE.DoubleSide, depthWrite: false }));
         sea.position.set(0, 0, 0); sea.renderOrder = -1;
         grp.add(sea);
         return grp;
