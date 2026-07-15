@@ -33,8 +33,8 @@
          with no internet; only the recon-archive/satellite APIs need one.
          css/tailwind.css is COMPILED, not hand-written, regenerate after changing Tailwind
          classes in index.html or js/*.js:  npx tailwindcss@3 -i tailwind.input.css -o css/tailwind.css --minify -->
-    <link rel="stylesheet" href="css/fonts.css?v=20260715p">
-    <link rel="stylesheet" href="css/tailwind.css?v=20260715p">
+    <link rel="stylesheet" href="css/fonts.css?v=20260715q">
+    <link rel="stylesheet" href="css/tailwind.css?v=20260715q">
     <script src="lib/chart.umd.min.js"></script>
     <!-- hammer.js provides the drag gesture the zoom plugin's pan mode requires; without it pan is silently inert -->
     <script src="lib/hammer.min.js"></script>
@@ -43,7 +43,7 @@
     <script src="lib/OrbitControls.js"></script>
     <script src="lib/netcdfjs.min.js"></script>
 
-    <link rel="stylesheet" href="css/app.css?v=20260715p">
+    <link rel="stylesheet" href="css/app.css?v=20260715q">
 </head>
 <body class="font-sans antialiased">
     <!-- QC boot cover: paints from the first frame so the reused visualizer never flashes on refresh
@@ -831,34 +831,34 @@
      whole page. Classic scripts, one shared global scope, load order matters. -->
     <!-- ?v= cache-buster: bump this token after editing any css/js so browsers (and the Codespaces
          port-preview) fetch the new files instead of a stale cached copy. -->
-    <script src="js/00b-qc-catalog.js?v=20260715p"></script>
-    <script src="js/01-state.js?v=20260715p"></script>
-    <script src="js/02-satellite.js?v=20260715p"></script>
-    <script src="js/03-metrics.js?v=20260715p"></script>
-    <script src="js/06-ocr.js?v=20260715p"></script>
-    <script src="js/07-ui-controls.js?v=20260715p"></script>
-    <script src="js/07b-plane-models.js?v=20260715p"></script>
-    <script src="js/07c-terrain.js?v=20260715p"></script>
-    <script src="js/09-interaction.js?v=20260715p"></script>
-    <script src="js/11-layout.js?v=20260715p"></script>
-    <script src="js/11b-parser-core.js?v=20260715p"></script>
-    <script src="js/12-file-parsing.js?v=20260715p"></script>
-    <script src="js/12b-recon-archive.js?v=20260715p"></script>
-    <script src="js/13-charts-master.js?v=20260715p"></script>
-    <script src="js/14-filters-sync.js?v=20260715p"></script>
-    <script src="js/15-map-render.js?v=20260715p"></script>
-    <script src="js/17-charts.js?v=20260715p"></script>
-    <script src="js/18-engine.js?v=20260715p"></script>
-    <script src="js/18b-flight-search.js?v=20260715p"></script>
-    <script src="js/19-bootstrap.js?v=20260715p"></script>
-    <script src="js/20-ui-polish.js?v=20260715p"></script>
+    <script src="js/00b-qc-catalog.js?v=20260715q"></script>
+    <script src="js/01-state.js?v=20260715q"></script>
+    <script src="js/02-satellite.js?v=20260715q"></script>
+    <script src="js/03-metrics.js?v=20260715q"></script>
+    <script src="js/06-ocr.js?v=20260715q"></script>
+    <script src="js/07-ui-controls.js?v=20260715q"></script>
+    <script src="js/07b-plane-models.js?v=20260715q"></script>
+    <script src="js/07c-terrain.js?v=20260715q"></script>
+    <script src="js/09-interaction.js?v=20260715q"></script>
+    <script src="js/11-layout.js?v=20260715q"></script>
+    <script src="js/11b-parser-core.js?v=20260715q"></script>
+    <script src="js/12-file-parsing.js?v=20260715q"></script>
+    <script src="js/12b-recon-archive.js?v=20260715q"></script>
+    <script src="js/13-charts-master.js?v=20260715q"></script>
+    <script src="js/14-filters-sync.js?v=20260715q"></script>
+    <script src="js/15-map-render.js?v=20260715q"></script>
+    <script src="js/17-charts.js?v=20260715q"></script>
+    <script src="js/18-engine.js?v=20260715q"></script>
+    <script src="js/18b-flight-search.js?v=20260715q"></script>
+    <script src="js/19-bootstrap.js?v=20260715q"></script>
+    <script src="js/20-ui-polish.js?v=20260715q"></script>
     <!-- QC Mode: catalog loads up top (00b); engine, charts, and report/controller load last so
          they can wrap the player's update path. See js/21..23 and js/11b parseFlightRawQC. -->
-    <script src="js/21-qc-engine.js?v=20260715p"></script>
-    <script src="js/22-qc-charts.js?v=20260715p"></script>
-    <script src="js/23-qc-report.js?v=20260715p"></script>
-    <script src="js/24-qc-export-html.js?v=20260715p"></script>
-    <script src="js/25-qc-error-summary.js?v=20260715p"></script>
-    <script src="js/26-qc-track-pdf.js?v=20260715p"></script>
+    <script src="js/21-qc-engine.js?v=20260715q"></script>
+    <script src="js/22-qc-charts.js?v=20260715q"></script>
+    <script src="js/23-qc-report.js?v=20260715q"></script>
+    <script src="js/24-qc-export-html.js?v=20260715q"></script>
+    <script src="js/25-qc-error-summary.js?v=20260715q"></script>
+    <script src="js/26-qc-track-pdf.js?v=20260715q"></script>
 </body>
 </html>

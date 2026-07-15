@@ -283,16 +283,8 @@
     function qcJumpToSecond(sec) {
         if (!qcAxisRef || !qcAxisRef.length) return;
         const ai = Math.round(sec - qcAxisRef[0]);
-        // the click wins over the context: a jump aimed OUTSIDE the takeoff..landing window (a
-        // pre-takeoff gap, say) would be clamped while the sidebar player is open, so the sidebar
-        // minimizes itself and the playhead goes exactly where the user clicked
-        if (typeof qcPhaseMarks !== 'undefined' && qcPhaseMarks && (ai < qcPhaseMarks.toIdx || ai > qcPhaseMarks.landIdx)) {
-            const qapp = document.getElementById('qcApp');
-            if (qapp && qapp.classList.contains('qc-side-open')) {
-                const st = document.getElementById('qcSideToggle');
-                if (st) st.click(); else qapp.classList.remove('qc-side-open');
-            }
-        }
+        // a jump before takeoff (or after landing) keeps the sidebar open; the playhead goes
+        // exactly there and the player shows the boundary frame through qcPlayheadToRow
         qcScrubIdx = (typeof qcClampScrub === 'function') ? qcClampScrub(ai) : Math.max(0, Math.min(qcAxisRef.length - 1, ai));
         if (typeof isPlaying !== 'undefined' && isPlaying) {
             const pb = document.getElementById('playPauseBtn');
@@ -864,10 +856,9 @@
             document.getElementById('qcSideToggle').classList.toggle('qc-ov-sel', on);
             if (on) setTimeout(() => {
                 try { window.dispatchEvent(new Event('resize')); } catch (e) {}
-                // the player was not driven while hidden; pull a free-roaming playhead back into
-                // the player's window and bring the map and clock to position
+                // the player was not driven while hidden; bring the map and clock to the playhead.
+                // the playhead may sit before takeoff, the player just shows the takeoff frame.
                 try {
-                    if (typeof qcScrubIdx !== 'undefined' && qcScrubIdx != null && typeof qcClampScrub === 'function') qcScrubIdx = qcClampScrub(qcScrubIdx);
                     qcDrivePlayer(true);
                     if (typeof qcSyncPlayhead === 'function') qcSyncPlayhead(true);
                     // the flight loaded while this panel was hidden, so the on-load centering ran
@@ -890,8 +881,7 @@
         const realPb = document.getElementById('playPauseBtn');
         if (realPb) realPb.addEventListener('click', () => {
             if (typeof isPlaying !== 'undefined' && !isPlaying && filteredData && filteredData.length) {
-                if (typeof qcClampScrub === 'function' && typeof qcScrubIdx !== 'undefined' && qcScrubIdx != null) qcScrubIdx = qcClampScrub(qcScrubIdx);
-                currentIdx = qcPlayheadToRow();
+                currentIdx = qcPlayheadToRow();   // a pre-takeoff playhead starts playback at takeoff (row 0)
             }
         }, true);
 

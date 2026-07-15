@@ -16,6 +16,7 @@
     // the graph line draws from it, the map and clock FOLLOW it (qcDrivePlayer), and the only thing
     // that moves it automatically is active playback (the player wrapper mirrors its row into it).
     let qcScrubIdx = null;             // playhead axis index (seconds since recording start)
+    let qcMiniRange = null, qcMiniTime = null;   // the flight-track map's mini timeslider (a follower)
 
     // min/max decimation: at wide views each series is reduced to at most ~2 points per pixel
     // bucket, keeping every extreme (a QC tool must never smooth away a spike) and breaking the
@@ -265,15 +266,12 @@
         if (typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[i]));
     }
 
-    // scrub bounds: with the 2d/3d context open the scrubber stays inside takeoff..landing (the
-    // player has no rows outside it); with the context hidden the whole recording is scrubbable.
+    // scrub bounds: the whole recording is scrubbable, before takeoff included, so the graphs and
+    // the flight-track map roam the full range. the flight-context player clamps ITSELF to
+    // takeoff..landing through qcPlayheadToRow (a pre-takeoff playhead just shows the takeoff
+    // frame), so nothing is pinned here.
     function qcClampScrub(i) {
-        i = Math.max(0, Math.min(qcAxisRef.length - 1, i));
-        const app = document.getElementById('qcApp');
-        if (qcPhaseMarks && app && app.classList.contains('qc-side-open')) {
-            i = Math.max(qcPhaseMarks.toIdx, Math.min(qcPhaseMarks.landIdx, i));
-        }
-        return i;
+        return Math.max(0, Math.min(qcAxisRef.length - 1, i));
     }
 
     // floating tooltip for the shaded gap regions, phrased exactly like the GapReport entries
@@ -1157,6 +1155,7 @@
         qcCloseDiffModal();
         qcDestroyCharts();
         qcCurrentResult = qcResult;
+        qcMiniRange = null; qcMiniTime = null;   // the old slider DOM is about to be cleared
         qcAxisRef = qcResult.timeAxis;
         qcTimeLabels = new Array(qcResult.n);
         for (let i = 0; i < qcResult.n; i++) qcTimeLabels[i] = qcSecToLabel(qcResult.timeAxis[i]);
@@ -1253,7 +1252,7 @@
                 c.appendChild(qcBuildResetFloat(chart));
             };
             container.appendChild(panel);
-            if (isMapPanel) addGraph('qc-canvas-wrap qc-canvas-map', 'qc_latlon', 'flight-track.png', cv => qcBuildMapChart(cv, fam, lonFam));
+            if (isMapPanel) { addGraph('qc-canvas-wrap qc-canvas-map', 'qc_latlon', 'flight-track.png', cv => qcBuildMapChart(cv, fam, lonFam)); panel.appendChild(qcBuildMiniSlider()); }
             else if (hasMain) addGraph('qc-canvas-wrap', 'qc_' + fam.key, fam.key + '.png', cv => qcBuildMainChart(cv, fam, fam));
             // bottom strip of the graph block: the fused diff button inside its corner on the
             // left, and the std dev control sitting to the RIGHT of the corner lines
@@ -1493,6 +1492,7 @@
     // on long flights, so only charts scrolled into view are redrawn, and at most ~7x/second.
     let _qcLastPlayheadDraw = 0;
     function qcSyncPlayhead(force) {
+        qcUpdateMiniSlider();   // cheap; reflects the playhead even when the redraw below is throttled
         const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
         if (!force && now && now - _qcLastPlayheadDraw < 140) return;
         _qcLastPlayheadDraw = now;
@@ -1504,6 +1504,40 @@
             c.draw();
         });
         qcRefLiveHighlight();
+    }
+
+    // the flight-track map's mini timeslider: a follower of qcScrubIdx that scrubs the WHOLE
+    // recording. dragging it sets the one source of truth and drives the same sync path as the
+    // white-bar scrubber; qcSyncPlayhead pushes other scrubs back to it.
+    function qcBuildMiniSlider() {
+        const n = qcAxisRef ? qcAxisRef.length : 0;
+        const wrap = document.createElement('div'); wrap.className = 'qc-mini-slider';
+        const range = document.createElement('input'); range.type = 'range'; range.className = 'qc-mini-range';
+        range.min = '0'; range.max = String(Math.max(0, n - 1)); range.step = '1';
+        range.value = String(qcScrubIdx != null ? qcScrubIdx : 0);
+        range.title = 'Scrub the flight timeline';
+        const time = document.createElement('span'); time.className = 'qc-mini-time';
+        const scrub = hard => {
+            qcScrubIdx = qcClampScrub(Math.round(range.valueAsNumber));
+            if (typeof isPlaying !== 'undefined' && isPlaying) {
+                const pb = document.getElementById('playPauseBtn');
+                if (pb && /pause/i.test(pb.innerText)) pb.click(); else isPlaying = false;
+            }
+            time.textContent = (qcTimeLabels && qcTimeLabels[qcScrubIdx]) || '';
+            if (typeof qcDrivePlayer === 'function') qcDrivePlayer(hard);
+            qcSyncPlayhead(true);
+        };
+        range.addEventListener('input', () => scrub(false));
+        range.addEventListener('change', () => scrub(true));
+        wrap.appendChild(range); wrap.appendChild(time);
+        qcMiniRange = range; qcMiniTime = time;
+        time.textContent = (qcTimeLabels && qcTimeLabels[qcScrubIdx != null ? qcScrubIdx : 0]) || '';
+        return wrap;
+    }
+    function qcUpdateMiniSlider() {
+        if (!qcMiniRange || qcScrubIdx == null) return;
+        qcMiniRange.value = String(qcScrubIdx);   // equals the current value during the slider's own drag, so no jump
+        if (qcMiniTime) qcMiniTime.textContent = (qcTimeLabels && qcTimeLabels[qcScrubIdx]) || '';
     }
 
     // in every ref pipe, the source the ref is riding at the playhead's second reads blue; the

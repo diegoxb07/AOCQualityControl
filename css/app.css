@@ -757,6 +757,10 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-es-exp-head b { font-size: 10.5px; color: var(--text); font-weight: 700; }
 /* the fused lat/lon map panel runs taller than the line graphs */
 .qc-canvas-wrap.qc-canvas-map { height: 480px; }
+/* mini timeslider under the flight-track map: scrubs the whole recording, syncs the playhead */
+.qc-mini-slider { display: flex; align-items: center; gap: 10px; margin: 8px 2px 2px; }
+.qc-mini-range { flex: 1; height: 4px; cursor: pointer; accent-color: var(--accent); }
+.qc-mini-time { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text-muted); min-width: 62px; text-align: right; }
 .qc-charts-empty { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 22px; }
 .qc-fam { border: 1px solid var(--border); border-radius: 9px; margin-bottom: 8px; overflow: hidden; }
 .qc-fam-issue { border-color: color-mix(in oklab, var(--warn) 40%, var(--border)); }
