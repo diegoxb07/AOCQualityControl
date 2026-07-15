@@ -6,7 +6,7 @@
    bundled fonts, every family graph (zoom, pan, hover, legend, gap and check markers), the
    flight-track map with geography, the summary pills, per-graph badges, and the chip strips.
    Chart.js, the zoom plugin, hammer, the fonts, and app.css are all inlined, so the file opens
-   anywhere with no internet and no flight load. Mission loading and satellite are left out (API). */
+   anywhere with no internet and no flight load. Mission loading is left out (API). */
 
     function qcB64FromF32(arr) {
         const u8 = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);

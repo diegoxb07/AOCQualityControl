@@ -14,54 +14,7 @@
     
     // The old "Apply & Run" button is gone, the Play button folds it in (see the play handler below).
 
-    // Batch satellite cache modal (works across many storms without loading each flight into the app).
-    (function wireBatchCache() {
-        const btn = document.getElementById('batchCacheBtn');
-        const modal = document.getElementById('batchCacheModal');
-        const fileInput = document.getElementById('batchFileInput');
-        const startBtn = document.getElementById('batchCacheStartBtn');
-        if (!btn || !modal || !fileInput || !startBtn) return;
-        let picked = [];
-        // Closing the modal only HIDES it, caching keeps running in the background (progress shows on
-        // the on-map pill), so the user can close it and keep working. Stopping is explicit (Stop button
-        // or the pill's Cancel).
-        const closeModal = () => { modal.style.display = 'none'; };
-        btn.addEventListener('click', () => { populateBatchSatSelect(); populateBatchBandChecks(); modal.style.display = 'flex'; });
-        document.getElementById('batchCacheCloseBtn').addEventListener('click', closeModal);
-        document.getElementById('batchCacheCloseX').addEventListener('click', closeModal);
-        const satSelect = document.getElementById('batchSatSelect');
-        if (satSelect) satSelect.addEventListener('change', populateBatchBandChecks);   // bands differ per satellite
-        // Set the cancel flag AND abort whatever request/poll is currently in flight, so the pass
-        // actually stops within a tick instead of finishing out its current (up to 30s) poll wait.
-        const requestCacheCancel = () => {
-            if (!batchCaching) return;
-            // full, immediate teardown so the user can use the satellite controls right away instead of
-            // waiting for the loop to unwind. bumping the pass invalidates the running loop (it stops on
-            // its next check and skips its own teardown), and the abort kills the in-flight tile fetch.
-            batchCacheCancel = true;
-            batchCachePass++;
-            if (batchCacheAbortController) { try { batchCacheAbortController.abort(); } catch (e) {} }
-            batchCaching = false; batchCacheAbortController = null;
-            if (typeof setSatelliteControlsLocked === 'function') setSatelliteControlsLocked(false);
-            const sb = document.getElementById('batchCacheStartBtn'); if (sb) sb.textContent = 'Start caching';
-            const pl = document.getElementById('satPrefetchLabel'); if (pl) pl.textContent = 'Stopped';
-            const ml = document.getElementById('batchCacheStatus'); if (ml) ml.textContent = 'Cache stopped.';
-            if (typeof hideSatPrefetchBar === 'function') setTimeout(hideSatPrefetchBar, 800);
-        };
-        const pillCancel = document.getElementById('satPrefetchCancel');
-        if (pillCancel) pillCancel.addEventListener('click', () => { if (batchCaching) requestCacheCancel(); });
-        fileInput.addEventListener('change', (e) => {
-            picked = Array.from(e.target.files || []);
-            document.getElementById('batchCacheStatus').textContent = picked.length ? `${picked.length} file(s) selected.` : 'No files selected.';
-        });
-        startBtn.addEventListener('click', () => {
-            if (batchCaching) { requestCacheCancel(); return; }
-            const bands = Array.from(document.querySelectorAll('#batchBandChecks input:checked')).map(c => c.value);
-            batchCacheFlights(picked, bands, satSelect ? satSelect.value : '');
-        });
-    })();
-
-    // Jump the playhead by N flight-minutes (10-min steps line up with the GOES scan cadence).
+    // Jump the playhead by N flight-minutes.
     function skipFlightMinutes(mins) {
         if (!filteredData.length || !filteredData[currentIdx]) return;
         const targetSec = filteredData[currentIdx].absSeconds + mins * 60;
@@ -80,14 +33,12 @@
         }
         updateVisualComponents(currentIdx);
     }
-    document.getElementById('skipBack10Btn').addEventListener('click', () => skipFlightMinutes(-10));
-    document.getElementById('skipFwd10Btn').addEventListener('click', () => skipFlightMinutes(10));
 
     // resets the app to its fresh-load state in place, without a page reload, so real (page) fullscreen
     // is kept (re-entering fullscreen needs a user gesture a reload can't carry). tears down the loaded
-    // flight, video, satellite overlay, charts and map/3d view via the same helpers used when switching
-    // flights. things that persist across an F5 are left alone: display prefs (aocVizPrefs), the
-    // preloaded-mission list, the satellite tile cache, and the basemap geojson.
+    // flight, video, charts and map/3d view via the same helpers used when switching flights. things
+    // that persist across an F5 are left alone: display prefs (aocVizPrefs), the preloaded-mission list,
+    // and the basemap geojson.
     function resetAppToDefault() {
         // drop the shareable ?mission=/t=/view= params so a later manual F5 also lands on a clean session.
         try { const u = new URL(window.location.href); ['mission', 't', 'view'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u); } catch (e) {}
@@ -95,20 +46,9 @@
         // stop playback and any pending sync/render timers.
         isPlaying = false; playPauseBtn.innerText = 'Play';
         if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
-        [scrubSyncTimeout, scrubDebounceTimer, slideSyncTimer, satDebounceTimer].forEach(t => { if (t) clearTimeout(t); });
-        scrubSyncTimeout = null; scrubDebounceTimer = null; slideSyncTimer = null; satDebounceTimer = null;
+        [scrubSyncTimeout, scrubDebounceTimer, slideSyncTimer].forEach(t => { if (t) clearTimeout(t); });
+        scrubSyncTimeout = null; scrubDebounceTimer = null; slideSyncTimer = null;
         playbackAccumulator = 0; lastTickTime = 0; videoPlaybackAccumulator = 0; videoStartSeconds = 0;
-
-        // stop any running multi-flight satellite cache pass (requestCacheCancel is trapped in the batch
-        // IIFE, so replicate its teardown here) and clear the tile preloader queue.
-        if (batchCaching) {
-            batchCacheCancel = true; batchCachePass++;
-            if (batchCacheAbortController) { try { batchCacheAbortController.abort(); } catch (e) {} }
-            batchCaching = false; batchCacheAbortController = null;
-            if (typeof setSatelliteControlsLocked === 'function') setSatelliteControlsLocked(false);
-            if (typeof hideSatPrefetchBar === 'function') hideSatPrefetchBar();
-        }
-        if (typeof resetSatPreload === 'function') resetSatPreload();
 
         // unload the MMR video (revokes its object URL, resets both drop zones + speeds) and drop its zoom/pan.
         if (typeof clearLoadedMedia === 'function') clearLoadedMedia();
@@ -132,15 +72,8 @@
         isScrubbing = false; activeScrubChart = null;
         hasInitialSyncOccurred = false; forceOcrSyncNextTick = false; lastOcrVideoTime = 0;
 
-        // reset the map view + satellite draw state, and put the satellite picker back to Off.
+        // reset the map view.
         mapScale = 1; mapOffsetX = 0; mapOffsetY = 0; followAircraft2D = true; bgNeedsUpdate = true;
-        satImageLoaded = false; satImage = new Image(); satLoadedInfo = null; satImageBox = null; lastSatFetchTime = '';
-        satTileOpacity = 0.92;
-        const opSlider = document.getElementById('satOpacitySlider'); if (opSlider) opSlider.value = 92;
-        const opVal = document.getElementById('satOpacityVal'); if (opVal) opVal.textContent = '92%';
-        const satSel = document.getElementById('satelliteSelect'); if (satSel) satSel.value = 'none';
-        const bandSel = document.getElementById('satBandSelect'); if (bandSel) bandSel.value = '';
-        if (typeof updateSatelliteOptions === 'function') updateSatelliteOptions();   // repopulate for "no flight": hides band + legend, refreshes the picker button
 
         // wipe the tracker canvases; clear the 3d scene's dynamic content if it was ever built.
         try { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); } catch (e) {}
@@ -157,9 +90,8 @@
         const stormCb = document.getElementById('toggleStormTrack'); if (stormCb) stormCb.checked = false;
         const dataLine = document.getElementById('dataReportLine'); if (dataLine) dataLine.classList.add('hidden');
         const srcLink = document.getElementById('reconSourceLink'); if (srcLink) srcLink.classList.add('hidden');
-        const badge = document.getElementById('satTimeBadge'); if (badge) badge.classList.add('hidden');
         if (ocrIndicator) ocrIndicator.style.display = 'none';
-        ['replayBtn','playPauseBtn','markBtn','clearMarksBtn','timelineSlider','skipBack10Btn','skipFwd10Btn','startTimeInput','endTimeInput','exportClipBtn'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
+        ['replayBtn','playPauseBtn','markBtn','clearMarksBtn','timelineSlider','startTimeInput','endTimeInput','exportClipBtn'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
         const startI = document.getElementById('startTimeInput'); if (startI) startI.value = '';
         const endI = document.getElementById('endTimeInput'); if (endI) endI.value = '';
         const vsi = document.getElementById('videoStartInput'); if (vsi) { vsi.value = '000000'; vsi.disabled = true; }
@@ -173,7 +105,6 @@
         // archive Year->Storm->Mission cascade back to unpicked, and close any open popovers.
         if (typeof updatePreloadedSelect === 'function') updatePreloadedSelect('');
         if (typeof closeLoadedPicker === 'function') closeLoadedPicker();
-        if (typeof closeSatPicker === 'function') closeSatPicker();
         const reconYearSel = document.getElementById('reconYearSelect');
         if (reconYearSel && reconYearSel.value) { reconYearSel.value = ''; reconYearSel.dispatchEvent(new Event('change')); }
 
@@ -290,8 +221,7 @@
     replayBtn.addEventListener('click', function() {
         if (filteredData.length === 0) return;
         isPlaying = false; playPauseBtn.innerText = "Play"; currentSpeedIdx = 0; updateSpeedDisplay();
-        updateSatelliteOptions();
-        satImageLoaded = false; lastSatFetchTime = ''; bgNeedsUpdate = true;
+        bgNeedsUpdate = true;
 
         if (videoLoaded) { video.pause(); video.playbackRate = speeds[currentSpeedIdx]; } if (animationFrameId) cancelAnimationFrame(animationFrameId);
         
@@ -302,7 +232,7 @@
         
 
         hasInitialSyncOccurred = false; clearTimeout(scrubSyncTimeout); clearTimeout(slideSyncTimer);
-        satImageLoaded = false; lastSatFetchTime = ''; bgNeedsUpdate = true;
+        bgNeedsUpdate = true;
 
         if (videoLoaded) { video.currentTime = 0; currentIdx = 0; syncTelemetryToVideoClock(); } 
         else { setTimeout(() => { currentIdx = 0; isPlaying = true; playPauseBtn.innerText = "Pause"; playbackAccumulator = 0; lastTickTime = performance.now(); masterSyncEngineTick(); }, 30); }
@@ -344,6 +274,17 @@
         }
         bgNeedsUpdate = true; if (filteredData.length > 0 && trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
     }).catch(e => {});
+
+    // airport codes for the basemaps: large + medium fields worldwide (no landing strips), so it is
+    // clear where the plane takes off and lands.
+    fetch('data/airports.json').then(r => r.ok ? r.json() : []).then(a => {
+        mapAirports = Array.isArray(a) ? a : [];
+        bgNeedsUpdate = true;
+        if (filteredData.length > 0) {
+            if (trackerModeSelect.value === '2d' && typeof renderMapEngineFrame === 'function') renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
+            else if (trackerModeSelect.value === '3d' && typeof build3DScene === 'function') build3DScene();
+        }
+    }).catch(() => {});
 
     // --- MP4 Video Zoom & Pan Logic ---
     let vidZoom = 1;
@@ -420,7 +361,7 @@
     });
 
     // --- Composite Clip Recorder ---------------------------------------------------------------
-    // Records a single 1080p WebM by compositing the live tracker (2D/3D + satellite) on the left and
+    // Records a single 1080p WebM by compositing the live tracker (2D/3D) on the left and
     // the user-selected graphs stacked down the right onto an offscreen canvas, no screen sharing.
     // The recorder drives playback through the chosen segment; the user can keep adjusting the view.
     const recordCanvas = document.getElementById('recordCanvas');
@@ -555,11 +496,8 @@
         document.getElementById('clipStartTime').value = clipColonTime(filteredData[0].time);
         document.getElementById('clipEndTime').value = clipColonTime(filteredData[filteredData.length - 1].time);
 
-        // Mirror the live tracker mode + satellite menu so they can be chosen here.
+        // Mirror the live tracker mode so it can be chosen here.
         document.getElementById('clipTrackerMode').value = trackerModeSelect.value;
-        const liveSat = document.getElementById('satelliteSelect');
-        const clipSat = document.getElementById('clipSatSelect');
-        if (liveSat) { clipSat.innerHTML = liveSat.innerHTML; clipSat.value = liveSat.value; }
 
         renderClipCustomList();
         populateClipGraphList();
@@ -937,28 +875,13 @@
         const graphs = fixedGraphs.concat(customGraphs).slice(0, 4);
         const videoStack = document.getElementById('clipVideoStack').value;
 
-        // Apply the chosen tracker mode + satellite to the live view (the recorder captures it live).
+        // Apply the chosen tracker mode to the live view (the recorder captures it live).
         const wantMode = document.getElementById('clipTrackerMode').value;
         if (trackerModeSelect.value !== wantMode) { trackerModeSelect.value = wantMode; trackerModeSelect.dispatchEvent(new Event('change')); }
-        const liveSat = document.getElementById('satelliteSelect');
-        const wantSat = document.getElementById('clipSatSelect').value;
-        if (liveSat && liveSat.value !== wantSat) { liveSat.value = wantSat; liveSat.dispatchEvent(new Event('change')); }
 
-        // Wait for any satellite fetch to finish, then run a 3-second countdown so the user can frame the tracker.
-        waitForSatThenCountdown(() => startClipCapture(startIdx, endIdx, graphs, videoStack));
+        // Let the 2D/3D switch settle, then run a 3-second countdown so the user can frame the tracker.
+        setTimeout(() => runRecordCountdown(3, () => startClipCapture(startIdx, endIdx, graphs, videoStack)), 250);
     });
-
-    function waitForSatThenCountdown(cb) {
-        const overlay = document.getElementById('satLoadingOverlay');
-        const satOn = document.getElementById('satelliteSelect').value !== 'none';
-        const deadline = performance.now() + 8000;
-        function waitSat() {
-            const fetching = overlay && overlay.classList.contains('show');
-            if (satOn && fetching && performance.now() < deadline) { setTimeout(waitSat, 150); return; }
-            runRecordCountdown(3, cb);
-        }
-        setTimeout(waitSat, 250);   // let the 2D/3D switch + satellite fetch kick off first
-    }
 
     function runRecordCountdown(n, cb) {
         const pill = document.getElementById('recordProgress');

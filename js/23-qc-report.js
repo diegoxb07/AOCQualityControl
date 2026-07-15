@@ -656,7 +656,7 @@
                 '<div class="qc-help-card" id="qchs8">' +
                   '<h3>Flight context</h3>' +
                   '<ul>' +
-                    '<li><b>Flight Context</b> opens the sidebar: the 2D/3D tracker, the per-sensor report, Play, speed, the satellite overlay picker, and the flight clock.</li>' +
+                    '<li><b>Flight Context</b> opens the sidebar: the 2D/3D tracker, the per-sensor report, Play, speed, and the flight clock.</li>' +
                     '<li>The 2D map follows the aircraft; pan away and Recenter on Aircraft appears.</li>' +
                     '<li>Scrub from any graph, the arrow keys, or Play; every surface follows the same playhead.</li>' +
                   '</ul>' +

@@ -8,16 +8,15 @@
          oninput handlers throughout index.html) and style-src (inline style attributes built by JS),
          this app's whole architecture is classic inline-handler scripts, not a build step that could
          move them out. connect-src/img-src list the external hosts the app actually calls: the
-         noaa-recon-api (satellite tiles + recon archive), NASA CMR/GIBS (MODIS/VIIRS lookup + imagery),
-         and the GeoJSON basemap's GitHub fallback (js/19-bootstrap.js). -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gibs.earthdata.nasa.gov https://joshmurdock.net; font-src 'self' data:; connect-src 'self' https://joshmurdock.net https://cmr.earthdata.nasa.gov https://raw.githubusercontent.com; media-src 'self' blob:; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+         noaa-recon-api (recon archive) and the GeoJSON basemap's GitHub fallback (js/19-bootstrap.js). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://joshmurdock.net; font-src 'self' data:; connect-src 'self' https://joshmurdock.net https://raw.githubusercontent.com; media-src 'self' blob:; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>AOC QC Tool</title>
-    <meta name="description" content="NOAA AOC hurricane-hunter mission playback: flight-level data, synced MMR video, satellite overlay, and charts.">
+    <meta name="description" content="NOAA AOC hurricane-hunter mission playback: flight-level data, synced MMR video, and charts.">
     <meta name="theme-color" content="#1c1c1c">
     <link rel="icon" href="assets/noaa-emblem-64.png" type="image/png">
 
     <!-- Stamp the saved tracker mode onto <html> before the body paints, so the 2D-only map
-         controls (satellite dropdown) start hidden on a 3D-preference refresh
+         controls start hidden on a 3D-preference refresh
          instead of flashing in and then being hidden when persistDisplayPrefs restores 3D. The
          tracker-mode change handler (js/07-ui-controls.js) toggles this class on every switch,
          so it always reflects the live mode. -->
@@ -30,11 +29,11 @@
     </script>
 
     <!-- Everything below is served from this repo, the app (incl. OCR, fonts, basemap) runs
-         with no internet; only the recon-archive/satellite APIs need one.
+         with no internet; only the recon-archive API needs one.
          css/tailwind.css is COMPILED, not hand-written, regenerate after changing Tailwind
          classes in index.html or js/*.js:  npx tailwindcss@3 -i tailwind.input.css -o css/tailwind.css --minify -->
-    <link rel="stylesheet" href="css/fonts.css?v=20260715t">
-    <link rel="stylesheet" href="css/tailwind.css?v=20260715t">
+    <link rel="stylesheet" href="css/fonts.css?v=20260715v">
+    <link rel="stylesheet" href="css/tailwind.css?v=20260715v">
     <script src="lib/chart.umd.min.js"></script>
     <!-- hammer.js provides the drag gesture the zoom plugin's pan mode requires; without it pan is silently inert -->
     <script src="lib/hammer.min.js"></script>
@@ -43,7 +42,7 @@
     <script src="lib/OrbitControls.js"></script>
     <script src="lib/netcdfjs.min.js"></script>
 
-    <link rel="stylesheet" href="css/app.css?v=20260715t">
+    <link rel="stylesheet" href="css/app.css?v=20260715v">
 </head>
 <body class="font-sans antialiased">
     <!-- QC boot cover: paints from the first frame so the reused visualizer never flashes on refresh
@@ -252,35 +251,7 @@
                                 <option value="2d">2D Map Tracker</option>
                                 <option value="3d">3D Tracker</option>
                             </select>
-                            <div id="satControlGroup" class="relative flex gap-1 items-center flex-none">
-                                <!-- One combined picker: click to choose a satellite, then its product appears right
-                                     below to pick consecutively. It drives the two hidden native selects below, which
-                                     remain the source of truth for the whole satellite engine (fetch, day-stepper, cache). -->
-                                <button id="satPickerBtn" type="button" title="Satellite overlay & product" class="flex items-center gap-1 bg-panel-strip text-ink border border-hairline rounded px-2 py-1 text-[11px] outline-none cursor-pointer transition-colors">
-                                    <span id="satPickerBtnLabel" class="truncate">Sat: Off</span>
-                                    <span class="opacity-60 leading-none">&#9662;</span>
-                                </button>
-                                <span id="satNativeSelects" class="hidden">
-                                    <select id="satelliteSelect" title="Satellite overlay">
-                                        <option value="none">Sat: Off</option>
-                                    </select>
-                                    <select id="satBandSelect" style="display:none;" title="Satellite Spectral Band">
-                                    </select>
-                                </span>
-                                <!-- #satPickerPanel lives at <body> level (see near the modals) so its fixed
-                                     position escapes this header's z-20 stacking context and layers above the map overlays -->
-                                <div id="satDayStepper" class="hidden absolute right-0 top-full mt-1 z-30 items-center gap-1 bg-panel border border-hairline border-l-2 border-l-[var(--accent)] rounded px-1.5 py-1 shadow-lg">
-                                    <button id="satDayPrev" title="Previous day" class="px-1.5 py-0.5 bg-panel-strip hover:bg-elevated text-ink rounded border border-hairline text-[11px] leading-none">‹</button>
-                                    <span id="satDayLabel" class="text-[10px] font-mono text-accent min-w-[78px] text-center leading-tight"></span>
-                                    <button id="satDayNext" title="Next day" class="px-1.5 py-0.5 bg-panel-strip hover:bg-elevated text-ink rounded border border-hairline text-[11px] leading-none">›</button>
-                                </div>
-                            </div>
                         </div>
-                    </div>
-                    <!-- Keep as a direct child of #mapPanel: #mapHeader's z-20 stacking context would trap it below the fullscreen bottom bar. -->
-                    <div id="satStepCluster" style="display:none;" class="flex items-center gap-1 normal-case">
-                        <button id="skipBack10Btn" disabled title="Jump back 10 minutes" class="px-2 py-1 bg-panel-strip text-ink border border-hairline hover:bg-accent hover:text-accent-ink font-bold rounded text-[11px] font-mono transition-colors whitespace-nowrap">« 10m</button>
-                        <button id="skipFwd10Btn" disabled title="Jump forward 10 minutes" class="px-2 py-1 bg-panel-strip text-ink border border-hairline hover:bg-accent hover:text-accent-ink font-bold rounded text-[11px] font-mono transition-colors whitespace-nowrap">10m »</button>
                     </div>
                     <div id="mapPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-center px-6 pointer-events-none z-10">
                         <span class="media-idle-title">Waiting for Flight Data</span>
@@ -291,27 +262,14 @@
                         <div id="threeDContainer">
                             <div id="attitudeHud" class="absolute top-[75px] left-4 bg-[color-mix(in_oklab,var(--bg)_80%,transparent)] border border-hairline rounded-md p-2.5 font-mono text-xs text-accent z-[2500]"></div>
                         </div>
-                        <div id="satLoadingOverlay" title="Fetching satellite imagery">
-                            <span class="spin"></span>
-                            <span>Fetching satellite&hellip;</span>
-                        </div>
                         <!-- Appears only after the user pans/zooms away from the followed aircraft; clicking
                              re-centers the map on the plane and resumes following it. -->
                         <button id="recenterPlaneBtn" style="display:none;" title="Recenter on the aircraft" class="absolute left-1/2 -translate-x-1/2 bottom-4 z-[2400] px-2 py-1 bg-accent text-accent-ink border border-accent hover:bg-accent rounded text-[10px] font-semibold shadow-lg transition-colors whitespace-nowrap">&#9678; Recenter on Aircraft</button>
-                        <!-- vertical color-scale legend for the active satellite product, built by
-                             updateSatColorLegend() in js/02-satellite.js from the api colortable endpoint -->
-                        <div id="satColorLegend" class="hidden"></div>
                         <div id="mapInfoStack" class="absolute top-14 right-3 z-[2400] flex flex-col items-end gap-1.5 pointer-events-none text-right">
-                            <div id="satTimeBadge" class="hidden bg-[color-mix(in_oklab,var(--bg)_85%,transparent)] border border-[color-mix(in_oklab,var(--accent)_60%,transparent)] rounded px-2.5 py-1 text-[10px] font-mono text-accent leading-tight"></div>
                             <div id="stormStatusCard" class="hidden bg-[color-mix(in_oklab,var(--bg)_85%,transparent)] border border-[color-mix(in_oklab,var(--accent)_60%,transparent)] rounded px-2.5 py-1 text-[10px] font-mono text-ink leading-tight">
                                 <div class="text-accent font-bold mb-0.5">Last Storm Observation</div>
                                 <div id="stormStatusBody"></div>
                             </div>
-                        </div>
-                        <div id="satPrefetchBar" class="hidden">
-                            <div id="satPrefetchLabel">Caching satellite imagery…</div>
-                            <div id="satPrefetchTrack"><div id="satPrefetchFill"></div></div>
-                            <button id="satPrefetchCancel" title="Stop caching">Cancel</button>
                         </div>
                         <div id="stormTrackTooltip" class="hidden fixed z-[3000] bg-[color-mix(in_oklab,var(--bg)_95%,transparent)] border border-[color-mix(in_oklab,var(--accent)_60%,transparent)] rounded px-2.5 py-1.5 text-[10px] font-mono text-ink leading-snug pointer-events-none"></div>
                     </div>
@@ -571,26 +529,6 @@
     </div>
 </div>
 
-<div id="batchCacheModal" class="modal-overlay">
-    <div class="modal-card">
-        <button id="batchCacheCloseX" class="absolute top-4 right-4 bg-transparent border-none text-faint text-2xl cursor-pointer hover:text-ink transition-colors focus:outline-none">✕</button>
-        <h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">Pre-Cache Satellite Imagery</h2>
-        <p class="text-[11px] text-muted mt-2 leading-relaxed">Pick a satellite and band(s), then select one or more flight files (.txt or .nc). Every tile those flights need is downloaded into the local cache. Cached imagery is saved on this device, so these flights play back with no fetching on any later visit. (Flights outside the chosen satellite's view / before its data starts are skipped.)</p>
-        <div class="mt-3 text-xs text-muted font-semibold">Satellite:</div>
-        <select id="batchSatSelect" class="mt-1 bg-panel-strip text-ink border border-hairline rounded px-2 py-1 text-[11px] outline-none cursor-pointer"></select>
-        <div class="mt-3 text-xs text-muted font-semibold">Bands to cache:</div>
-        <div id="batchBandChecks" class="flex flex-wrap gap-4 mt-1 text-[11px] text-ink select-none"></div>
-        <label class="block mt-3 text-xs text-muted font-semibold">Flight files:</label>
-        <input type="file" id="batchFileInput" multiple accept=".txt,.nc" class="mt-1 block w-full text-[11px] text-muted file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-[var(--border)] file:text-[var(--text)] file:cursor-pointer" />
-        <div class="mt-3 h-2 bg-panel-strip rounded overflow-hidden"><div id="batchCacheFill" class="h-full bg-accent transition-all" style="width:0%"></div></div>
-        <div id="batchCacheStatus" class="text-[11px] text-muted mt-1">No files selected.</div>
-        <div class="flex gap-2 mt-4">
-            <button id="batchCacheStartBtn" class="px-4 py-2 bg-accent hover:bg-accent text-accent-ink font-bold rounded text-xs transition-colors">Start caching</button>
-            <button id="batchCacheCloseBtn" class="px-4 py-2 bg-elevated hover:bg-elevated text-ink rounded text-xs transition-colors">Close</button>
-        </div>
-    </div>
-</div>
-
 <div id="flightSearchModal" class="modal-overlay">
     <div class="modal-card" style="max-width: 860px; max-height: 90vh; overflow-y: auto;">
         <button id="fsCloseX" class="absolute top-4 right-4 bg-transparent border-none text-faint text-2xl cursor-pointer hover:text-ink transition-colors focus:outline-none">✕</button>
@@ -681,12 +619,6 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-muted mb-2 uppercase">Satellite Overlay</label>
-                <select id="clipSatSelect" class="w-full bg-panel-strip text-ink border border-hairline rounded px-2 py-1.5 text-xs outline-none cursor-pointer">
-                    <option value="none">Sat: Off</option>
-                </select>
-            </div>
-            <div>
                 <label class="block text-xs font-semibold text-muted mb-2 uppercase">MMR Video</label>
                 <select id="clipVideoStack" class="w-full bg-panel-strip text-ink border border-hairline rounded px-2 py-1.5 text-xs outline-none cursor-pointer">
                     <option value="off">Off (tracker only)</option>
@@ -718,7 +650,7 @@
             <p class="text-[11px] text-muted mt-1 leading-snug">Full documentation and source: <a href="https://github.com/diegoxb07/AOCVisualizer" target="_blank" rel="noopener" class="text-accent underline">github.com/diegoxb07/AOCVisualizer</a> &middot; Built for the NOAA Aircraft Operations Center &middot; Science Branch.</p>
         </div>
         <div class="help-body">
-            <p class="help-lead">The Mission Visualizer replays NOAA hurricane-hunter flight-level data together with synced MMR video, a live map tracker, a Primary Flight Display, fully customizable graphs, satellite and storm-track overlays, and video export. It runs entirely in your browser, and the recon API is optional. This guide breaks down every feature.</p>
+            <p class="help-lead">The Mission Visualizer replays NOAA hurricane-hunter flight-level data together with synced MMR video, a live map tracker, a Primary Flight Display, fully customizable graphs, storm-track overlays, and video export. It runs entirely in your browser, and the recon API is optional. This guide breaks down every feature.</p>
 
             <h3>Keyboard shortcuts</h3>
             <ul>
@@ -748,7 +680,7 @@
             <h3>3. Map tracker (2D and 3D)</h3>
             <p>Switch with the <b>2D Map Tracker / 3D Tracker</b> dropdown in the map header.</p>
             <ul>
-                <li><b>2D:</b> a whole-world canvas map (coastlines, US states) with satellite imagery and wind barbs. Wheel to zoom and drag to pan, and a <b>Recenter on Aircraft</b> button reappears once you pan away.</li>
+                <li><b>2D:</b> a whole-world canvas map (coastlines, US states, and nearby airport codes) with wind barbs. Wheel to zoom and drag to pan, and a <b>Recenter on Aircraft</b> button reappears once you pan away.</li>
                 <li><b>3D:</b> a Three.js scene with terrain and a plane model, the track drawn by GPS or pressure altitude. Orbit and zoom with the mouse.</li>
                 <li>Bottom-bar options: <b>Track Color</b> (wind speed or warming/cooling), <b>Barb Color</b> (wind speed or hurricane wind field, which stays black until 64 kt and above), <b>3D Track Altitude</b>, <b>S.I. Units</b>, <b>Simple Icon</b>, and <b>Real Scale (3D)</b>.</li>
                 <li><b>Measure</b> (map header) draws a polygon, circle, or rectangle for distance and area. <b>Mark Point</b> (bottom bar) drops a marker, and clicking a marker opens point-data analysis you can download.</li>
@@ -761,17 +693,10 @@
                 <li><b>Manual Time Input:</b> type the video's UTC start time in <b>MMR Start</b> (<kbd>HHMMSS</kbd>).</li>
             </ul>
 
-            <h3>5. Satellite overlays</h3>
-            <p>Open the <b>Satellite</b> picker in the map header, choose a satellite, then its product appears right below to pick. Options auto-populate from the flight's date and location.</p>
-            <ul>
-                <li><b>MODIS / VIIRS (polar, NASA GIBS):</b> any date back to each mission's start. A day-stepper moves between days, and overpass times are looked up automatically.</li>
-                <li><b>GOES-East / GOES-West (archive, needs API):</b> rendered server-side from NOAA's S3 archive for the flight's historical date, refreshed on a 10-minute interval. Products (spectral bands plus Sandwich and GeoColor composites) are auto-discovered from the API and never hardcoded, so a product the API cannot currently serve shows as <b>unavailable</b> rather than disappearing, and only that product greys out while the satellite stays usable. A GOES option greys out entirely when the flight is outside that satellite's Earth-disk view.</li>
-            </ul>
-
-            <h3>6. Storm best-track overlay</h3>
+            <h3>5. Storm best-track overlay</h3>
             <p>Archive loads automatically draw the storm's whole-life, intensity-colored, dashed best-track on both trackers. Toggle it with the <b>Storm Track</b> checkbox, and the <b>Last Storm Observation</b> card shows the nearest fix.</p>
 
-            <h3>7. Charts, PFD, and HUD</h3>
+            <h3>6. Charts, PFD, and HUD</h3>
             <ul>
                 <li><b>Eight synced charts</b> (temperature, nav angles, flow angles, altitude, speeds, vertical speeds and accel, pressure, thermodynamics) track the playback moment. Each chart resets its own zoom and adds or removes series from its controls.</li>
                 <li><b>Create Your Own Graph</b> plots any variables together for custom comparisons.</li>
@@ -779,38 +704,22 @@
                 <li>The on-map <b>HUD</b> shows live flight-level values at the playback moment.</li>
             </ul>
 
-            <h3>8. Exporting and sharing</h3>
+            <h3>7. Exporting and sharing</h3>
             <ul>
-                <li><b>Record Clip:</b> pick a start and end range (previewed live at both ends, so you see the exact frame without leaving the dialog), a tracker mode, a satellite overlay, an optional MMR video, and up to four graphs. The tool auto-plays the range and screen-records it to a video file.</li>
+                <li><b>Record Clip:</b> pick a start and end range (previewed live at both ends, so you see the exact frame without leaving the dialog), a tracker mode, an optional MMR video, and up to four graphs. The tool auto-plays the range and screen-records it to a video file.</li>
                 <li><b>Share Link:</b> copies a URL that reopens this mission at the current playback moment and tracker view.</li>
             </ul>
 
-            <h3>9. Troubleshooting</h3>
+            <h3>8. Troubleshooting</h3>
             <ul>
                 <li><b>Archive greyed out with "API Offline":</b> use manual upload, and it auto-recovers when the API returns.</li>
-                <li><b>A GOES option is greyed out:</b> the API is offline, or the flight is outside that satellite's view, so try the other GOES or a MODIS/VIIRS pass.</li>
-                <li><b>Picked GOES but nothing shows:</b> pick a product from the picker first, since products do not auto-select.</li>
                 <li><b>Auto-Sync lands on the wrong time:</b> click <b>Sync Now</b> on a clear frame, hide other on-screen timestamps, or switch to Manual.</li>
-                <li><b>Sluggish with satellite on:</b> let the pre-cache finish, or pre-cache ahead of time.</li>
             </ul>
         </div>
         <button onclick="document.getElementById('helpModal').style.display='none'" class="self-start mt-2 px-4 py-2 bg-elevated hover:bg-elevated text-ink rounded text-xs transition-colors">Close</button>
     </div>
 </div>
 
-<!-- satellite picker popover, kept at body level so its position:fixed z-index sits above the map
-     overlays (pfd, sat info, storm info) instead of being trapped in the map header's stacking context.
-     positionSatPicker() anchors it under #satPickerBtn. -->
-<div id="satPickerPanel" class="hidden sat-picker-panel">
-    <div class="sat-picker-head">Satellite Overlay</div>
-    <!-- tile opacity slider, above all the products, to dial back a color clash with the basemap -->
-    <div class="sat-opacity-row">
-        <span class="sat-opacity-label">Tile opacity</span>
-        <input type="range" id="satOpacitySlider" min="20" max="100" value="92" title="Satellite tile opacity">
-        <span id="satOpacityVal" class="sat-opacity-val">92%</span>
-    </div>
-    <div id="satPickerList" class="sat-picker-list"></div>
-</div>
 
 <!-- previously-loaded-missions picker: a custom popover (not a native <select>) so each flight row
      can carry a red × to remove it. Lives at <body> level, fixed-positioned under its button. -->
@@ -831,34 +740,34 @@
      whole page. Classic scripts, one shared global scope, load order matters. -->
     <!-- ?v= cache-buster: bump this token after editing any css/js so browsers (and the Codespaces
          port-preview) fetch the new files instead of a stale cached copy. -->
-    <script src="js/00b-qc-catalog.js?v=20260715t"></script>
-    <script src="js/01-state.js?v=20260715t"></script>
-    <script src="js/02-satellite.js?v=20260715t"></script>
-    <script src="js/03-metrics.js?v=20260715t"></script>
-    <script src="js/06-ocr.js?v=20260715t"></script>
-    <script src="js/07-ui-controls.js?v=20260715t"></script>
-    <script src="js/07b-plane-models.js?v=20260715t"></script>
-    <script src="js/07c-terrain.js?v=20260715t"></script>
-    <script src="js/09-interaction.js?v=20260715t"></script>
-    <script src="js/11-layout.js?v=20260715t"></script>
-    <script src="js/11b-parser-core.js?v=20260715t"></script>
-    <script src="js/12-file-parsing.js?v=20260715t"></script>
-    <script src="js/12b-recon-archive.js?v=20260715t"></script>
-    <script src="js/13-charts-master.js?v=20260715t"></script>
-    <script src="js/14-filters-sync.js?v=20260715t"></script>
-    <script src="js/15-map-render.js?v=20260715t"></script>
-    <script src="js/17-charts.js?v=20260715t"></script>
-    <script src="js/18-engine.js?v=20260715t"></script>
-    <script src="js/18b-flight-search.js?v=20260715t"></script>
-    <script src="js/19-bootstrap.js?v=20260715t"></script>
-    <script src="js/20-ui-polish.js?v=20260715t"></script>
+    <script src="js/00b-qc-catalog.js?v=20260715v"></script>
+    <script src="js/01-state.js?v=20260715v"></script>
+    <script src="js/02-recon-api.js?v=20260715v"></script>
+    <script src="js/03-metrics.js?v=20260715v"></script>
+    <script src="js/06-ocr.js?v=20260715v"></script>
+    <script src="js/07-ui-controls.js?v=20260715v"></script>
+    <script src="js/07b-plane-models.js?v=20260715v"></script>
+    <script src="js/07c-terrain.js?v=20260715v"></script>
+    <script src="js/09-interaction.js?v=20260715v"></script>
+    <script src="js/11-layout.js?v=20260715v"></script>
+    <script src="js/11b-parser-core.js?v=20260715v"></script>
+    <script src="js/12-file-parsing.js?v=20260715v"></script>
+    <script src="js/12b-recon-archive.js?v=20260715v"></script>
+    <script src="js/13-charts-master.js?v=20260715v"></script>
+    <script src="js/14-filters-sync.js?v=20260715v"></script>
+    <script src="js/15-map-render.js?v=20260715v"></script>
+    <script src="js/17-charts.js?v=20260715v"></script>
+    <script src="js/18-engine.js?v=20260715v"></script>
+    <script src="js/18b-flight-search.js?v=20260715v"></script>
+    <script src="js/19-bootstrap.js?v=20260715v"></script>
+    <script src="js/20-ui-polish.js?v=20260715v"></script>
     <!-- QC Mode: catalog loads up top (00b); engine, charts, and report/controller load last so
          they can wrap the player's update path. See js/21..23 and js/11b parseFlightRawQC. -->
-    <script src="js/21-qc-engine.js?v=20260715t"></script>
-    <script src="js/22-qc-charts.js?v=20260715t"></script>
-    <script src="js/23-qc-report.js?v=20260715t"></script>
-    <script src="js/24-qc-export-html.js?v=20260715t"></script>
-    <script src="js/25-qc-error-summary.js?v=20260715t"></script>
-    <script src="js/26-qc-track-pdf.js?v=20260715t"></script>
+    <script src="js/21-qc-engine.js?v=20260715v"></script>
+    <script src="js/22-qc-charts.js?v=20260715v"></script>
+    <script src="js/23-qc-report.js?v=20260715v"></script>
+    <script src="js/24-qc-export-html.js?v=20260715v"></script>
+    <script src="js/25-qc-error-summary.js?v=20260715v"></script>
+    <script src="js/26-qc-track-pdf.js?v=20260715v"></script>
 </body>
 </html>

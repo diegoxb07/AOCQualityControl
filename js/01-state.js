@@ -9,33 +9,11 @@
     let isPlaying = false;
     let isNcFile = false;
     
-    let satImage = new Image();
-    let satImageLoaded = false;
-    let satTileOpacity = 0.92;   // satellite tile draw opacity, controlled by the opacity slider in the sat picker
-    let lastSatFetchTime = "";
-    let satLoadedInfo = null;
-    let satImageBox = null;
-    let satDebounceTimer = null;
-    // Two-tier satellite tile cache, both keyed by fetchId (layer||band||time||box). HOT = decoded
-    // drawables for instant display. COLD = compressed PNG blobs, surviving across flights until the
-    // tab closes. A COLD hit decodes into HOT on demand; the preloader pre-decodes upcoming buckets.
-    const satTileCache = new Map();          // HOT: fetchId -> { canvas, box, scanStartMs }
-    const SAT_CACHE_MAX = 24;                // just the playback neighborhood (decoded = RAM-heavy)
-    const satBlobStore = new Map();          // COLD: fetchId -> { blob, box, scanStartMs }
-    const SAT_BLOB_MAX = 1500;               // ≈ 30 storm-bands of 10-min tiles (LRU-evicted)
-    let batchCaching = false;                // a multi-flight local sat-cache pass is running
-    let batchCacheCancel = false;            // user asked to stop the current pass
-    let batchCacheAbortController = null;    // aborts the in-flight recon-api request/poll on Cancel
-    let batchCachePass = 0;                  // bumped per pass; a Cancel invalidates the running pass so its teardown no-ops
-    // Smooth scrubbing: a background preloader warms the buckets around the playhead into the cache.
-    const satFetchInFlight = new Map();      // fetchId -> in-flight Promise (dedupe live + preload + prefetch)
-    let satPreloadQueue = [];                // upcoming buckets queued to warm around the playhead
-    let satPreloadActive = false;            // the preload worker loop is running
-    let _satPreloadBucket = null;            // last playhead bucket we queued neighbors for (avoids requeue spam)
-    let slideSyncTimer = null;  
+    let slideSyncTimer = null;
     let isResizingMedia = false; 
 
     let mapFeatures = [];
+    let mapAirports = [];   // [code, lat, lon, tier] large + medium airports worldwide, for basemap labels
     let customMarkers = [];
     let flightMetaData = { id: 'Unknown', date: 'Unknown', aircraft: 'Unknown' };
 

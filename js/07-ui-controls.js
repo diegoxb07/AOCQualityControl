@@ -199,7 +199,7 @@
     function init3D() {
         if (threeDInitialized) return;
         const w = threeDContainer.clientWidth || canvas.width, h = threeDContainer.clientHeight || canvas.height, aspect = w / (h || 1);
-        scene3D = new THREE.Scene(); scene3D.background = new THREE.Color(0x171122);
+        scene3D = new THREE.Scene(); scene3D.background = new THREE.Color(document.documentElement.dataset.theme === 'light' ? 0xd4e3f0 : 0x0e1a29);   // sky, themed to match the 2D map; refreshed in build3DScene on theme toggle
         // Near clip is tiny so the camera can dolly right up to the aircraft (scaled 0.06, so it is
         // small in world units and used to near-clip before you could get close); the huge near/far
         // span rides a logarithmic depth buffer to stay z-fight-free.
@@ -212,7 +212,12 @@
         renderer3D.setSize(w, h); threeDContainer.insertBefore(renderer3D.domElement, threeDContainer.firstChild);
         controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement); controls3D.enableDamping = true;
         controls3D.minDistance = 0.02;   // let the user get right in on the aircraft without dollying through the target
-        scene3D.add(new THREE.AmbientLight(0xffffff, 0.6)); const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(10, 20, 10); scene3D.add(dirLight);
+        // even, mostly-flat lighting so the painted airframe stays legible at any heading/bank and no
+        // face turns black; a gentle key + opposite fill add just enough form.
+        scene3D.add(new THREE.AmbientLight(0xffffff, 0.85));
+        scene3D.add(new THREE.HemisphereLight(0xcfe2ff, 0x3a4652, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.35); dirLight.position.set(10, 20, 10); scene3D.add(dirLight);
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.25); fillLight.position.set(-12, 8, -10); scene3D.add(fillLight);
         planeGroup3D = new THREE.Group(); planeGroup3D.scale.set(0.06, 0.06, 0.06); scene3D.add(planeGroup3D);
         // the airframe itself (WP-3D or G-IV per the loaded flight) is built by js/07b-plane-models.js
         if (typeof setPlaneModel3D === 'function') setPlaneModel3D();
@@ -312,7 +317,7 @@
     let windStreaks3D = null;   // small vertical wind streaks on the plane for updrafts/downdrafts
     let _vertBump = 0;          // signed vertical bump at the current frame (updraft +, downdraft -)
     let _borderLines = [];      // { line, mat, box, base } coastline/border lines, faded by distance to the plane
-    let _countryLabels = [];    // { sprite, mat, aspect, base, pts } country and US state name labels shown near visible borders
+    let _countryLabels = [];    // { sprite, mat, aspect, base, pts } country/US-state names near visible borders, plus airport codes near the plane
     let _reframeRealScale = false;   // set when the plane is (re)built with real-scale on; consumed once the plane is positioned (update3DFrame)
     const PLANE_REAL_LEN_M = { p3: 35.61, giv: 26.90 };
     function planeModelLocalLength() {
@@ -496,6 +501,24 @@
         return { sprite: spr, mat, aspect: w / h, base: isState ? 0.72 : 1, pts: [] };
     }
 
+    // A small amber sprite for an airport code, distinct from the white place names.
+    function airportLabelSprite(code) {
+        const fs = 28, h = Math.round(fs * 1.45);
+        const cv = document.createElement('canvas');
+        let c = cv.getContext('2d');
+        c.font = 'bold ' + fs + 'px sans-serif';
+        const w = Math.min(360, Math.ceil(c.measureText(code).width) + 26);
+        cv.width = w; cv.height = h;
+        c = cv.getContext('2d');
+        c.font = 'bold ' + fs + 'px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.lineWidth = 7; c.strokeStyle = 'rgba(5,12,20,0.92)'; c.strokeText(code, w / 2, h / 2);
+        c.fillStyle = '#ffd15c'; c.fillText(code, w / 2, h / 2);
+        const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter;
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+        const spr = new THREE.Sprite(mat); spr.renderOrder = 6; spr.visible = false;
+        return { sprite: spr, mat, aspect: w / h, base: 1.3, pts: [] };   // larger than place names, so a nearby field reads clearly
+    }
+
     function build3DScene() {
         if (!threeDInitialized) init3D();
         // a newly loaded flight may be the other airframe; no-ops when the right model is up
@@ -506,6 +529,7 @@
         _countryLabels.forEach(cl => { if (cl.sprite.parent) cl.sprite.parent.remove(cl.sprite); if (cl.mat.map) cl.mat.map.dispose(); cl.mat.dispose(); });
         _countryLabels = [];
         const light3d = document.documentElement.dataset.theme === 'light';
+        if (scene3D) scene3D.background = new THREE.Color(light3d ? 0xd4e3f0 : 0x0e1a29);   // re-theme the sky on toggle (matches the 2D map)
         const landMat = new THREE.MeshBasicMaterial({ color: light3d ? 0x8fbf76 : 0x0d4a22, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
         // coastlines and dimmer internal (state) borders, so countries read clearly against the
         // terrain. dark ink lines on the light theme, bright on dark. depthWrite off keeps them from
@@ -554,6 +578,17 @@
                 }
             }
         });
+        // airport codes: large + medium fields (no landing strips) within the flight bounds, each a
+        // single-point label so the existing per-frame loop lights it as the plane nears it (so the
+        // origin/destination field shows up on approach).
+        if (typeof mapAirports !== 'undefined' && mapAirports.length && scene3D) {
+            mapAirports.forEach(a => {
+                if (!isBoxInFlightBounds([a[2], a[1], a[2], a[1]])) return;
+                const lbl = airportLabelSprite(a[0]);
+                lbl.pts.push(get3DCoord(a[2], a[1], borderAlt([a[2], a[1]])));
+                scene3D.add(lbl.sprite); _countryLabels.push(lbl);
+            });
+        }
         // elevation-shaded terrain surface from the bundled ETOPO grid, so land and sea floor sit at
         // real height. null until the grid loads, while the flat coastline map above renders.
         if (typeof buildTerrainMesh3D === 'function') { const terrainMesh = buildTerrainMesh3D(); if (terrainMesh) threeMapGroup.add(terrainMesh); }
@@ -711,23 +746,12 @@
     });
 
     trackerModeSelect.addEventListener('change', (e) => {
-        const satSelect = document.getElementById('satelliteSelect');
-        const satBandSelect = document.getElementById('satBandSelect');
-
         // Keep the early-boot FOUC guard (index.html <head>) in sync with the live mode: its CSS
         // rule hides the 2D-only controls, and clearing an inline display cannot override it.
         document.documentElement.classList.toggle('pref-tracker-3d', e.target.value === '3d');
 
         if (e.target.value === '3d') {
             canvas.style.display = 'none'; threeDContainer.style.display = 'block';
-
-            if (satSelect) satSelect.style.display = 'none';
-            if (satBandSelect) satBandSelect.style.display = 'none';
-            if (typeof closeSatPicker === 'function') closeSatPicker();   // popover has no place in 3d mode
-            syncSatSplit();
-            buildSatDayStepper();
-            const satBadge = document.getElementById('satTimeBadge');
-            if (satBadge) satBadge.classList.add('hidden');
 
             setTimeout(() => {
                 resizeCanvasLayout();
@@ -738,11 +762,6 @@
             }, 50);
         } else {
             canvas.style.display = 'block'; threeDContainer.style.display = 'none';
-
-            if (satSelect) satSelect.style.display = '';
-            if (satBandSelect && satSelect.value !== 'none') satBandSelect.style.display = '';
-            syncSatSplit();
-            buildSatDayStepper();
 
             setTimeout(() => {
                 resizeCanvasLayout();
@@ -758,185 +777,7 @@
             }, 50);
         }
         if (typeof updateFollowButton === 'function') updateFollowButton();
-        if (typeof updateSatColorLegend === 'function') updateSatColorLegend();   // hide in 3d, show in 2d
     });
-
-    document.getElementById('satelliteSelect').addEventListener('change', () => {
-        updateBandOptions();
-        satImageLoaded = false; lastSatFetchTime = ''; bgNeedsUpdate = true; resetSatPreload();
-        satLoadedInfo = null; satImageBox = null;
-        satDayOffset = 0;            
-        buildSatDayStepper();
-        updateSatTimeBadge();
-        if (filteredData.length > 0 && trackerModeSelect.value === '2d') {
-            // Archive-GOES layers reset satBandSelect to a blank placeholder, so fetchSatelliteImage/
-            // maybeAutoPrecacheSatellite no-op until a product is picked. Polar (MODIS/VIIRS) layers
-            // have no placeholder and fetch their daily image immediately.
-            fetchSatelliteImage(filteredData[currentIdx].absSeconds);
-            maybeAutoPrecacheSatellite();
-            renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
-        }
-        if (typeof refreshSatPicker === 'function') refreshSatPicker();
-        if (typeof updateSatColorLegend === 'function') updateSatColorLegend();
-    });
-
-    document.getElementById('satBandSelect').addEventListener('change', () => {
-        satImageLoaded = false; lastSatFetchTime = ''; bgNeedsUpdate = true; resetSatPreload();
-        if (filteredData.length > 0 && trackerModeSelect.value === '2d') {
-            // Archived (recon-api) satellites stream a tile per 10-min scan from the API, which can
-            // pause playback, so picking a bbox-capable product auto-builds its whole timeframe up
-            // front (maybeAutoPrecacheSatellite) instead of trickling in during playback. A full-disk-
-            // only composite (sandwich/geocolor) skips that and just streams per-frame like a polar layer.
-            fetchSatelliteImage(filteredData[currentIdx].absSeconds);
-            maybeAutoPrecacheSatellite();
-            renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
-        }
-        if (typeof refreshSatPicker === 'function') refreshSatPicker();
-        if (typeof updateSatColorLegend === 'function') updateSatColorLegend();
-    });
-
-    // combined satellite and product picker popover.
-    // a single button opens a popover: pick a satellite, its products appear right under it to pick
-    // consecutively. it reads and writes the two hidden native selects (satelliteSelect, satBandSelect)
-    // and fires their 'change' events, so the whole satellite engine (fetch, day stepper, caching,
-    // coverage and scan time labels) keeps working unchanged. satPickerExpanded is the layer whose
-    // product list is currently open in the panel.
-    let satPickerExpanded = null;
-
-    function updateSatPickerButton() {
-        const sat = document.getElementById('satelliteSelect');
-        const band = document.getElementById('satBandSelect');
-        const btn = document.getElementById('satPickerBtn');
-        const lbl = document.getElementById('satPickerBtnLabel');
-        if (!sat || !btn || !lbl) return;
-        if (sat.value === 'none') { lbl.textContent = 'Sat: Off'; btn.classList.remove('sat-on'); return; }
-        const def = (typeof GIBS_LAYERS !== 'undefined') ? GIBS_LAYERS.find(d => d.value === sat.value) : null;
-        const base = def ? def.baseLabel : sat.value;
-        let prod = '';
-        if (band && band.value) { const o = band.options[band.selectedIndex]; prod = o ? o.textContent : ''; }
-        lbl.textContent = prod ? `${base} · ${prod}` : base;
-        btn.classList.add('sat-on');
-    }
-
-    function renderSatPickerPanel() {
-        const list = document.getElementById('satPickerList');
-        const sat = document.getElementById('satelliteSelect');
-        const band = document.getElementById('satBandSelect');
-        if (!list || !sat) return;
-        const activeSat = sat.value, activeBand = band ? band.value : '';
-        let html = `<button type="button" class="sat-pick-off${activeSat === 'none' ? ' active' : ''}" data-off="1">Off (no overlay)</button>`;
-        for (const opt of sat.options) {
-            if (opt.value === 'none') continue;
-            const def = (typeof GIBS_LAYERS !== 'undefined') ? GIBS_LAYERS.find(d => d.value === opt.value) : null;
-            const expanded = satPickerExpanded === opt.value && !opt.disabled;
-            const isActive = activeSat === opt.value;
-            html += `<div class="sat-pick-sat${opt.disabled ? ' disabled' : ''}${isActive ? ' active' : ''}">`;
-            html += `<button type="button" class="sat-pick-sat-row"${opt.disabled ? ' disabled' : ` data-sat="${opt.value}"`}>`
-                 +  `<span class="sat-pick-caret">${opt.disabled ? '' : (expanded ? '▾' : '▸')}</span>`
-                 +  `<span class="sat-pick-name">${escapeHtml(opt.textContent)}</span>`
-                 +  (opt.disabled ? `<span class="sat-pick-tag">unavailable</span>` : ``)
-                 +  `</button>`;
-            if (expanded && def && def.bands) {
-                const renderBand = b => {
-                    const unavail = b.available === false;   // api online but this product isn't being served
-                    return `<button type="button" class="sat-pick-prod${(isActive && activeBand === b.id) ? ' active' : ''}${unavail ? ' unavailable' : ''}"`
-                        + (unavail ? ' disabled' : ` data-sat="${opt.value}" data-band="${escapeHtml(b.id)}"`) + `>`
-                        + `<span class="sat-pick-name">${escapeHtml(b.name)}</span>`
-                        + (unavail ? `<span class="sat-pick-tag">unavailable</span>` : ``) + `</button>`;
-                };
-                html += `<div class="sat-pick-products">`;
-                if (def.isReconApi) {
-                    const spectral = def.bands.filter(b => !b.isComposite), comps = def.bands.filter(b => b.isComposite);
-                    if (spectral.length) html += `<div class="sat-pick-group">Spectral Bands</div>` + spectral.map(renderBand).join('');
-                    if (comps.length) html += `<div class="sat-pick-group">Composites</div>` + comps.map(renderBand).join('');
-                } else {
-                    html += def.bands.map(renderBand).join('');
-                }
-                html += `</div>`;
-            }
-            html += `</div>`;
-        }
-        list.innerHTML = html;
-    }
-
-    function refreshSatPicker() {
-        updateSatPickerButton();
-        const panel = document.getElementById('satPickerPanel');
-        if (panel && !panel.classList.contains('hidden')) renderSatPickerPanel();
-    }
-
-    // the panel is position:fixed (see app.css) so it escapes the map header's z-20 stacking context
-    // and layers above the map overlays. anchor it under the button, right aligned to it.
-    function positionSatPicker() {
-        const panel = document.getElementById('satPickerPanel'), btn = document.getElementById('satPickerBtn');
-        if (!panel || !btn || panel.classList.contains('hidden')) return;
-        const r = btn.getBoundingClientRect();
-        panel.style.top = (r.bottom + 4) + 'px';
-        panel.style.left = 'auto';
-        panel.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-    }
-    function openSatPicker() {
-        const panel = document.getElementById('satPickerPanel');
-        if (!panel) return;
-        const sat = document.getElementById('satelliteSelect');
-        if (sat && sat.value !== 'none') satPickerExpanded = sat.value;   // open with the active layer expanded already
-        renderSatPickerPanel();
-        panel.classList.remove('hidden');
-        panel.scrollTop = 0;   // always reopen scrolled to the top (opacity slider + first products)
-        positionSatPicker();
-    }
-    function closeSatPicker() { const p = document.getElementById('satPickerPanel'); if (p) p.classList.add('hidden'); }
-
-    // apply a satellite and product together: set the satellite (which rebuilds its band options via
-    // the 'change' handler), then the product, so imagery only loads once a product is actually chosen.
-    function satPickerChooseProduct(satValue, bandId) {
-        const sat = document.getElementById('satelliteSelect'), band = document.getElementById('satBandSelect');
-        if (!sat || !band) return;
-        if (sat.value !== satValue) { sat.value = satValue; sat.dispatchEvent(new Event('change')); }
-        if (band.value !== bandId) { band.value = bandId; band.dispatchEvent(new Event('change')); }
-        closeSatPicker();
-    }
-    function satPickerChooseOff() {
-        const sat = document.getElementById('satelliteSelect');
-        if (sat && sat.value !== 'none') { sat.value = 'none'; sat.dispatchEvent(new Event('change')); }
-        closeSatPicker();
-    }
-
-    (function wireSatPicker() {
-        const btn = document.getElementById('satPickerBtn'), list = document.getElementById('satPickerList');
-        if (!btn || !list) return;
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const panel = document.getElementById('satPickerPanel');
-            if (panel && panel.classList.contains('hidden')) openSatPicker(); else closeSatPicker();
-        });
-        list.addEventListener('click', (e) => {
-            if (e.target.closest('[data-off]')) { satPickerChooseOff(); return; }
-            const prod = e.target.closest('[data-band]');
-            if (prod) { satPickerChooseProduct(prod.getAttribute('data-sat'), prod.getAttribute('data-band')); return; }
-            const row = e.target.closest('.sat-pick-sat-row[data-sat]');
-            if (row) { const v = row.getAttribute('data-sat'); satPickerExpanded = (satPickerExpanded === v) ? null : v; renderSatPickerPanel(); }
-        });
-        // outside click or esc closes, like the measure popover.
-        document.addEventListener('mousedown', (e) => {
-            const panel = document.getElementById('satPickerPanel');
-            if (!panel || panel.classList.contains('hidden')) return;
-            if (panel.contains(e.target) || btn.contains(e.target)) return;
-            closeSatPicker();
-        });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSatPicker(); });
-        // keep the fixed panel glued to the button as the page or media bar scrolls or the window resizes.
-        window.addEventListener('resize', positionSatPicker);
-        window.addEventListener('scroll', positionSatPicker, true);
-        // satellite tile opacity: redraw the map background at the new alpha as the user drags
-        const opacitySlider = document.getElementById('satOpacitySlider'), opacityVal = document.getElementById('satOpacityVal');
-        if (opacitySlider) opacitySlider.addEventListener('input', () => {
-            satTileOpacity = (parseInt(opacitySlider.value) || 92) / 100;
-            if (opacityVal) opacityVal.textContent = opacitySlider.value + '%';
-            if (filteredData.length > 0 && trackerModeSelect.value === '2d') { bgNeedsUpdate = true; renderMapEngineFrame(currentIdx, filteredData[currentIdx]); }
-        });
-        updateSatPickerButton();
-    })();
 
     pathColorSelect.addEventListener('change', () => { if (filteredData.length > 0) { if (threeDInitialized) build3DScene(); renderMapEngineFrame(currentIdx, filteredData[currentIdx]); } });
     barbColorSelect.addEventListener('change', () => { if (filteredData.length > 0) { if (threeDInitialized) build3DScene(); renderMapEngineFrame(currentIdx, filteredData[currentIdx]); } });

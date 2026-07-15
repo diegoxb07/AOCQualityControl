@@ -122,55 +122,16 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
    text-transform/letter-spacing override the parent's uppercase styling. */
 .panel-subhead { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif !important; font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em; text-transform: none; color: var(--text); }
 
-/* The satellite cluster keeps one constant footprint so the header controls never move: alone,
-   the layer select owns the full width; once a product picker appears (.split, toggled wherever
-   #satBandSelect's display changes), the two selects share the same total. Widened (and biased
-   toward the band/product select) so the picker reads as more than "Choos…" before being opened. */
-#satelliteSelect { width: 190px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-#satControlGroup.split #satelliteSelect { width: 92px; }
-#satBandSelect { width: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 /* when the recon api is offline, manual upload is the only way in, so enlarge the upload button
-   to make it obvious. toggled by updateReconApiUiState in js/02-satellite.js. */
+   to make it obvious. toggled by updateReconApiUiState in js/02-recon-api.js. */
 #dataDropZone.data-drop-emph { padding: 7px 12px; gap: 6px; }
-/* while offline the manual-upload cluster is relocated over the archive pickers (js/02-satellite.js);
+/* while offline the manual-upload cluster is relocated over the archive pickers (js/02-recon-api.js);
    center it in the overlay (the "API Offline" pill stays left in the flow underneath) */
 #uploadApiOfflineToastWrapper #manualUploadWrap { position: absolute; left: 33%; top: 42%; transform: translate(-50%, -50%); }
 #dataDropZone.data-drop-emph span { font-size: 12px; }
 #dataDropZone.data-drop-emph #dataDropLabel { max-width: 200px; }
 
-/* combined satellite and product picker popover. drives the hidden native selects, built by
-   refreshSatPicker() in js/07-ui-controls.js. */
-#satPickerBtn { max-width: 240px; }
-#satPickerBtn:hover { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
-#satPickerBtnLabel { max-width: 190px; }
-#satPickerBtn.sat-on { border-color: color-mix(in oklab, var(--accent) 60%, transparent); color: var(--accent); }
-/* position:fixed (placed by positionSatPicker in js/07-ui-controls.js) escapes the map header's
-   z-20 stacking context so the panel layers above the map overlays (z-2500) and scrolls. */
-.sat-picker-panel { position: fixed; z-index: 4200; width: 250px; max-height: 340px; overflow-y: auto; background: color-mix(in oklab, var(--panel) 97%, transparent); border: 1px solid var(--border); border-radius: 6px; padding: 6px; }
-.sat-picker-head { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 2px 4px 6px; }
-.sat-opacity-row { display: flex; align-items: center; gap: 6px; padding: 4px 4px 7px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
-.sat-opacity-label { font-size: 10px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
-.sat-opacity-row input[type="range"] { flex: 1 1 auto; min-width: 0; accent-color: var(--accent); height: 3px; cursor: pointer; }
-.sat-opacity-val { font-size: 10px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
-.sat-picker-list { display: flex; flex-direction: column; gap: 2px; }
-.sat-pick-off, .sat-pick-sat-row { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: transparent; border: none; color: var(--text); font-size: 11.5px; padding: 6px 8px; border-radius: 4px; cursor: pointer; transition: background 0.12s, color 0.12s; }
-.sat-pick-off { font-weight: 600; }
-.sat-pick-off:hover, .sat-pick-sat-row:hover { background: var(--panel-strip); }
-.sat-pick-off.active, .sat-pick-sat.active > .sat-pick-sat-row { color: var(--accent); font-weight: 700; }
-.sat-pick-sat.disabled > .sat-pick-sat-row { color: var(--text-faint); cursor: not-allowed; opacity: 0.75; }
-.sat-pick-sat.disabled > .sat-pick-sat-row:hover { background: transparent; }
-.sat-pick-caret { width: 10px; flex: none; font-size: 9px; color: var(--text-muted); }
-.sat-pick-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sat-pick-products { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 4px 8px; padding-left: 8px; border-left: 1px solid var(--border); }
-.sat-pick-group { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); padding: 4px 6px 2px; }
-.sat-pick-prod { display: flex; align-items: center; width: 100%; text-align: left; background: transparent; border: none; color: var(--text-muted); font-size: 11px; padding: 5px 8px; border-radius: 4px; cursor: pointer; transition: background 0.12s, color 0.12s; }
-.sat-pick-prod:hover { background: var(--panel-strip); color: var(--text); }
-.sat-pick-prod.active { color: var(--accent); font-weight: 700; }
-.sat-pick-prod.active::after { content: "\2713"; margin-left: auto; padding-left: 8px; }
-.sat-pick-prod.unavailable { color: var(--text-faint); cursor: not-allowed; opacity: 0.7; }
-.sat-pick-prod.unavailable:hover { background: transparent; color: var(--text-faint); }
-.sat-pick-tag { margin-left: auto; flex: none; padding: 1px 6px; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); border: 1px solid var(--border); border-radius: 999px; }
 
 /* previously-loaded-missions popover: one row per flight, a name button that opens it plus a red
    × that removes it. mirrors the sat picker's fixed/z-index/panel look so both dropdowns match. */
@@ -202,14 +163,8 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
 #mapPanel:is(:fullscreen, .fake-fs) { height: 100vh !important; }
 #mapPanel:is(:fullscreen, .fake-fs) .panel-title, #videoPanel:is(:fullscreen, .fake-fs) .panel-title { padding: 16px; background-color: color-mix(in oklab, var(--panel) 90%, transparent); margin-bottom: 0; position: absolute; width: 100%; z-index: 100; top: 0; border-bottom: 1px solid var(--border); }
 #mapPanel:is(:fullscreen, .fake-fs) .media-container, #videoPanel:is(:fullscreen, .fake-fs) .media-container { height: 100vh; border-radius: 0; flex-grow: 1; }
-/* In fullscreen, put the storm card on the left under the satellite badge. */
+/* In fullscreen, put the storm card on the left. */
 #mapPanel:is(:fullscreen, .fake-fs) #mapInfoStack { left: 16px; right: auto; align-items: flex-start; text-align: left; }
-/* 10-min satellite/playhead stepper: floats at the bottom-center of the map, above the timeline bar */
-/* Pre-hide the 2D-only controls on a 3D-preference refresh (class set by the inline head script
-   in index.html) so they don't flash before persistDisplayPrefs restores the 3D tracker mode. */
-html.pref-tracker-3d #satPickerBtn { display: none; }
-#satStepCluster { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 40; }
-#mapPanel:is(:fullscreen, .fake-fs) #satStepCluster { bottom: 130px; z-index: 2001; } /* above the timeline bar so its shadow gradient doesn't darken the buttons */
 #mapPanel:is(:fullscreen, .fake-fs) #mapHeader { padding: 16px 22px 0 22px; }
 #mapPanel:is(:fullscreen, .fake-fs) .map-controls { padding-right: 50px; }
 #mapPanel:is(:fullscreen, .fake-fs) #fullscreenMapBtn { position: absolute; top: 16px; right: 22px; z-index: 200; }
@@ -328,41 +283,6 @@ video#radarVideo { width: 100%; height: 100%; display: block; object-fit: contai
 /* In-map overlays: HUD, PFD, pills, badges - flat hairline borders, no accent-tinted glow */
 
 
-/* Non-invasive satellite fetch status, a small pill, not a full-screen cover */
-#satLoadingOverlay { display: none; position: absolute; top: 10px; right: 12px; z-index: 50; align-items: center; gap: 8px; background: color-mix(in oklab, var(--panel) 90%, transparent); border: 1px solid var(--accent); color: var(--accent); padding: 6px 12px; border-radius: 3px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); pointer-events: none; }
-
-/* satellite product color-scale legend: compact vertical bar tucked into the top-left corner of the
-   2d player, clear of the sat/storm info (top right). */
-#satColorLegend { position: absolute; left: 8px; top: 8px; z-index: 45; width: 58px; background: color-mix(in oklab, var(--bg) 82%, transparent); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); border-radius: 5px; padding: 4px 5px 4px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); pointer-events: none; font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
-#satColorLegend.hidden { display: none; }
-#satColorLegend .leg-title { font-size: 8px; font-weight: 700; color: var(--text); line-height: 1.2; margin-bottom: 3px; text-align: center; }
-#satColorLegend .leg-body { position: relative; display: flex; gap: 4px; height: 124px; }
-#satColorLegend .leg-bar { width: 12px; flex: none; border-radius: 3px; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent); }
-#satColorLegend .leg-ticks { position: relative; flex: 1 1 auto; }
-#satColorLegend .leg-ticks span { position: absolute; left: 0; transform: translateY(-50%); font-size: 8px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1; }
-#satColorLegend .leg-unit { text-align: center; font-size: 8px; font-weight: 700; color: var(--text-muted); margin-top: 6px; }
-/* mmr uploaded means a narrower two-column map, so tuck the legend further into the corner and shrink it */
-#mediaGrid:not(.no-video) #satColorLegend { top: 5px; left: 5px; width: 50px; padding: 3px 4px; }
-#mediaGrid:not(.no-video) #satColorLegend .leg-title { font-size: 7.5px; margin-bottom: 2px; }
-#mediaGrid:not(.no-video) #satColorLegend .leg-body { height: 100px; gap: 3px; }
-#mediaGrid:not(.no-video) #satColorLegend .leg-bar { width: 10px; }
-#mediaGrid:not(.no-video) #satColorLegend .leg-ticks span { font-size: 7.5px; }
-#mediaGrid:not(.no-video) #satColorLegend .leg-unit { font-size: 7.5px; margin-top: 4px; }
-#satLoadingOverlay.show { display: flex; }
-#satLoadingOverlay .spin { width: 12px; height: 12px; flex: none; border: 2px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: syncSpin 0.8s linear infinite; }
-
-#satPrefetchBar { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; background: color-mix(in oklab, var(--panel) 94%, transparent); border: 1px solid var(--accent); color: var(--accent); padding: 7px 12px; border-radius: 4px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55); }
-#satPrefetchBar.hidden { display: none; }
-#mapPanel:is(:fullscreen, .fake-fs) #satPrefetchBar { z-index: 2002; }
-#satPrefetchLabel { white-space: nowrap; }
-#satPrefetchTrack { width: 180px; height: 8px; background: var(--panel-strip); border-radius: 3px; overflow: hidden; }
-#satPrefetchFill { width: 0%; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.2s ease; }
-/* Indeterminate phase (before the first tile lands): bounce a fixed-width fill back and
-   forth; js/02-satellite.js swaps this for the real width once progress is measurable. */
-#satPrefetchFill.indeterminate, #batchCacheFill.indeterminate { width: 38% !important; animation: prefetchBounce 1.1s ease-in-out infinite alternate; transition: none; }
-@keyframes prefetchBounce { from { margin-left: 0; } to { margin-left: 62%; } }
-#satPrefetchCancel { flex: none; cursor: pointer; background: var(--danger-soft, color-mix(in oklab, var(--danger) 15%, var(--panel))); border: 1px solid var(--danger); color: var(--danger); border-radius: 3px; padding: 3px 8px; font: inherit; }
-#satPrefetchCancel:hover { background: color-mix(in oklab, var(--danger) 30%, var(--panel)); color: var(--text); }
 
 /* Auto-Sync indicator, anchored in the MMR video panel, non-blocking */
 #syncingIndicator { position: absolute; top: 10px; left: 12px; display: flex; align-items: center; gap: 8px; background: color-mix(in oklab, var(--panel) 90%, transparent); border: 1px solid var(--accent); color: var(--accent); padding: 6px 12px; border-radius: 3px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); z-index: 30; opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; }
@@ -382,12 +302,6 @@ video#radarVideo { width: 100%; height: 100%; display: block; object-fit: contai
 #recordProgress #recordStopBtn { background: var(--danger); color: var(--accent-ink); border: none; border-radius: 3px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; transition: filter 0.15s; }
 #recordProgress #recordStopBtn:hover { filter: brightness(1.15); }
 
-/* HUD + sat badges read in Inter with tabular digits for cleaner numbers */
-#satTimeBadge, #satDayLabel {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.02em;
-}
 
 /* Dropdown menus */
 .elevated-card { z-index: 100 !important; } /* elevation fix for chart dropdown menus */
@@ -484,8 +398,8 @@ video#radarVideo { width: 100%; height: 100%; display: block; object-fit: contai
    js/11-layout.js), staying in step with the metric HUD/PFD. Each scales from its anchored corner. */
 #attitudeHud { transform: scale(var(--hud-scale, 1)); transform-origin: top left; font-size: 10px; padding: 7px; }
 #mapInfoStack { transform: scale(var(--hud-scale, 1)); transform-origin: top right; }
-/* Sat time badge + storm status card: smaller text/padding for a lower-profile info stack. */
-#satTimeBadge, #stormStatusCard { font-size: 9px; padding: 3px 7px; }
+/* Storm status card: smaller text/padding for a lower-profile info stack. */
+#stormStatusCard { font-size: 9px; padding: 3px 7px; }
 /* In 3D fullscreen the pitch/roll HUD moves to the top-right and the info stack to the top-left. */
 #mapPanel:is(:fullscreen, .fake-fs) #attitudeHud { top: 92px; left: auto; right: 16px; transform-origin: top right; }
 #mapPanel:is(:fullscreen, .fake-fs) #mapInfoStack { transform-origin: top left; }
@@ -531,8 +445,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 }
 .sticky-bottom-bar .cmd-group button#playPauseBtn:hover { filter: brightness(1.12); }
 
-/* Recenter-on-aircraft button: sits above the 10-min satellite stepper (bottom: 12px) instead
-   of overlapping it. */
+/* Recenter-on-aircraft button: raised a little off the bottom edge so it clears the timeline. */
 #recenterPlaneBtn { bottom: 36px !important; }
 
 /* Light/dark theme switch: a sliding pill below Fullscreen in the fixed top-right corner. The knob
@@ -609,9 +522,9 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 html.qc-app-on, body.qc-app-on { overflow: hidden; }
 #loadingOverlay { z-index: 10080; }
 /* body-level popovers opened from the relocated loader / map must sit ABOVE the QC app (z 4000),
-   or they open behind it and read as "no response" (previously-loaded picker, sat picker), and the
+   or they open behind it and read as "no response" (previously-loaded picker), and the
    map's fullscreen fallback must cover the app too. */
-.loaded-picker-panel, .sat-picker-panel { z-index: 10070 !important; }
+.loaded-picker-panel { z-index: 10070 !important; }
 #mapPanel.fake-fs, #videoPanel.fake-fs { z-index: 10050 !important; }
 #toastMessage { z-index: 10090; }
 .qc-app { position: fixed; inset: 0; z-index: 4000; background: var(--bg); display: flex; flex-direction: column; min-width: 0; }
@@ -648,9 +561,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-head-controls #topRightControls { position: static !important; inset: auto !important; flex-direction: row; align-items: center; }
 /* slightly smaller than their tailwind size (px-3 py-1.5 text-xs) */
 .qc-head-controls #resetAppBtn, .qc-head-controls #fullscreenBtn { padding: 5px 10px; font-size: 11px; }
-/* strip the player chrome from the reused map: attitude readout, info badges, the storm
-   toggle, and the sat frame stepper. the satellite picker itself rides the context bar. */
-.qc-map-slot #stormTrackToggleLabel, .qc-map-slot #satStepCluster,
+/* strip the player chrome from the reused map: attitude readout, info badges, and the storm toggle. */
+.qc-map-slot #stormTrackToggleLabel,
 .qc-map-slot #attitudeHud, .qc-map-slot #mapInfoStack { display: none !important; }
 
 .qc-actionbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--panel) 60%, var(--bg)); }

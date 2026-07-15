@@ -173,10 +173,6 @@
     // preloader) and make it the loaded flight: resets, globals, and the post-parse UI setup.
     // Throws when the rows are empty.
     function applyParsedFlight(parsed) {
-        // New flight: KEEP the satellite tile cache (it accumulates across storms until the tab closes;
-        // tiles are keyed by layer/band/time/box so they never collide between flights). Just reset the
-        // preloader's neighborhood pointer so it re-warms around the new flight.
-        if (typeof resetSatPreload === 'function') resetSatPreload();
         // Clear any storm best-track / archive-mission metadata from the previous flight, it's
         // re-set after this returns by loadReconMission for an archive load.
         stormTrackPoints = []; stormTrackMeta = null; reconArchiveMeta = null;

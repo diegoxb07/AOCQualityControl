@@ -79,7 +79,7 @@
 
     // Parse + clean an AOC flight-log TSV string into rows, with NO globals/UI side effects.
     // The ONE parser: the live loader, the parse worker, the batch sat-cache, and the tests all run
-    // through it, so every consumer derives the same rows, flight extents, and satellite tile IDs.
+    // through it, so every consumer derives the same rows and flight extents.
     //
     // Returns { rows, stats }. `stats` is the honesty ledger: every row the cleaner drops and every
     // value the parser derives (rather than reads) is counted, so the UI can disclose exactly what

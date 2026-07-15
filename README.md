@@ -76,7 +76,7 @@ The **Flight Track** panel fuses latitude and longitude into one map (longitude 
 
 ## 6. Flight context
 
-**Flight Context** opens the sidebar: the 2D/3D map tracker, the per-sensor report, **Play**, the speed control, the satellite overlay picker, and the flight clock. The 2D map follows the aircraft; pan away and **Recenter on Aircraft** appears. Scrub from any graph, the arrow keys, or Play, and every surface follows the same playhead.
+**Flight Context** opens the sidebar: the 2D/3D map tracker, the per-sensor report, **Play**, the speed control, and the flight clock. The 2D map follows the aircraft; pan away and **Recenter on Aircraft** appears. Scrub from any graph, the arrow keys, or Play, and every surface follows the same playhead.
 
 Keyboard: **Space** play/pause, **← / →** step one second (**Shift** for ten), **Ctrl/Cmd + Z** step a zoom back, **Esc** close panels.
 

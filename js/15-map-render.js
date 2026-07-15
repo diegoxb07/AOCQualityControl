@@ -172,7 +172,7 @@
         ctx.setLineDash([]); ctx.globalAlpha = 1.0;
         // Each fix is a small tropical-cyclone map symbol: category-colored disc with the
         // category written inside (TD/TS/1-5), spiral arms from TS strength up, drawn
-        // slightly translucent so the basemap/satellite stays readable underneath.
+        // slightly translucent so the basemap stays readable underneath.
         stormTrackPoints.forEach((p, i) => {
             const hovered = i === hoveredStormIdx;
             const col = stormWindColor(p.windKt), lbl = stormCatLabel(p.windKt);
@@ -268,40 +268,11 @@
 
         const clipBox = mapClipBox();
         const xOf = lon => ((lon - plotMinLon) / deltaLon) * cssW;   // lon already in the plot domain
-        const satSel2 = document.getElementById('satelliteSelect'); const isSatOn = satSel2 && satSel2.value !== 'none';
-        if (satImageLoaded && isSatOn && satImage.width > 0) {
-            bgCtx.globalAlpha = satTileOpacity;
-            if (satImageBox) {
-                const sMinLon = wrapLon(satImageBox.minLon), sMaxLon = wrapLon(satImageBox.maxLon);
-                // At high zoom the full-box destination rect is blown up hundreds of times and
-                // overflows the rasterizer, so draw only the visible slice via a source crop.
-                // Skipped when the wrap puts the box across the lon-domain seam (order inverts);
-                // the plain path below still handles that case.
-                if (clipBox && sMinLon < sMaxLon) {
-                    const iMinLon = Math.max(sMinLon, clipBox.minLon), iMaxLon = Math.min(sMaxLon, clipBox.maxLon);
-                    const iMinLat = Math.max(satImageBox.minLat, clipBox.minLat), iMaxLat = Math.min(satImageBox.maxLat, clipBox.maxLat);
-                    if (iMinLon < iMaxLon && iMinLat < iMaxLat) {
-                        const fw = satImage.width / (sMaxLon - sMinLon), fh = satImage.height / (satImageBox.maxLat - satImageBox.minLat);
-                        bgCtx.drawImage(satImage,
-                            (iMinLon - sMinLon) * fw, (satImageBox.maxLat - iMaxLat) * fh, (iMaxLon - iMinLon) * fw, (iMaxLat - iMinLat) * fh,
-                            xOf(iMinLon), getY(iMaxLat), xOf(iMaxLon) - xOf(iMinLon), getY(iMinLat) - getY(iMaxLat));
-                    }
-                } else {
-                    const dx = getX(satImageBox.minLon), dy = getY(satImageBox.maxLat), dw = getX(satImageBox.maxLon) - getX(satImageBox.minLon), dh = getY(satImageBox.minLat) - getY(satImageBox.maxLat);
-                    bgCtx.drawImage(satImage, dx, dy, dw, dh);
-                }
-            } else { bgCtx.drawImage(satImage, 0, 0, cssW, cssH); }
-            bgCtx.globalAlpha = 1.0;
-        }
         if (mapFeatures.length > 0) {
             // muted land over the ocean base, soft coastlines, and fainter internal (state) borders.
-            // over satellite imagery the land goes translucent so the tiles still show through.
-            const landFill = isSatOn ? (lightMap ? 'rgba(70,110,80,0.20)' : 'rgba(40,74,62,0.26)')
-                                     : (lightMap ? '#e4ebdd' : '#22463a');
-            const coastCol = isSatOn ? (lightMap ? 'rgba(45,60,72,0.60)' : 'rgba(214,228,238,0.65)')
-                                     : (lightMap ? '#5e6f7c' : '#7ea8bf');
-            const borderCol = isSatOn ? (lightMap ? 'rgba(45,60,72,0.32)' : 'rgba(214,228,238,0.34)')
-                                      : (lightMap ? 'rgba(94,111,124,0.50)' : 'rgba(126,168,191,0.40)');
+            const landFill = lightMap ? '#e4ebdd' : '#22463a';
+            const coastCol = lightMap ? '#5e6f7c' : '#7ea8bf';
+            const borderCol = lightMap ? 'rgba(94,111,124,0.50)' : 'rgba(126,168,191,0.40)';
             bgCtx.fillStyle = landFill;
             const strokeFor = isState => { bgCtx.strokeStyle = isState ? borderCol : coastCol; bgCtx.lineWidth = (isState ? 1.0 : 1.5) / mapScale; };
             // Draw the whole world, cull off-screen, and repeat it shifted ±360 so a dateline-centered
@@ -336,6 +307,31 @@
             }
         }
         bgCtx.restore(); bgNeedsUpdate = false;
+    }
+
+    // Airport codes near the plane only (like the 3D state labels): as the plane approaches a field,
+    // its code appears, so it is clear where it takes off and lands. large + medium airports (no
+    // landing strips). Drawn on the live foreground each frame so it follows the playhead, unlike the
+    // cached coastline background. Runs inside the map's scaled transform, so sizes divide by mapScale
+    // to stay a constant screen size.
+    function drawNearbyAirports2D(cLon, cLat) {
+        if (typeof mapAirports === 'undefined' || !mapAirports.length || !isFinite(cLon) || !isFinite(cLat)) return;
+        const RAD = 2.6, cosLat = Math.cos(cLat * Math.PI / 180) || 1;   // degrees; "nearby" radius, similar in feel to the 3D range
+        const light = document.documentElement.dataset.theme === 'light';
+        const apText = light ? '#243b53' : '#eaf2fb', apHalo = light ? 'rgba(255,255,255,0.9)' : 'rgba(5,11,20,0.9)', apDot = light ? '#b91c1c' : '#f9a8d4';
+        ctx.save();
+        ctx.font = 'bold ' + (11 / mapScale) + "px 'IBM Plex Mono', monospace";
+        ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.lineWidth = 2.8 / mapScale; ctx.lineJoin = 'round';
+        const r = 2.4 / mapScale, tx = 5 / mapScale;
+        for (let i = 0; i < mapAirports.length; i++) {
+            const a = mapAirports[i], dlat = a[1] - cLat, dlon = (a[2] - cLon) * cosLat;   // [code, lat, lon, tier]
+            if (dlat * dlat + dlon * dlon > RAD * RAD) continue;
+            const x = getX(a[2]), y = getY(a[1]);
+            ctx.fillStyle = apDot; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+            ctx.strokeStyle = apHalo; ctx.strokeText(a[0], x + tx, y);
+            ctx.fillStyle = apText; ctx.fillText(a[0], x + tx, y);
+        }
+        ctx.restore();
     }
 
     function renderMapEngineFrame(idx, visualRow) {
@@ -433,8 +429,9 @@
         }
 
         let dPlane = visualRow || filteredData[idx];
-        if (dPlane) { 
-            const d = dPlane; ctx.save(); ctx.translate(getX(d.lon), getY(d.lat)); ctx.scale(1/mapScale, 1/mapScale); 
+        if (dPlane) drawNearbyAirports2D(dPlane.lon, dPlane.lat);
+        if (dPlane) {
+            const d = dPlane; ctx.save(); ctx.translate(getX(d.lon), getY(d.lat)); ctx.scale(1/mapScale, 1/mapScale);
             const zoomFactor = Math.max(1, Math.pow(mapScale, 0.6));
             if (document.getElementById('simpleTrackerIcon').checked) {
                 ctx.beginPath(); ctx.arc(0, 0, 3 * zoomFactor, 0, 2 * Math.PI); ctx.fillStyle = '#e2e4e8'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5 * zoomFactor; ctx.stroke();

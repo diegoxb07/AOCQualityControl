@@ -4,7 +4,7 @@
 
    Lets a flight be loaded straight from the archive (Year -> Storm -> Mission dropdowns) instead of
    a manual file upload, and auto-loads the storm's whole-life best-track alongside it. Reuses
-   RECON_API_BASE from js/02-satellite.js (same API, already used there for archive GOES tiles). */
+   RECON_API_BASE from js/02-recon-api.js (the shared recon-api plumbing module). */
 
     const reconYearSelect = document.getElementById('reconYearSelect');
     const reconStormSelect = document.getElementById('reconStormSelect');
@@ -30,14 +30,11 @@
         if (!reconLoadBtn) return;
         const apiDown = reconApiHealthChecked && !reconApiHealthOk;
         reconLoadBtn.disabled = apiDown || !reconMissionSelect.value;
-        // Both pre-cache buttons open modals with their own pickers, so they only need the
-        // archive bootstrap attempt done (reconYearsLanded flips even when the fetch fails).
-        // The preload modal also takes direct file uploads, so it stays usable with the API down;
-        // batch satellite caching is API-only and closes with it.
+        // The pre-load button opens a modal with its own picker, so it only needs the archive
+        // bootstrap attempt done (reconYearsLanded flips even when the fetch fails). The preload modal
+        // also takes direct file uploads, so it stays usable with the API down.
         const preBtn = document.getElementById('reconPreloadBtn');
         if (preBtn) preBtn.disabled = !reconYearsLanded;
-        const batchBtn = document.getElementById('batchCacheBtn');
-        if (batchBtn) batchBtn.disabled = !(reconYearsLanded && !apiDown);
         // Mission search needs the API (it fetches season indexes and loads by id).
         const searchInput = document.getElementById('missionSearchInput');
         if (searchInput) searchInput.disabled = !(reconYearsLanded && !apiDown);
@@ -91,11 +88,12 @@
     async function populateReconYears() {
         try {
             const data = await reconApiJson('/v1/recon/years');
+            if (typeof setReconApiHealth === 'function') setReconApiHealth(true, 'ok');   // this fetch is also the API health signal
             const years = (data && data.years) || [];
             years.slice().reverse().forEach(y => {   // newest first, most-requested storms are recent
                 const opt = document.createElement('option'); opt.value = y; opt.textContent = y; reconYearSelect.appendChild(opt);
             });
-        } catch (e) { setReconStatus('Could not reach the recon archive (' + e.message + ').'); }
+        } catch (e) { if (typeof setReconApiHealth === 'function') setReconApiHealth(false, e.message); setReconStatus('Could not reach the recon archive (' + e.message + ').'); }
         reconYearSelect.options[0].textContent = 'Year…';
         reconYearSelect.disabled = false;
         reconYearSelect.style.cursor = '';
@@ -829,8 +827,8 @@
         });
     })();
 
-    // --- Mission preloader: download + parse flights in the background (like the satellite tile
-    // pre-cache, but for flight data). Records live in a session Map mirrored write-through into
+    // --- Mission preloader: download + parse flights in the background. Records live in a session Map
+    // mirrored write-through into
     // IndexedDB (db aocPreloadedMissions), so preloaded flights survive reloads and open with no
     // download or parse on any later visit. The preloaded list is its own dropdown; the Preload
     // button opens a modal where any of the selected year's missions can be queued together. ---

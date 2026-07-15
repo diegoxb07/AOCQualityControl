@@ -13,7 +13,7 @@
         if (filteredData.length === 0) return;
 
         customMarkers = []; computeTempBaseline(); mapPlaceholder.style.display = 'none';
-        ['replayBtn','playPauseBtn','markBtn','clearMarksBtn','timelineSlider','skipBack10Btn','skipFwd10Btn'].forEach(id => document.getElementById(id).disabled = false);
+        ['replayBtn','playPauseBtn','markBtn','clearMarksBtn','timelineSlider'].forEach(id => document.getElementById(id).disabled = false);
         
         timelineSlider.min = 0; timelineSlider.max = filteredData.length - 1; timelineSlider.value = 0;
         resizeCanvasLayout(); calculateMapScales(); resetMapView(); buildChartLayout();
@@ -24,7 +24,7 @@
         currentIdx = 0; masterChartInstance.update('none');
         hasInitialSyncOccurred = false; clearTimeout(scrubSyncTimeout); lastOcrVideoTime = 0;
 
-        updateSatelliteOptions(); satImageLoaded = false; lastSatFetchTime = ''; bgNeedsUpdate = true;
+        bgNeedsUpdate = true;
 
         if (videoLoaded) { video.pause(); if(speeds[currentSpeedIdx] <= 16) { try { video.playbackRate = speeds[currentSpeedIdx]; } catch(e){} } syncTelemetryToVideoClock(); } 
         else updateVisualComponents(currentIdx);

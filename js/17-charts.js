@@ -202,14 +202,6 @@
         timelineTimeDisplay.innerText = displayStr;
         if (typeof syncMiniPlaybackBar === 'function') syncMiniPlaybackBar();   // mirror into the collapsed-media mini bar
 
-        const satSel = document.getElementById('satelliteSelect');
-        if (satSel && satSel.value !== 'none' && trackerModeSelect.value === '2d' && !isResizingMedia) {
-            fetchSatelliteImage(currentRow.absSeconds);
-            updateSatTimeBadge();
-        } else {
-            const b = document.getElementById('satTimeBadge');
-            if (b) b.classList.add('hidden');
-        }
         if (skipStatic) return;
         updateStormTrackBadge();
 
