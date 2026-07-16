@@ -716,7 +716,12 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 /* relative so the fullscreen + png corner buttons can pin to the block's top right; the head
    keeps clear of them with its right padding. fullscreened blocks keep the page background. */
 .qc-chart-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 10px 14px; min-width: 0; flex: none; position: relative; }
-.qc-chart-panel:fullscreen { background: var(--bg); padding: 22px; overflow-y: auto; }
+.qc-chart-panel:fullscreen { background: var(--bg); padding: 22px; overflow-y: auto; display: flex; flex-direction: column; }
+/* in fullscreen the graph itself grows to fill the tall panel instead of staying a short wide
+   strip: the canvas wrap flexes to take all the leftover height (head, legend, and bottom strip
+   keep their natural size). Chart.js is responsive + maintainAspectRatio:false, so the canvas
+   follows its wrap and the plot just gets taller — same x/y scales, ticks, zoom, and functions. */
+.qc-chart-panel:fullscreen .qc-canvas-wrap { flex: 1 1 auto; height: auto; min-height: 340px; }
 .qc-chart-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; padding-right: 72px; }
 .qc-chart-title { font-weight: 700; font-size: 13px; color: var(--text); }
 .qc-chart-meta { font-size: 10px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; flex: 1; display: inline-flex; align-items: center; flex-wrap: wrap; min-width: 0; }
