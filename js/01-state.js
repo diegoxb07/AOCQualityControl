@@ -13,7 +13,9 @@
     let isResizingMedia = false; 
 
     let mapFeatures = [];
-    let mapAirports = [];   // [code, lat, lon, tier] large + medium airports worldwide, for basemap labels
+    // Airfields for the 2D basemap: { code, name, lat, lon, big, mil }, filled by loadAirports()
+    // (js/19-bootstrap.js) from data/airports.json. Empty until it lands, and stays empty if it fails.
+    let airports = [];
     let customMarkers = [];
     let flightMetaData = { id: 'Unknown', date: 'Unknown', aircraft: 'Unknown' };
 

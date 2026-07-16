@@ -145,7 +145,7 @@
             sp.querySelectorAll('.qc-pill').forEach(p => { p.classList.add('qc-pill-click'); p.title = 'List these sensors'; p.addEventListener('click', () => qcShowStatusModal(p.dataset.kind)); });
         }
 
-        qcBuildReportTable();
+        qcBuildFlightContext();
         qcRenderCharts(document.getElementById('qcChartsPanel'), qcResult);
         qcRefreshTimeline();
     }
@@ -202,6 +202,53 @@
 
     // THE playhead-to-player contract: the one function allowed to translate the playhead (axis
     // seconds since recording start) into a player row (rows exist takeoff..landing only). a
+    // ---- Flight context readout: the live flight conditions at the playhead, in the sidebar. The
+    // sidebar map hides its own HUD, so this is the sidebar's only current-values readout.
+    function qcFcEsc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+    function qcBuildFlightContext() {
+        const panel = document.getElementById('qcReportPanel'); if (!panel) return;
+        const md = (typeof flightMetaData !== 'undefined' && flightMetaData) ? flightMetaData : {};
+        const storm = (typeof stormTrackMeta !== 'undefined' && stormTrackMeta && stormTrackMeta.name) ? stormTrackMeta.name
+                    : ((typeof reconArchiveMeta !== 'undefined' && reconArchiveMeta && reconArchiveMeta.stormName) ? reconArchiveMeta.stormName : '');
+        const sub = [md.aircraft, storm ? ('Storm ' + storm) : '', md.date].filter(v => v && v !== 'Unknown').map(qcFcEsc).join('  ·  ');
+        const rows = [['Time in flight', 'tif'], ['Phase', 'phase'], ['GPS altitude', 'alt'], ['Heading / track', 'hdg'],
+                      ['True airspeed', 'tas'], ['Wind', 'wind'], ['Air temp', 'temp'], ['Position', 'pos']];
+        panel.innerHTML =
+            '<div class="qc-fc-head">Flight conditions</div>' +
+            '<div class="qc-fc-mission"><div class="qc-fc-mid">' + qcFcEsc(md.id || 'Unknown') + '</div>' +
+            (sub ? '<div class="qc-fc-sub">' + sub + '</div>' : '') + '</div>' +
+            rows.map(r => '<div class="qc-row qc-fc-row"><span class="qc-row-name">' + r[0] + '</span><span class="qc-row-detail" data-fc="' + r[1] + '">—</span></div>').join('');
+        qcUpdateFlightContext();
+    }
+    // climb / cruise / descent from the GPS-altitude rate over a ±15 s window; ground near the ends.
+    function qcFcPhase(i) {
+        if (!filteredData || !filteredData.length) return '—';
+        const n = filteredData.length, w = 15, alt = r => r ? (r.gpsAlt != null ? r.gpsAlt : r.pAlt) : null;
+        const cur = alt(filteredData[i]);
+        if (cur != null && cur < 300) return i < n * 0.5 ? 'On the ground / takeoff' : 'On the ground / landing';
+        const a = filteredData[Math.max(0, i - w)], b = filteredData[Math.min(n - 1, i + w)];
+        const aa = alt(a), bb = alt(b);
+        if (aa == null || bb == null || a.absSeconds == null || b.absSeconds == null || b.absSeconds === a.absSeconds) return 'Cruise';
+        const vs = (bb - aa) / (b.absSeconds - a.absSeconds);   // m/s
+        return vs > 2.5 ? 'Climb' : vs < -2.5 ? 'Descent' : 'Cruise';
+    }
+    function qcUpdateFlightContext() {
+        const panel = document.getElementById('qcReportPanel'); if (!panel || !panel.querySelector('[data-fc]')) return;
+        if (!filteredData || !filteredData.length) return;
+        const set = (k, v) => { const el = panel.querySelector('[data-fc="' + k + '"]'); if (el) el.textContent = v; };
+        const i = qcPlayheadToRow(), row = filteredData[i]; if (!row) return;
+        const t0 = filteredData[0].absSeconds, dt = (row.absSeconds != null && t0 != null) ? row.absSeconds - t0 : null;
+        set('tif', dt == null ? '—' : dt < 0 ? 'pre-takeoff' : ('T+' + Math.floor(dt / 3600) + ':' + String(Math.floor((dt % 3600) / 60)).padStart(2, '0')));
+        set('phase', qcFcPhase(i));
+        const altM = row.gpsAlt != null ? row.gpsAlt : row.pAlt;
+        set('alt', altM == null ? '—' : Math.round(altM).toLocaleString() + ' m  ·  ' + Math.round(altM * 3.28084).toLocaleString() + ' ft');
+        set('hdg', (row.th == null ? '—' : Math.round(row.th) + '°') + '  /  ' + (row.gTrack == null ? '—' : Math.round(row.gTrack) + '°'));
+        set('tas', row.tas == null ? '—' : Math.round(row.tas) + ' kt');
+        set('wind', (row.windDir == null || row.windSpd == null) ? '—' : Math.round(row.windDir) + '° @ ' + Math.round(row.windSpd) + ' kt');
+        set('temp', row.tempr == null ? '—' : row.tempr.toFixed(1) + ' °C');
+        set('pos', (row.lat == null || row.lon == null) ? '—' : row.lat.toFixed(3) + ', ' + row.lon.toFixed(3));
+    }
+
     // playhead before takeoff maps to row 0, after landing to the last row; in between it is the
     // nearest row by absolute clock time (binary search, rows are sorted).
     function qcPlayheadToRow() {
@@ -449,6 +496,7 @@
     // ---- QC clock (graphs and arrow keys are the scrubber; there is no timeslider) --------------
     function qcRefreshTimeline() { qcSyncTimeLabel(); }
     function qcSyncTimeLabel() {
+        qcUpdateFlightContext();   // the sidebar's live flight-conditions readout follows the playhead too
         const lbl = document.getElementById('qcTimeLabel'); if (!lbl) return;
         // the clock reads from the single source of truth (the playhead), not the player row
         if (typeof qcScrubIdx !== 'undefined' && qcScrubIdx != null && typeof qcTimeLabels !== 'undefined' && qcTimeLabels && qcTimeLabels[qcScrubIdx]) {

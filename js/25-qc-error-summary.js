@@ -87,7 +87,7 @@
     const QC_ES_EXPENDABLES = ['Dropsondes', 'Test sondes', 'AXBTs', 'AXCPs', 'AXCTDs', 'UAS'];
 
     // the airport table is the ourairports public domain list, every large and medium airport
-    // worldwide (data/airports.json, ~5k entries as [code, lat, lon, tier]), loaded once the
+    // worldwide (data/airports.json, rows [ident, code, lat, lon, name, big, mil]), loaded once the
     // first time the modal needs it. small private strips are excluded on purpose: the fleet
     // cannot land on one, and a strip near a mis-detected position would label the form wrong.
     let qcEsAirports = null, qcEsAirportsReq = null;
@@ -107,12 +107,12 @@
         const rad = Math.PI / 180, gates = [8, 6];
         const best = [null, null], bd = [Infinity, Infinity];
         for (let i = 0; i < qcEsAirports.length; i++) {
-            const a = qcEsAirports[i], t = a[3];
-            const s = Math.sin((a[1] - lat) * rad / 2) ** 2 + Math.cos(lat * rad) * Math.cos(a[1] * rad) * Math.sin((a[2] - lon) * rad / 2) ** 2;
+            const a = qcEsAirports[i], t = a[5] === 1 ? 0 : 1;   // big field -> 8 km gate, else medium -> 6 km
+            const s = Math.sin((a[2] - lat) * rad / 2) ** 2 + Math.cos(lat * rad) * Math.cos(a[2] * rad) * Math.sin((a[3] - lon) * rad / 2) ** 2;
             const km = 12742 * Math.asin(Math.sqrt(s));
             if (km < bd[t]) { bd[t] = km; best[t] = a; }
         }
-        for (let t = 0; t < 2; t++) if (best[t] && bd[t] <= gates[t]) return best[t][0];
+        for (let t = 0; t < 2; t++) if (best[t] && bd[t] <= gates[t]) return best[t][1] || best[t][0];
         return '';
     }
 

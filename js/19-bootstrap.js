@@ -12,7 +12,7 @@
         el.addEventListener('keyup', (e) => { if (e.key === 'Enter') el.blur(); });
     });
     
-    // The old "Apply & Run" button is gone, the Play button folds it in (see the play handler below).
+    // Playback is driven by the Play button (see the play handler below); there is no separate run step.
 
     // Jump the playhead by N flight-minutes.
     function skipFlightMinutes(mins) {
@@ -252,6 +252,21 @@
     }
 
     // Local copies first (data/ ships with the app, so the basemap works offline);
+    // Airfields for the 2D basemap, as [ident, iata, lat, lon, name, isLarge, isMil]. Local-only:
+    // a failed fetch just leaves the layer off. Loads after the basemap and marks the map dirty so
+    // the codes appear as soon as they land.
+    function loadAirports() {
+        fetch('data/airports.json' + (typeof assetVer === 'function' ? assetVer() : ''))
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(rows => {
+                if (!Array.isArray(rows)) return;
+                airports = rows.map(a => ({ code: a[1] || a[0], name: a[4], lat: a[2], lon: a[3], big: a[5] === 1, mil: a[6] === 1 }));
+                bgNeedsUpdate = true;
+                if (filteredData.length > 0 && trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
+            })
+            .catch(() => {});
+    }
+
     // fall back to the original remote sources if the local fetch fails (e.g. file://).
     const fetchGeo = (localPath, remoteUrl) =>
         fetch(localPath).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
@@ -273,18 +288,8 @@
             });
         }
         bgNeedsUpdate = true; if (filteredData.length > 0 && trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
+        loadAirports();
     }).catch(e => {});
-
-    // airport codes for the basemaps: large + medium fields worldwide (no landing strips), so it is
-    // clear where the plane takes off and lands.
-    fetch('data/airports.json').then(r => r.ok ? r.json() : []).then(a => {
-        mapAirports = Array.isArray(a) ? a : [];
-        bgNeedsUpdate = true;
-        if (filteredData.length > 0) {
-            if (trackerModeSelect.value === '2d' && typeof renderMapEngineFrame === 'function') renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
-            else if (trackerModeSelect.value === '3d' && typeof build3DScene === 'function') build3DScene();
-        }
-    }).catch(() => {});
 
     // --- MP4 Video Zoom & Pan Logic ---
     let vidZoom = 1;

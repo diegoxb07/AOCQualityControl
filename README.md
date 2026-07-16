@@ -1,8 +1,8 @@
 # AOC QC Tool
 
-A browser quality-control tool for **Aircraft Operations Center** flight-level data. It loads a hurricane-hunter flight, grades every sensor against its redundant siblings and reference, separates recorder gaps from per-sensor gaps, flags physically implausible values, reproduces the legacy `qc_plots_with_map_v2.py` statistics, and exports the same reports the archive workflow expects.
+A browser quality-assessment tool for **Aircraft Operations Center** flight-level data. It loads any flight, grades every sensor against its counterpart and reference sensors, flags data gaps, physically implausible values, and will export the same reports the FD's need.
 
-Built for the AOC Science Branch to replace a slower, manual script workflow. Runs entirely in the browser, API-backend optional.
+Runs entirely in the browser, with the API-backend always optionally used.
 
 - **Tool Link:** https://diegoxb07.github.io/AOCQualityControl/ (GitHub Pages)
 - **Repository:** https://github.com/diegoxb07/AOCQualityControl
@@ -123,9 +123,3 @@ The remaining `js/` files are the reused visualizer subsystems (parser, map, arc
 - **No build step.** Open the tool link, or serve the directory statically (`python3 -m http.server`).
 - **Deployment:** GitHub Pages.
 - **No test suite.** Verify changes by opening the page and exercising the load → read → export flow.
-
----
-
-## Note
-
-Assistant working files (`CLAUDE.md`, `.claude/`) are gitignored.

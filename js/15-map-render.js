@@ -259,6 +259,81 @@
         return { minLon: v.minLon - padLon, maxLon: v.maxLon + padLon, minLat: v.minLat - padLat, maxLat: v.maxLat + padLat };
     }
 
+    // Airfield codes: the flight's takeoff and landing fields (the airfield nearest each end of the
+    // track), each drawn while the plane is within AIRPORT_RADIUS_NM of it, plus the home field (LAL)
+    // drawn whenever it is within the map view, as a fixed geographic reference. Drawn on the live
+    // foreground so they follow the playhead. Home + military take the accent.
+    const AIRPORT_HOME_CODE = 'LAL';   // Lakeland Linder, the AOC's home field
+    const AIRPORT_RADIUS_NM = 60;      // show a takeoff/landing field only within this of the plane
+    // The home field object (once airports load), cached; drawn as a constant geographic reference.
+    let _homeAirport = null, _homeSet = false;
+    function homeAirport() {
+        if (!_homeSet && airports.length) { _homeAirport = airports.find(a => a.code === AIRPORT_HOME_CODE) || null; _homeSet = true; }
+        return _homeAirport;
+    }
+    // The takeoff + landing fields: the airfield nearest each end of the track, within the radius of that
+    // end (so a track that opens/closes already far from any field yields none). Cached per flight.
+    let _endpointAirports = null, _endpointKey = '';
+    function endpointAirports() {
+        if (!airports.length || filteredData.length === 0) return [];
+        const n = filteredData.length, a0 = filteredData[0], aN = filteredData[n - 1];
+        const key = n + '|' + a0.lon + ',' + a0.lat + '|' + aN.lon + ',' + aN.lat;
+        if (key === _endpointKey && _endpointAirports) return _endpointAirports;
+        const rad2 = (AIRPORT_RADIUS_NM / 60) * (AIRPORT_RADIUS_NM / 60);
+        const nearest = (lat, lon) => {
+            if (!isFinite(lat) || !isFinite(lon)) return null;
+            const cosLat = Math.cos(lat * Math.PI / 180) || 1;
+            let best = null, bd = rad2;
+            for (let i = 0; i < airports.length; i++) {
+                const a = airports[i], dLat = a.lat - lat, dLon = (a.lon - lon) * cosLat, dd = dLat * dLat + dLon * dLon;
+                if (dd < bd) { bd = dd; best = a; }
+            }
+            return best;
+        };
+        const out = [], seen = new Set();
+        [nearest(a0.lat, a0.lon), nearest(aN.lat, aN.lon)].forEach(a => { if (a && !seen.has(a.code)) { seen.add(a.code); out.push(a); } });
+        _endpointAirports = out; _endpointKey = key;
+        return out;
+    }
+    function drawAirportsNearPlane(cLat, cLon) {
+        if (!airports.length) return;
+        const rad2 = (AIRPORT_RADIUS_NM / 60) * (AIRPORT_RADIUS_NM / 60);
+        // draw set: the takeoff/landing fields within the radius of the plane, plus the home field
+        // whenever it is within the map view. deduped by code.
+        const drawn = new Set(), toDraw = [];
+        if (isFinite(cLat) && isFinite(cLon)) {
+            const cosLat = Math.cos(cLat * Math.PI / 180) || 1;
+            endpointAirports().forEach(a => {
+                const dLat = a.lat - cLat, dLon = (a.lon - cLon) * cosLat;
+                if (dLat * dLat + dLon * dLon <= rad2 && !drawn.has(a.code)) { drawn.add(a.code); toDraw.push(a); }
+            });
+        }
+        const home = homeAirport(), v = getVisibleGeoBounds();
+        if (home && !drawn.has(home.code) && v && home.lat >= v.minLat && home.lat <= v.maxLat && home.lon >= v.minLon && home.lon <= v.maxLon) {
+            drawn.add(home.code); toDraw.push(home);
+        }
+        if (!toDraw.length) return;
+        const lightMap = document.documentElement.dataset.theme === 'light';
+        ctx.save();
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 2.5 / mapScale; ctx.lineJoin = 'round';
+        const r = 2.2 / mapScale, pad = 4 / mapScale;
+        for (let i = 0; i < toDraw.length; i++) {
+            const a = toDraw[i], home2 = a.code === AIRPORT_HOME_CODE;
+            const x = getX(a.lon), y = getY(a.lat);
+            // home + military in the accent, civil in a neutral ink; all keylined to read over land/water.
+            const col = (home2 || a.mil) ? '#38bdf8' : (lightMap ? '#1f2937' : '#e2e8f0');
+            ctx.font = '600 ' + ((home2 ? 12 : 10) / mapScale) + 'px Inter, ui-sans-serif, sans-serif';
+            ctx.beginPath(); ctx.arc(x, y, home2 ? r * 1.5 : r, 0, 2 * Math.PI);
+            ctx.fillStyle = col; ctx.fill();
+            ctx.strokeStyle = lightMap ? 'rgba(255,255,255,0.9)' : 'rgba(5,12,20,0.85)';
+            ctx.stroke();
+            ctx.strokeText(a.code, x + pad, y);
+            ctx.fillStyle = col; ctx.fillText(a.code, x + pad, y);
+        }
+        ctx.restore();
+    }
+
     function renderBackground() {
         if (!bgCanvas.width || !bgCanvas.height) return;
         // theme-aware basemap palette (ocean base fill here; land and lines below)
@@ -307,31 +382,6 @@
             }
         }
         bgCtx.restore(); bgNeedsUpdate = false;
-    }
-
-    // Airport codes near the plane only (like the 3D state labels): as the plane approaches a field,
-    // its code appears, so it is clear where it takes off and lands. large + medium airports (no
-    // landing strips). Drawn on the live foreground each frame so it follows the playhead, unlike the
-    // cached coastline background. Runs inside the map's scaled transform, so sizes divide by mapScale
-    // to stay a constant screen size.
-    function drawNearbyAirports2D(cLon, cLat) {
-        if (typeof mapAirports === 'undefined' || !mapAirports.length || !isFinite(cLon) || !isFinite(cLat)) return;
-        const RAD = 2.6, cosLat = Math.cos(cLat * Math.PI / 180) || 1;   // degrees; "nearby" radius, similar in feel to the 3D range
-        const light = document.documentElement.dataset.theme === 'light';
-        const apText = light ? '#243b53' : '#eaf2fb', apHalo = light ? 'rgba(255,255,255,0.9)' : 'rgba(5,11,20,0.9)', apDot = light ? '#b91c1c' : '#f9a8d4';
-        ctx.save();
-        ctx.font = 'bold ' + (11 / mapScale) + "px 'IBM Plex Mono', monospace";
-        ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.lineWidth = 2.8 / mapScale; ctx.lineJoin = 'round';
-        const r = 2.4 / mapScale, tx = 5 / mapScale;
-        for (let i = 0; i < mapAirports.length; i++) {
-            const a = mapAirports[i], dlat = a[1] - cLat, dlon = (a[2] - cLon) * cosLat;   // [code, lat, lon, tier]
-            if (dlat * dlat + dlon * dlon > RAD * RAD) continue;
-            const x = getX(a[2]), y = getY(a[1]);
-            ctx.fillStyle = apDot; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
-            ctx.strokeStyle = apHalo; ctx.strokeText(a[0], x + tx, y);
-            ctx.fillStyle = apText; ctx.fillText(a[0], x + tx, y);
-        }
-        ctx.restore();
     }
 
     function renderMapEngineFrame(idx, visualRow) {
@@ -429,7 +479,7 @@
         }
 
         let dPlane = visualRow || filteredData[idx];
-        if (dPlane) drawNearbyAirports2D(dPlane.lon, dPlane.lat);
+        if (dPlane) drawAirportsNearPlane(dPlane.lat, dPlane.lon);
         if (dPlane) {
             const d = dPlane; ctx.save(); ctx.translate(getX(d.lon), getY(d.lat)); ctx.scale(1/mapScale, 1/mapScale);
             const zoomFactor = Math.max(1, Math.pow(mapScale, 0.6));

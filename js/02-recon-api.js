@@ -169,10 +169,9 @@
         updateReconApiUiState();
     }
 
-    // Archive-side health probe: the archive's own lightweight /v1/recon/years endpoint stands in for
-    // the retired satellite products poll (which used to be the only thing that flipped the "API
-    // Offline" state). The initial state is set by populateReconYears() in js/12b, which already
-    // fetches years; this interval keeps a mid-session outage or recovery reflected in the archive UI.
+    // Archive-side health probe: a lightweight /v1/recon/years poll that flips the "API Offline" state,
+    // greying or restoring the archive UI. populateReconYears() in js/12b sets the initial state (it
+    // already fetches years); this interval keeps a mid-session outage or recovery reflected.
     function probeReconApiHealth() {
         fetch(RECON_API_BASE + '/v1/recon/years', { cache: 'no-store', headers: reconAuthHeaders() })
             .then(r => setReconApiHealth(r.ok, r.ok ? 'ok' : ('HTTP ' + r.status)))
