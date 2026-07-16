@@ -704,10 +704,24 @@
                 '<div class="qc-help-card" id="qchs8">' +
                   '<h3>Flight context</h3>' +
                   '<ul>' +
-                    '<li><b>Flight Context</b> opens the sidebar: the 2D/3D tracker, the per-sensor report, Play, speed, and the flight clock.</li>' +
+                    '<li><b>Flight Context</b> opens the sidebar: the 2D/3D tracker, a live flight-conditions readout, Play, the speed control, and the flight clock.</li>' +
                     '<li>The 2D map follows the aircraft; pan away and Recenter on Aircraft appears.</li>' +
                     '<li>Scrub from any graph, the arrow keys, or Play; every surface follows the same playhead.</li>' +
                   '</ul>' +
+                  '<p style="font-size:12px;color:var(--text-muted);margin:8px 0 8px">Wind barbs on the 2D map are colored by wind speed (knots), across a 0 to 160 kt ramp.</p>' +
+                  '<div class="wb-legend">' +
+                    '<p class="wb-legend-title">Wind Speed</p>' +
+                    '<div class="wb-bar" style="background:linear-gradient(to right,#0000ff 0%,#00ffff 31.25%,#00ff00 50%,#ffff00 62.5%,#ff8000 81.25%,#ff0000 100%);"></div>' +
+                    '<div class="wb-axis">' +
+                      '<span class="wb-lo" style="left:0;">0</span>' +
+                      '<span style="left:31.25%;">50</span>' +
+                      '<span style="left:50%;">80</span>' +
+                      '<span style="left:62.5%;">100</span>' +
+                      '<span style="left:81.25%;">130</span>' +
+                      '<span class="wb-hi" style="left:100%;">160+ kt</span>' +
+                    '</div>' +
+                    '<p class="wb-note">One continuous ramp for reading the whole wind field at once. Colors blend between the marked anchors and hold at red from 160 kt up.</p>' +
+                  '</div>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs9">' +

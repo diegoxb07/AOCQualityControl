@@ -694,6 +694,19 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-fc-row { grid-template-columns: auto 1fr; }
 .qc-fc-row .qc-row-name { color: var(--text-muted); font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 11px; }
 .qc-fc-row .qc-row-detail { text-align: right; color: var(--text); font-size: 11px; }
+/* wind barb color scale (the default wind-speed ramp), shown in the help modal. see the barb scale
+   in js/15-map-render.js. */
+.wb-legend { margin: 0 0 4px; }
+.wb-legend-title { font-size: 12px; font-weight: 600; color: var(--text); margin: 0 0 5px; }
+.wb-bar { display: flex; height: 16px; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+.wb-seg { display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; font-weight: 700; }
+/* axis labels sit at their true position on the 0 to 160 kt span, so the ticks land on the color
+   boundaries above them rather than being spread evenly. */
+.wb-axis { position: relative; height: 13px; margin-top: 3px; }
+.wb-axis span { position: absolute; top: 0; transform: translateX(-50%); font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.wb-axis .wb-lo { transform: none; }
+.wb-axis .wb-hi { transform: translateX(-100%); }
+.wb-note { font-size: 11px; color: var(--text-muted); margin: 3px 0 0; }
 
 /* charts: stacked panels, one per family, like the qc_plots bokeh column. generous side gutters
    give the mouse wheel a safe lane to scroll the page without landing on a graph and zooming it. */
