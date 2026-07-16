@@ -210,8 +210,12 @@
     //   t0,t1     first/last second on the axis
     //   present   { varName: sampleCount } how many real (non-NaN) samples each var carried
     //   dropped   { noTime } rows that could not be placed for lack of a time
+    // keepVars: a Set of variable names to keep, or the sentinel '*' to keep EVERY column in the file
+    // (voltages, housekeeping, GPS status and all), used by the NC-to-TXT converter. Omitted -> the
+    // catalog allow-list, so the QC engine's normal parse still drops non-catalog channels.
     function parseFlightRawQC(rawText, keepVars) {
-        const keep = keepVars || (typeof qcCatalogVars === 'function' ? qcCatalogVars() : null);
+        const keepAll = keepVars === '*';
+        const keep = keepAll ? null : (keepVars || (typeof qcCatalogVars === 'function' ? qcCatalogVars() : null));
         const lines = rawText.split('\n');
         const out = { timeAxis: new Float64Array(0), raw: {}, t0: null, t1: null, present: {}, dropped: { noTime: 0 } };
         if (lines.length < 2) return out;

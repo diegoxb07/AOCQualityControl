@@ -93,7 +93,7 @@
         }
         for (let i = 0; i < arr.length; i++) {
             const v = arr[i]; if (Number.isNaN(v)) continue;
-            if (hum && v > 200) { marks.push({ i: i, reason: 'physically absurd ' + name + ' above 200 percent' }); continue; }
+            if (hum && v > 200) { marks.push({ i: i, reason: 'impossible ' + name + ' above 200 percent' }); continue; }
             if (vw && Math.abs(v) > 40) { marks.push({ i: i, reason: 'sudden ' + name + ' above 40 m/s detected' }); continue; }
             if (vw || ws) {
                 for (let b = 1; b <= 15 && i - b >= 0; b++) {

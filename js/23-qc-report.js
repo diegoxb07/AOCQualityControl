@@ -117,6 +117,7 @@
     // report, charts, status bar, and clock all return to their waiting state.
     function qcResetToEmpty() {
         qcRawData = null; qcResult = null; qcOverride = null;
+        if (typeof qcRawDataAll !== 'undefined') qcRawDataAll = null;   // drop the converter's every-var dataset too
         qcRenderEmpty(); qcRefreshTimeline();
     }
 
@@ -125,7 +126,7 @@
     // search, view on the map, summarize, or export
     function qcToggleReportControls(show) {
         const d = show ? '' : 'none';
-        ['qcPhaseStatsBtn', 'qcSideToggle'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = d; });
+        ['qcPhaseStatsBtn', 'qcSideToggle', 'qcConvBtn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = d; });
         const gsWrap = document.querySelector('.qc-graph-search'); if (gsWrap) gsWrap.style.display = d;
         const exWrap = document.querySelector('.qc-export-wrap'); if (exWrap) exWrap.style.display = d;
     }
@@ -676,7 +677,7 @@
                   '<ul>' +
                     '<li><b>Archive (API online):</b> search by id, storm, or date, or pick Year, Storm, Flight, then Load Flight + Storm Track.</li>' +
                     '<li><b>Manual upload:</b> drop a .txt or .nc on the upload zone; works with no internet.</li>' +
-                    '<li><b>Already loaded:</b> every flight is stored on this device and reopens instantly; the red cross removes one. The store keeps the 40 most recent.</li>' +
+                    '<li><b>Already loaded:</b> every flight is stored on this device and reopens instantly; the red cross removes one. The store keeps the 100 most recent.</li>' +
                     '<li><b>Batch Load Flight Data:</b> download whole seasons for instant, offline reopening.</li>' +
                   '</ul>' +
                 '</div>' +
@@ -910,6 +911,9 @@
 
         // the QC app is up and opaque now; drop the boot cover that hid the visualizer during load.
         const cover = document.getElementById('qcBootCover'); if (cover) setTimeout(() => cover.remove(), 80);
+
+        // NC-to-TXT converter (js/27): its opener button lives in the top-left brand corner
+        if (typeof qcInitNcTxtConverter === 'function') qcInitNcTxtConverter();
 
         // wire actions
         document.getElementById('qcExportReportBtn').addEventListener('click', qcExportReportCSV);

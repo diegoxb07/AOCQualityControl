@@ -4,6 +4,10 @@
 
     let allParsedData = [];
     let filteredData = [];
+    // parseFlightRawQC output for the loaded flight: the catalog set (qcRawData, set in js/12) drives
+    // the QC engine; the every-variable set (qcRawDataAll) feeds the NC-to-TXT converter (js/27) and is
+    // present only for the currently open, interactively-loaded flight (never persisted).
+    let qcRawDataAll = null;
     let availableMetrics = new Set();
     let currentIdx = 0;
     let isPlaying = false;

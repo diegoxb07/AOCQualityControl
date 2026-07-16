@@ -14,15 +14,21 @@ self.onmessage = (e) => {
         const onProgress = (p) => self.postMessage({ progress: p });
         const tsv = e.data.nc ? ncArrayBufferToTsv(e.data.nc, onProgress) : e.data.tsv;
         const result = parseFlightTextToRows(tsv);
-        // the QC raw dataset is a second, independent pass over the same tsv (no cleanup, all vars).
+        // the QC raw dataset is a second, independent pass over the same tsv (no cleanup, catalog vars).
         // transfer its typed-array buffers back so the big Float32Arrays are not structure-cloned.
         try {
             result.qc = parseFlightRawQC(tsv);
+            // wantAll: a THIRD pass keeping EVERY column (catalog superset), for the NC-to-TXT
+            // converter. Only the interactive single-flight load asks for it, so batch preloads pay
+            // nothing. Memory-only on the page (never stored), so no IndexedDB bloat.
+            if (e.data.wantAll) { try { result.qcAll = parseFlightRawQC(tsv, '*'); } catch (allErr) { result.qcAll = null; } }
             const transfers = [];
-            if (result.qc) {
-                if (result.qc.timeAxis && result.qc.timeAxis.buffer) transfers.push(result.qc.timeAxis.buffer);
-                Object.keys(result.qc.raw || {}).forEach(k => { const a = result.qc.raw[k]; if (a && a.buffer) transfers.push(a.buffer); });
-            }
+            const collect = (qc) => {
+                if (!qc) return;
+                if (qc.timeAxis && qc.timeAxis.buffer) transfers.push(qc.timeAxis.buffer);
+                Object.keys(qc.raw || {}).forEach(k => { const a = qc.raw[k]; if (a && a.buffer) transfers.push(a.buffer); });
+            };
+            collect(result.qc); collect(result.qcAll);
             self.postMessage(result, transfers);
         } catch (qcErr) {
             // QC extraction is best-effort; if it throws, still return the playback rows.

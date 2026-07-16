@@ -618,7 +618,7 @@
         // (another load may replace allParsedData before the storm fetch settles).
         // capture the QC raw dataset too, so reopening this flight from the preloaded / previously-
         // loaded list regenerates the QC report + graphs instead of coming up empty.
-        const parsedRef = { rows: allParsedData, stats: lastParseStats, qc: (typeof qcRawData !== 'undefined' ? qcRawData : null) };
+        const parsedRef = { rows: allParsedData, stats: lastParseStats, qc: (typeof qcRawData !== 'undefined' ? qcRawData : null), qcAll: (typeof qcRawDataAll !== 'undefined' ? qcRawDataAll : null) };
         stormTrackFetchPromise = loadStormTrackForMission(mission).then(() => {   // fire-and-forget; awaited only by autoLoadSharedMission
             savePreloadedMission(mission.mission_id, {
                 mission, parsed: parsedRef, isNc: usedFullRes,
@@ -832,11 +832,11 @@
     // IndexedDB (db aocPreloadedMissions), so preloaded flights survive reloads and open with no
     // download or parse on any later visit. The preloaded list is its own dropdown; the Preload
     // button opens a modal where any of the selected year's missions can be queued together. ---
-    const preloadedMissions = new Map();   // missionId -> { mission, parsed { rows, stats }, isNc, storm }; stored-only stubs carry no parsed
+    const preloadedMissions = new Map();   // missionId -> { mission, parsed { rows, stats, qc }, isNc, storm }; stored-only stubs carry no parsed, and the in-memory copy drops parsed.qcAll (every-variable set, disk-only)
     // oldest stored missions past this cap are evicted from IndexedDB on each new save. full
     // resolution missions run tens of MB each; desktop browsers allow gigabytes, so 40 keeps a
     // whole season on device without risking the quota
-    const PRELOADED_STORE_MAX = 40;
+    const PRELOADED_STORE_MAX = 100;
 
     let missionDB = null;
     const missionStoreReady = new Promise(resolve => {
@@ -869,10 +869,20 @@
             } catch (e) { resolve(null); }
         });
     }
+    // A copy of a stored record WITHOUT the every-variable QC set (parsed.qcAll). qcAll can be tens of
+    // MB per flight, so it is persisted to IndexedDB only; the in-memory list holds this lean copy so a
+    // whole-season batch doesn't pin gigabytes of RAM. openPreloadedMission pulls the full record from
+    // disk when a flight is actually opened, so the NC-to-TXT converter still sees every variable.
+    function qcLeanRec(rec) {
+        if (!rec || !rec.parsed || !rec.parsed.qcAll) return rec;
+        const parsed = Object.assign({}, rec.parsed); delete parsed.qcAll;
+        return Object.assign({}, rec, { parsed: parsed });
+    }
     // Write-through save + prune: the oldest stored missions past the cap leave IndexedDB (an
-    // in-memory copy, if the session holds one, stays usable until reload).
+    // in-memory copy, if the session holds one, stays usable until reload). The full record (incl.
+    // qcAll) goes to disk; the session Map keeps only the lean copy.
     function savePreloadedMission(id, rec) {
-        preloadedMissions.set(id, rec);
+        preloadedMissions.set(id, qcLeanRec(rec));
         missionStoreReady.then(() => {
             if (!missionDB) return;
             try {
@@ -987,11 +997,11 @@
                 const buf = await fetchArrayBufferWithProgress(
                     RECON_API_BASE + '/v1/recon/mission/' + encodeURIComponent(missionId) + '/download',
                     (r, t) => status('Preloading ' + missionId + '… ' + Math.round(r / t * 100) + '%'));
-                parsed = await parseFlightSource(buf);
+                parsed = await parseFlightSource(buf, undefined, true);   // wantAll: cache every variable, not just the catalog
                 if (!parsed.rows.length) throw new Error('no usable rows');
                 isNc = true;
             } catch (e) {
-                parsed = await parseFlightSource(reconObsToTsv(mission));   // decimated preview fallback
+                parsed = await parseFlightSource(reconObsToTsv(mission), undefined, true);   // decimated preview fallback
             }
             if (!parsed.rows.length) throw new Error('no usable rows');
             let storm = null;
@@ -1014,15 +1024,21 @@
         // (js/18-engine.js and beyond) has executed; wait out the page load first.
         if (document.readyState !== 'complete') await new Promise(r => window.addEventListener('load', r, { once: true }));
         let rec = preloadedMissions.get(missionId); if (!rec) return;
-        if (!rec.parsed) {
-            setReconStatus('Opening ' + missionId + ' from the on-device store…');
+        // Pull the full record from disk when the in-memory copy can't drive the whole tool: a light
+        // stub (no parsed at all), or a lean copy that dropped the every-variable QC set to save RAM.
+        // Loading it here gives the NC-to-TXT converter every parameter, not just the catalog set.
+        if (!rec.parsed || !rec.parsed.qcAll) {
+            if (!rec.parsed) setReconStatus('Opening ' + missionId + ' from the on-device store…');
             const stored = await missionIdbGet(missionId);
-            if (!stored || !stored.parsed) {
+            if (stored && stored.parsed) {
+                rec = stored;                                          // full record (incl. qcAll) for this open
+                preloadedMissions.set(missionId, qcLeanRec(stored));   // keep the session list lean
+            } else if (!rec.parsed) {
                 setReconStatus('The stored copy of ' + missionId + ' is gone. Preload it again.');
                 preloadedMissions.delete(missionId); missionIdbDelete(missionId); updatePreloadedSelect();
                 return;
             }
-            rec = stored; preloadedMissions.set(missionId, rec);
+            // else: lean copy but the store has no qcAll (an older cache) -> open with the catalog set
         }
         const mission = rec.mission;
         clearLoadedMedia();
@@ -1198,7 +1214,7 @@
                         if (p.phase === 'var' && p.total) frac = p.index / p.total;
                         else if (p.phase === 'rows') frac = 1;
                         if (fill) fill.style.width = Math.round((i + frac) / list.length * 100) + '%';
-                    });
+                    }, true);   // wantAll: cache every variable, not just the catalog
                     if (!parsed.rows.length) throw new Error('no usable rows');
                     const dm = id.match(/^(\d{4})(\d{2})(\d{2})([a-zA-Z])?/);
                     const tail = dm && dm[4] ? dm[4].toUpperCase() : '';

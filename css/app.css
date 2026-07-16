@@ -576,11 +576,10 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-ov-btn.active { color: var(--accent); border-color: var(--accent); }
 .qc-ov-btn-accent { background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); border-color: var(--accent); color: var(--accent); }
 .qc-ov-btn-accent:hover { background: color-mix(in oklab, var(--accent) 30%, var(--panel-strip)); }
-/* Apply Changes lights up (blue, softly pulsing) while a takeoff/landing edit is unsaved, so the
+/* Apply Changes lights up (flat accent fill) while a takeoff/landing edit is unsaved, so the
    user sees there is a pending change to apply; cleared once the change is applied or re-synced */
-.qc-ov-btn.qc-ov-dirty { background: color-mix(in oklab, var(--accent) 22%, var(--panel-strip)); border-color: var(--accent); color: color-mix(in oklab, var(--accent) 72%, var(--text)); animation: qcApplyPulse 1.4s ease-in-out infinite; }
+.qc-ov-btn.qc-ov-dirty { background: color-mix(in oklab, var(--accent) 22%, var(--panel-strip)); border-color: var(--accent); color: color-mix(in oklab, var(--accent) 72%, var(--text)); }
 .qc-ov-btn.qc-ov-dirty:hover { background: color-mix(in oklab, var(--accent) 34%, var(--panel-strip)); border-color: var(--accent); }
-@keyframes qcApplyPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); } 55% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 0%, transparent); } }
 /* the shared selected state for the max/mean/median and flight context toggles: solid fill,
    pressed in, so an open panel reads unmistakably as on */
 .qc-ov-btn.qc-ov-sel { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3); }
@@ -807,13 +806,13 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-lg-chip:disabled { opacity: 0.45; cursor: not-allowed; }
 .qc-lg-sep { width: 1px; height: 14px; background: var(--border); flex: none; }
 /* one cluster per sensor group: the chip with its own variables right beside it. group chips
-   always read accent and glow, hovered or not, so a second unselected group never fades from
-   the user's attention */
+   always read accent, hovered or not, so a second unselected group never fades from the user's
+   attention */
 .qc-lg-group { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px 1px 1px; border: 1px solid color-mix(in oklab, var(--border) 60%, transparent); border-radius: 999px; }
-.qc-lg-group .qc-lg-chip { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 70%, transparent); box-shadow: 0 0 7px color-mix(in oklab, var(--accent) 40%, transparent); }
-.qc-lg-group .qc-lg-chip.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); box-shadow: 0 0 9px color-mix(in oklab, var(--accent) 55%, transparent); }
+.qc-lg-group .qc-lg-chip { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 70%, transparent); }
+.qc-lg-group .qc-lg-chip.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); }
 /* an unselected group chip carries a dotted diagonal, same gray as the variable-box slash: it
-   reads as "not shown" while the glow stays and the label stays readable behind the dots */
+   reads as "not shown" while the label stays readable behind the dots */
 .qc-lg-group .qc-lg-chip { position: relative; overflow: hidden; }
 .qc-lg-group .qc-lg-chip:not(.active)::after { content: ''; position: absolute; left: -8%; right: -8%; top: 50%; border-top: 1.5px dotted #7a8494; transform: rotate(-14deg); pointer-events: none; }
 .qc-lg-bandinfo { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap; }
@@ -872,13 +871,13 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    otherwise. lifted above the x axis labels so it covers no ticks */
 .qc-reset-float { display: none; position: absolute; right: 40px; bottom: 34px; z-index: 6; padding: 3px 11px; background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); white-space: nowrap; }
 .qc-reset-float.show { display: inline-flex; }
-/* the button and its + graph prompt fuse into ONE big button: a single glowing border wraps
+/* the button and its + graph prompt fuse into ONE big button: a single accent border wraps
    both, the inner button loses its own box, and the bottom edge sits below the + graph line */
-.qc-diff-btncol { display: inline-flex; flex-direction: column; align-items: stretch; gap: 0; background: var(--panel-strip); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); border-radius: 8px; box-shadow: 0 0 7px color-mix(in oklab, var(--accent) 35%, transparent); cursor: pointer; overflow: hidden; }
-.qc-diff-btncol:hover { border-color: var(--accent); box-shadow: 0 0 10px color-mix(in oklab, var(--accent) 55%, transparent); }
+.qc-diff-btncol { display: inline-flex; flex-direction: column; align-items: stretch; gap: 0; background: var(--panel-strip); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); border-radius: 8px; cursor: pointer; overflow: hidden; }
+.qc-diff-btncol:hover { border-color: var(--accent); }
 .qc-diff-btncol .qc-ov-btn { border: none; background: transparent; border-radius: 0; padding-bottom: 2px; }
 .qc-diff-btncol .qc-diff-create { padding-top: 0; padding-bottom: 4px; }
-/* no border of its own: the shared glow on .qc-diff-btncol is the ONE outline for the pair */
+/* no border of its own: the shared border on .qc-diff-btncol is the ONE outline for the pair */
 .qc-diff-create { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 1px 8px; background: none; border: none; border-radius: 6px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; cursor: pointer; transition: color .12s; }
 .qc-diff-create:hover { color: var(--accent); }
 .qc-diff-create .qc-diff-plus { font-size: 12px; line-height: 1; color: var(--accent); }
@@ -903,4 +902,63 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
     .qc-app-body { flex-direction: column; }
     .qc-side { width: 100%; flex: none; border-left: none; border-top: 1px solid var(--border); max-height: 60vh; }
     .qc-charts { max-height: 55vh; }
+}
+
+/* ---- NC-to-TXT converter (js/27) ---------------------------------------------------------- */
+/* opener in the top-left brand corner, beside the relocated raw-.nc download link (js/27
+   qcInitNcTxtConverter moves #reconSourceLink here). Both pinned to one height so they line up
+   regardless of each one's own font metrics/padding, and share the accent border treatment. */
+.qc-brand-actions { padding: 6px 0 2px 2px; display: flex; align-items: center; gap: 8px; }
+.qc-conv-open { font-weight: 700; color: var(--accent); border-color: color-mix(in oklab, var(--accent) 55%, var(--border)); }
+.qc-conv-open:hover { background: color-mix(in oklab, var(--accent) 20%, var(--panel-strip)); border-color: var(--accent); }
+#qcBrandActions #qcConvBtn, #qcBrandActions #reconSourceLink { height: 30px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+#qcBrandActions #reconSourceLink { border-color: color-mix(in oklab, var(--accent) 55%, var(--border)); }
+#qcBrandActions #reconSourceLink:hover { border-color: var(--accent); }
+/* the display:inline-flex two lines up (2 IDs) outranks Tailwind's plain .hidden class (1 class),
+   so without this override .hidden could never actually hide the relocated link; this ups the
+   specificity just enough to win back when .hidden is toggled on (js/12-file-parsing.js
+   applyParsedFlight, js/19-bootstrap.js resetAppToDefault) -- hidden until a flight with a source
+   URL is loaded, exactly like #qcConvBtn's own hidden-until-loaded state. */
+#qcBrandActions #reconSourceLink.hidden { display: none; }
+
+.qc-conv-card { max-width: 760px; max-height: 90vh; overflow-y: auto; }
+.qc-conv-note { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: -4px 0 0; }
+.qc-conv-note b { color: var(--text); font-weight: 700; }
+
+.qc-conv-toprow, .qc-conv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+.qc-conv-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.qc-conv-field label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.qc-conv-field-btn { justify-content: flex-end; }
+.qc-conv-field-btn .qc-ov-btn { align-self: flex-start; white-space: nowrap; }
+.qc-conv-hint { font-size: 10px; color: var(--text-faint); }
+.qc-conv-time { width: 96px; text-align: center; font-size: 12px; }
+.qc-conv-sel { width: 100%; font-family: inherit; font-size: 12px; cursor: pointer; }
+
+.qc-conv-params-wrap { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px; }
+.qc-conv-params-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.qc-conv-params-title { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.qc-conv-params-title b { color: var(--accent); font-weight: 700; }
+.qc-conv-preset-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); white-space: nowrap; }
+.qc-conv-presetsel { width: auto; flex: none; font-family: inherit; font-size: 12px; cursor: pointer; font-weight: 600; color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); }
+.qc-conv-search { width: auto; flex: 1; min-width: 140px; font-family: inherit; font-size: 12px; }
+.qc-conv-showunsel { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; cursor: pointer; margin-left: auto; }
+.qc-conv-showunsel input { accent-color: var(--accent); cursor: pointer; }
+.qc-conv-bulkrow { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+
+.qc-conv-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1px 10px; max-height: 40vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: color-mix(in oklab, var(--bg) 40%, transparent); user-select: none; }
+.qc-conv-item { display: flex; align-items: center; gap: 7px; padding: 2px 4px; border-radius: 4px; cursor: pointer; font-size: 11.5px; min-width: 0; }
+.qc-conv-item:hover { background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.qc-conv-cb { accent-color: var(--accent); flex: none; pointer-events: none; }
+.qc-conv-name { color: var(--text); font-family: 'IBM Plex Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.qc-conv-ct { color: var(--text-faint); font-size: 9.5px; font-variant-numeric: tabular-nums; flex: none; }
+/* belt-and-suspenders for the click-drag/shift-click handlers in js/27 (which own state changes
+   themselves): blocks text selection while painting a run, and stops the native checkbox click from
+   ever double-toggling underneath the custom pointer handling */
+body.qc-conv-noselect { user-select: none; }
+
+.qc-conv-actions { display: flex; align-items: center; gap: 10px; }
+.qc-conv-status { font-size: 11.5px; color: var(--text-muted); flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+    .qc-conv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

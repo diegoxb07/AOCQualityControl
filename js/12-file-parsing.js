@@ -118,7 +118,9 @@
 
     // onProgress (optional) receives the same {phase,index,total,...} the loading overlay uses; callers
     // that draw their own bar (the preload modal) pass one, everyone else defaults to updateParseProgress.
-    function parseFlightSource(source, onProgress) {
+    // wantAll (optional): also produce result.qcAll, an every-variable raw parse for the NC-to-TXT
+    // converter. Only the interactive single-flight load passes it; batch preloads skip the cost.
+    function parseFlightSource(source, onProgress, wantAll) {
         const report = onProgress || updateParseProgress;
         const onMainThread = () => {
             if (source && typeof source !== 'string' && source.byteLength === 0)
@@ -128,6 +130,7 @@
             // QC Mode raw pass on the same tsv; best-effort so a QC failure never blocks playback.
             try { result.qc = (typeof parseFlightRawQC === 'function') ? parseFlightRawQC(tsv) : null; }
             catch (e) { result.qc = null; }
+            if (wantAll) { try { result.qcAll = (typeof parseFlightRawQC === 'function') ? parseFlightRawQC(tsv, '*') : null; } catch (e) { result.qcAll = null; } }
             return result;
         };
         return new Promise((resolve, reject) => {
@@ -148,8 +151,8 @@
             // transfer the .nc arraybuffer to the worker instead of cloning it. a structured clone copy of a
             // large netcdf buffer runs on the main thread and froze the loading spinner mid load. strings
             // (tsv) can't be transferred, so they're cloned, which is cheap.
-            if (typeof source === 'string') w.postMessage({ tsv: source });
-            else w.postMessage({ nc: source }, [source]);
+            if (typeof source === 'string') w.postMessage({ tsv: source, wantAll: !!wantAll });
+            else w.postMessage({ nc: source, wantAll: !!wantAll }, [source]);
         });
     }
 
@@ -166,7 +169,9 @@
     // Load a flight from a TSV string or an .nc ArrayBuffer. Throws (after cleaning up its own
     // state) when the file yields nothing usable; callers decide how to surface that.
     async function parseEntireFile(source) {
-        applyParsedFlight(await parseFlightSource(source));
+        // wantAll: this is the interactive single-flight load (manual upload or archive), the only
+        // path that feeds the NC-to-TXT converter its every-variable dataset.
+        applyParsedFlight(await parseFlightSource(source, undefined, true));
     }
 
     // Take an already-parsed { rows, stats } (fresh from the worker, or held by the mission
@@ -193,6 +198,9 @@
         // QC Mode: hand the raw dataset (continuous 1-second axis, every catalog var) to the QC
         // engine/report/charts. Best-effort so any QC failure never disturbs the player.
         qcRawData = parsed.qc || null;
+        // Every-variable dataset for the NC-to-TXT converter (memory-only, current flight). Absent for
+        // batch-preloaded / reopened-from-store flights, which fall back to the catalog set + a note.
+        qcRawDataAll = parsed.qcAll || null;
         try { if (typeof onFlightLoadedForQC === 'function') onFlightLoadedForQC(); }
         catch (e) { console.warn('QC processing failed:', e); if (typeof qcRenderError === 'function') qcRenderError('QC processing failed: ' + ((e && e.message) || e)); }
 
