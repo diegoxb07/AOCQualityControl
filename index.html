@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- GitHub Pages serves this repo as-is with no custom response headers, so this meta tag is the
+    <!-- GitHub Pages serves this repo as is with no custom response headers, so this meta tag is the
          only place a CSP can be set. 'unsafe-inline' is required for both script-src (inline onclick/
          oninput handlers throughout index.html) and style-src (inline style attributes built by JS),
          this app's whole architecture is classic inline-handler scripts, not a build step that could
@@ -127,7 +127,7 @@
                             </div>
                             <!-- Free-text search across a year's missions (id, storm, date, aircraft), and a
                                  direct load for any full mission id, so a flight filed under the wrong storm
-                                 or buried in Unknown / Training is still findable. -->
+                                 or buried in Training/Research is still findable. -->
                             <div id="missionSearchWrap" class="relative w-full">
                                 <input type="text" id="missionSearchInput" disabled autocomplete="off" placeholder="Search a mission by id, storm, or date (YY-MM-DD)" title="Search a mission by id, storm, or date" class="w-full bg-panel-strip text-ink border border-hairline rounded px-2 py-1 text-[11px] outline-none focus:border-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-[var(--text-faint)]" />
                                 <div id="missionSearchResults" class="hidden absolute left-0 right-0 top-full mt-1 z-40 max-h-64 overflow-y-auto bg-panel border border-hairline rounded shadow-lg text-[11px]"></div>

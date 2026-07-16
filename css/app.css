@@ -576,9 +576,11 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-ov-btn.active { color: var(--accent); border-color: var(--accent); }
 .qc-ov-btn-accent { background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); border-color: var(--accent); color: var(--accent); }
 .qc-ov-btn-accent:hover { background: color-mix(in oklab, var(--accent) 30%, var(--panel-strip)); }
-/* the flight context button stands out in blue without reading as selected */
-.qc-ov-btn-flight { background: color-mix(in oklab, var(--accent) 22%, var(--panel-strip)); border-color: var(--accent); color: var(--accent); font-weight: 700; }
-.qc-ov-btn-flight:hover { background: color-mix(in oklab, var(--accent) 34%, var(--panel-strip)); }
+/* Apply Changes lights up (blue, softly pulsing) while a takeoff/landing edit is unsaved, so the
+   user sees there is a pending change to apply; cleared once the change is applied or re-synced */
+.qc-ov-btn.qc-ov-dirty { background: color-mix(in oklab, var(--accent) 22%, var(--panel-strip)); border-color: var(--accent); color: color-mix(in oklab, var(--accent) 72%, var(--text)); animation: qcApplyPulse 1.4s ease-in-out infinite; }
+.qc-ov-btn.qc-ov-dirty:hover { background: color-mix(in oklab, var(--accent) 34%, var(--panel-strip)); border-color: var(--accent); }
+@keyframes qcApplyPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); } 55% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 0%, transparent); } }
 /* the shared selected state for the max/mean/median and flight context toggles: solid fill,
    pressed in, so an open panel reads unmistakably as on */
 .qc-ov-btn.qc-ov-sel { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3); }
@@ -789,6 +791,11 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-lg-item.off { color: var(--text-faint); }
 .qc-lg-box { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid #7a8494; flex: none; }
 .qc-lg-box.off { background: linear-gradient(to top right, transparent 44%, #7a8494 44%, #7a8494 56%, transparent 56%); }
+/* a no-data variable still gets a legend slot, blacked out, with a small UNAVAILABLE tag */
+.qc-lg-unavail { opacity: 0.6; cursor: default; }
+.qc-lg-unavail .qc-lg-box { background: #000; border-color: #000; }
+:root[data-theme="light"] .qc-lg-unavail .qc-lg-box { background: #0f172a; border-color: #0f172a; }
+.qc-lg-unavail-tag { font-size: 8px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-faint); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; margin-left: 2px; }
 .qc-lg-chip { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-strip); color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
 .qc-lg-chip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .qc-lg-chip.active { color: var(--accent); border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--panel-strip)); }
@@ -806,6 +813,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-lg-group .qc-lg-chip:not(.active)::after { content: ''; position: absolute; left: -8%; right: -8%; top: 50%; border-top: 1.5px dotted #7a8494; transform: rotate(-14deg); pointer-events: none; }
 .qc-lg-bandinfo { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; font-size: 10px; font-weight: 600; color: var(--text); white-space: nowrap; }
 .qc-lg-bandval { color: var(--accent); }
+/* small caret note under the coefficient of variation, clarifying it is over the selected variables */
+.qc-lg-bandnote { display: block; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 9px; color: var(--text-faint); margin-top: 1px; letter-spacing: 0.02em; }
 /* ref connector: the pipe chains the ref to every sensor it rode, in order. negative margins
    cancel the item's flex gap so pipes and names touch seamlessly. the pipe carries an accent
    pulse traveling back and forth, a live transfer between the ref and its source. */
@@ -826,13 +835,17 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-graph-search input::placeholder { color: var(--text-muted); }
 .qc-graph-search .qc-menu { left: 0; right: auto; min-width: 280px; max-height: 260px; overflow-y: auto; }
 .qc-search-sub { color: var(--text-faint); font-size: 10px; font-weight: 400; }
-/* the export button wears the gap yellow so it stands out from its neighbors. its ink adapts
-   to the theme like every other font: the page ink on dark, white on the deeper light-mode gold */
-#qcExportMenuBtn { background: var(--warn); border-color: var(--warn); color: var(--text); font-weight: 700; }
-#qcExportMenuBtn:hover { background: color-mix(in oklab, var(--warn) 82%, #000); border-color: color-mix(in oklab, var(--warn) 82%, #000); color: var(--text); }
+/* the export button wears the gap yellow so it stands out from its neighbors. its ink reads on the
+   yellow: black on the bright dark-mode yellow, white on the deeper light-mode gold */
+#qcExportMenuBtn { background: var(--warn); border-color: var(--warn); color: #000; font-weight: 700; }
+#qcExportMenuBtn:hover { background: color-mix(in oklab, var(--warn) 82%, #000); border-color: color-mix(in oklab, var(--warn) 82%, #000); color: #000; }
 :root[data-theme="light"] #qcExportMenuBtn, :root[data-theme="light"] #qcExportMenuBtn:hover { color: #ffffff; }
 /* whole family absent: a plain empty frame that says so */
 .qc-nodata-box { display: flex; align-items: center; justify-content: center; height: 140px; border: 1px dashed var(--border); border-radius: 8px; margin: 6px 0 2px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 700; letter-spacing: 0.3em; }
+/* a graph with no data in any variable lists each sensor as UNAVAILABLE, like a partial graph's legend */
+.qc-nodata-box.qc-nodata-unavail { flex-direction: column; gap: 12px; height: auto; min-height: 100px; padding: 18px 12px; }
+.qc-nodata-lead { font-size: 20px; }
+.qc-nodata-chips { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; letter-spacing: normal; font-size: 10px; }
 /* per-kind flag breakdown, parenthesized, inline right after the +N more toggle, each kind
    colored like its chips */
 .qc-issue-totals { align-self: center; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; color: var(--text-muted); }

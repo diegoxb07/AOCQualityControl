@@ -193,7 +193,8 @@
         // QC Mode: hand the raw dataset (continuous 1-second axis, every catalog var) to the QC
         // engine/report/charts. Best-effort so any QC failure never disturbs the player.
         qcRawData = parsed.qc || null;
-        try { if (typeof onFlightLoadedForQC === 'function') onFlightLoadedForQC(); } catch (e) { console.warn('QC processing failed:', e); }
+        try { if (typeof onFlightLoadedForQC === 'function') onFlightLoadedForQC(); }
+        catch (e) { console.warn('QC processing failed:', e); if (typeof qcRenderError === 'function') qcRenderError('QC processing failed: ' + ((e && e.message) || e)); }
 
         updateMissionHeader();
 

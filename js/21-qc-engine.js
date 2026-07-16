@@ -112,12 +112,15 @@
         return out;
     }
 
-    // auto-detect the in-air window. takeoff = first second the aircraft is clearly airborne, landing
-    // = last such second. driven by GPS altitude (rises above ground + 60.96 m / 200 ft) with an
-    // airspeed fallback. optional overrides let the UI pin exact takeoff/landing seconds.
+    // auto-detect the in-air window. takeoff = first SUSTAINED climb of the pure-GPS altitude
+    // through field elevation + 100 m; landing = last second the altitude is above ground + 200 ft.
+    // pure GPS altitude (AltGPS.*) is preferred over the ref/pressure channels, with an airspeed
+    // fallback. optional overrides let the UI pin exact takeoff/landing seconds.
     function qcDetectPhases(raw, timeAxis, override) {
         const pick = names => { for (const nm of names) if (raw[nm]) return raw[nm]; return null; };
-        const alt = pick(['ALTref', 'AltGPS.1', 'AltGPS.3', 'AltGPS.2', 'ALTPA.d']);
+        // pure GPS altitude first (the user's reference for takeoff); ALTref is a GPS-derived ref
+        // that can switch source, ALTPA.d is pressure altitude and drifts with weather — last resort.
+        const alt = pick(['AltGPS.1', 'AltGPS.2', 'AltGPS.3', 'ALTref', 'ALTPA.d']);
         const spd = pick(['TAS.d', 'TasADDU.1', 'CasADDU.1', 'IAS.d']);
         const n = timeAxis.length;
         let toIdx = 0, landIdx = n - 1;
@@ -126,11 +129,42 @@
         const ovTo = override && secToIdx(override.takeoffSec);
         const ovLand = override && secToIdx(override.landingSec);
 
+        // first index where the altitude climbs `rise` metres above the lowest altitude seen so far
+        // (the departure field elevation, so `rise` is field-relative and MSL-safe at any field) AND
+        // stays up: it holds above that bar for most of the next ~45 s and is still higher at the end
+        // of the window. this rejects the taxi bumps and lone GPS spikes that made the old global-min
+        // + 200 ft single-crossing rule pin takeoff long before the aircraft actually left the ground.
+        // the axis is a continuous 1 Hz series (js/11b), so one index == one second.
+        const SUSTAIN = 45, HOLD = 0.8;
+        const sustainedClimb = (v, rise) => {
+            let runMin = Infinity;
+            for (let i = 0; i < n; i++) {
+                const a = v[i]; if (Number.isNaN(a)) continue;
+                if (a < runMin) runMin = a;
+                const thr = runMin + rise;
+                if (a > thr) {
+                    let valid = 0, above = 0, last = a;
+                    for (let j = i; j <= i + SUSTAIN && j < n; j++) {
+                        const b = v[j]; if (Number.isNaN(b)) continue;
+                        valid++; if (b > thr) { above++; last = b; }
+                    }
+                    if (valid && above / valid >= HOLD && last > a) return i;
+                }
+            }
+            return -1;
+        };
+
         if (ovTo != null) { toIdx = ovTo; }
         else if (alt) {
-            let lo = Infinity; for (let i = 0; i < n; i++) if (!Number.isNaN(alt[i]) && alt[i] < lo) lo = alt[i];
-            const thr = (Number.isFinite(lo) ? lo : 0) + 60.96;
-            for (let i = 0; i < n; i++) { if (!Number.isNaN(alt[i]) && alt[i] > thr) { toIdx = i; break; } }
+            let i = sustainedClimb(alt, 100);
+            if (i < 0) i = sustainedClimb(alt, 60.96);          // a flight that never gains 100 m
+            if (i < 0 && spd) { for (let k = 0; k < n; k++) if (!Number.isNaN(spd[k]) && spd[k] > 30) { i = k; break; } }
+            if (i < 0) {                                          // last resort: the old single-crossing rule
+                let lo = Infinity; for (let k = 0; k < n; k++) if (!Number.isNaN(alt[k]) && alt[k] < lo) lo = alt[k];
+                const thr = (Number.isFinite(lo) ? lo : 0) + 60.96;
+                for (let k = 0; k < n; k++) if (!Number.isNaN(alt[k]) && alt[k] > thr) { i = k; break; }
+            }
+            if (i >= 0) toIdx = i;
         } else if (spd) {
             for (let i = 0; i < n; i++) { if (!Number.isNaN(spd[i]) && spd[i] > 30) { toIdx = i; break; } }
         }

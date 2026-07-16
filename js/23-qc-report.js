@@ -35,15 +35,28 @@
 
     // called by js/12-file-parsing.js applyParsedFlight after every flight load.
     function onFlightLoadedForQC() {
-        if (!qcRawData) { qcResult = null; qcRenderEmpty(); return; }
+        if (!qcRawData) {
+            qcResult = null;
+            // a flight DID load (rows exist) but carries no QC dataset — almost always a mission
+            // cached by an older build before QC data was stored on device. say so, and how to fix
+            // it, instead of leaving the pre-load "waiting for a flight" text that reads as a hang.
+            if (typeof allParsedData !== 'undefined' && allParsedData && allParsedData.length)
+                qcRenderError('This flight loaded but has no QC data. Re-preload it (Load Flight Data) to rebuild it.');
+            else qcRenderEmpty();
+            return;
+        }
         qcOverride = null;
-        qcResult = computeQCReport(qcRawData, qcAircraftLetter(), null);
+        // a failure anywhere below must never leave the charts panel stuck on the pre-load
+        // "waiting for flight file" text: compute defensively and surface any error in place.
+        try { qcResult = computeQCReport(qcRawData, qcAircraftLetter(), null); }
+        catch (e) { qcResult = null; console.warn('computeQCReport failed:', e); }
+        if (!qcResult) { qcRenderError('This flight could not be processed for QC (see console for details).'); return; }
         // the playhead starts at takeoff on every new flight
-        if (typeof qcScrubIdx !== 'undefined' && qcResult && qcResult.phases) qcScrubIdx = qcResult.phases.toIdx;
-        qcStoreSaveCurrent();   // auto-save this flight's difference stats (silent, idempotent)
-        qcRefreshTimeline();
-        qcRenderReport();
-        qcSyncPhaseInputs();
+        if (typeof qcScrubIdx !== 'undefined' && qcResult.phases) qcScrubIdx = qcResult.phases.toIdx;
+        try { qcStoreSaveCurrent(); } catch (e) {}   // auto-save difference stats (silent, idempotent)
+        try { qcRefreshTimeline(); } catch (e) { console.warn('QC timeline refresh failed:', e); }
+        qcRenderReport();          // internally guards its heavy sub-renders
+        try { qcSyncPhaseInputs(); } catch (e) { console.warn('QC phase-input sync failed:', e); }
         // the reused map becomes active on load; make sure it is sized to its QC slot
         try { window.dispatchEvent(new Event('resize')); } catch (e) {}
     }
@@ -80,14 +93,24 @@
         return true;
     }
 
-    // the inputs always show the times actually in force, detected or pinned
+    // the inputs always show the times actually in force, detected or pinned; auto vs manual is
+    // internal state now (no user-facing indicator), and Apply drops its unsaved-change highlight
     function qcSyncPhaseInputs() {
         const toEl = document.getElementById('qcToInput'), ldEl = document.getElementById('qcLandInput');
+        const applyEl = document.getElementById('qcPhaseApply');
+        if (applyEl) { applyEl.classList.remove('qc-ov-dirty'); applyEl.disabled = true; }
         if (!toEl || !ldEl) return;
         toEl.classList.remove('qc-bad'); ldEl.classList.remove('qc-bad');
         if (!qcResult || !qcResult.phases) { toEl.value = ''; ldEl.value = ''; return; }
         toEl.value = qcSecToLabel(qcResult.phases.takeoffSec).replace(/:/g, '');
         ldEl.value = qcSecToLabel(qcResult.phases.landingSec).replace(/:/g, '');
+    }
+
+    // editing a takeoff/landing field lights up Apply so the user sees there is an unsaved change
+    // waiting to be applied; a successful Apply (or Auto/sync) clears it in qcSyncPhaseInputs
+    function qcMarkPhaseDirty() {
+        const btn = document.getElementById('qcPhaseApply');
+        if (btn) { btn.classList.add('qc-ov-dirty'); btn.disabled = false; }
     }
 
     // called by resetAppToDefault (js/19-bootstrap.js) so reset all clears the qc surfaces too:
@@ -123,6 +146,15 @@
         }
     }
 
+    // a load that failed downstream must not masquerade as "waiting for a flight": show the real
+    // state in the charts panel (textContent, so the message can never inject markup) so the user
+    // knows the flight loaded but QC could not render it.
+    function qcRenderError(msg) {
+        const ch = document.getElementById('qcChartsPanel');
+        if (ch) { ch.innerHTML = ''; const d = document.createElement('div'); d.className = 'qc-empty qc-charts-empty'; d.textContent = msg; ch.appendChild(d); }
+        const ex = document.getElementById('qcExportMenuBtn'); if (ex) ex.disabled = true;
+    }
+
     const QC_PILL = { ok: 'ok', gap: 'gap', nodata: 'nodata', check: 'check' };
     function qcPill(kind, label) { return '<span class="qc-pill qc-pill-' + kind + '" data-kind="' + kind + '">' + label + '</span>'; }
 
@@ -145,8 +177,11 @@
             sp.querySelectorAll('.qc-pill').forEach(p => { p.classList.add('qc-pill-click'); p.title = 'List these sensors'; p.addEventListener('click', () => qcShowStatusModal(p.dataset.kind)); });
         }
 
-        qcBuildFlightContext();
-        qcRenderCharts(document.getElementById('qcChartsPanel'), qcResult);
+        // isolate the two heavy renders so a failure in one (or in a single chart family) can never
+        // blank the whole panel and strand the user on the "waiting for flight file" text.
+        try { qcBuildFlightContext(); } catch (e) { console.warn('QC flight context failed:', e); }
+        try { qcRenderCharts(document.getElementById('qcChartsPanel'), qcResult); }
+        catch (e) { console.warn('QC charts failed:', e); qcRenderError('The QC charts failed to render (see console for details).'); }
         qcRefreshTimeline();
     }
 
@@ -539,7 +574,7 @@
               '<div class="qc-summary" id="qcSummaryPills"></div>' +
               '<div class="qc-ov-actions">' +
                 '<button id="qcPhaseStatsBtn" class="qc-ov-btn" title="Takeoff, mid-flight, and landing max, mean, and median for a variable">Max/Mean/Median</button>' +
-                '<button id="qcSideToggle" class="qc-ov-btn qc-ov-btn-flight" title="Show or hide the flight-track map and sensor report sidebar">Flight Context</button>' +
+                '<button id="qcSideToggle" class="qc-ov-btn" title="Show or hide the flight-track map and sensor report sidebar">Flight Context</button>' +
                 '<div class="qc-vdiv qc-vdiv-sm"></div>' +
                 '<div class="qc-export-wrap">' +
                   '<button id="qcExportMenuBtn" class="qc-ov-btn" title="Download reports and stats">Export ▾</button>' +
@@ -696,7 +731,8 @@
                   '<h3>Takeoff and landing</h3>' +
                   '<ul>' +
                     '<li>Takeoff and landing are detected automatically from altitude (or airspeed as fallback).</li>' +
-                    '<li><b>Manual pins:</b> the T/O and LND boxes under the top right buttons take HHMMSS times; Apply recomputes everything with them, Auto returns to detection.</li>' +
+                    '<li><b>Manual pins:</b> the T/O and LND boxes under the top right buttons take HHMMSS times. Editing a box highlights Apply Changes; applying recomputes everything with the entered times. Clear both boxes and apply to return to automatic detection.</li>' +
+                    '<li>The pinned takeoff and landing times flow through every export: the interactive report, flight-track map PDF, error summary, gap report, and stats all use them.</li>' +
                     '<li>Everything recorded before five minutes ahead of takeoff is trimmed away and never reaches the graphs, gaps, or stats.</li>' +
                   '</ul>' +
                 '</div>' +
@@ -841,24 +877,23 @@
         qcRelocate('loadedPickerWrap', 'qcFlightLib');
         qcRelocate('preloadBtnWrap', 'qcFlightLib');
         // manual takeoff/landing pins, below the flight library. apply reruns the report with the
-        // pinned seconds; auto returns to detection.
+        // pinned seconds; the Auto/Manual dropdown switches between detection and the pinned times.
         const ovr = document.createElement('div');
         ovr.className = 'qc-phase-override';
         ovr.innerHTML =
-            '<span class="qc-ov-field">T/O <input id="qcToInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Manual takeoff time (HHMMSS UTC)"></span>' +
-            '<span class="qc-ov-field">LND <input id="qcLandInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Manual landing time (HHMMSS UTC)"></span>' +
-            '<button id="qcPhaseApply" class="qc-ov-btn" title="Recompute with these takeoff and landing times">Apply</button>' +
-            '<button id="qcPhaseAuto" class="qc-ov-btn" title="Back to automatic takeoff and landing detection">Auto</button>';
+            '<span class="qc-ov-field">T/O <input id="qcToInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Edit and apply to change the times."></span>' +
+            '<span class="qc-ov-field">LND <input id="qcLandInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Edit and apply to change the times."></span>' +
+            '<button id="qcPhaseApply" class="qc-ov-btn" disabled title="Apply the entered takeoff and landing times (clear both boxes and apply to return to automatic detection)">Apply Changes</button>';
         document.getElementById('qcHeadControls').appendChild(ovr);
+        const qcToEl = document.getElementById('qcToInput'), qcLdEl = document.getElementById('qcLandInput');
+        // Apply pins the entered times (the Auto/Manual indicator flips to Manual via sync). the mode
+        // indicator is a read-only status, not a control: clearing both boxes and applying drops the
+        // pin and returns to automatic detection.
         document.getElementById('qcPhaseApply').addEventListener('click', () => {
-            const toEl = document.getElementById('qcToInput'), ldEl = document.getElementById('qcLandInput');
-            qcApplyManualPhases(toEl.value, ldEl.value, toEl, ldEl);
+            qcApplyManualPhases(qcToEl.value, qcLdEl.value, qcToEl, qcLdEl);
         });
-        document.getElementById('qcPhaseAuto').addEventListener('click', () => {
-            if (!qcRawData) return;
-            qcOverride = null;
-            qcRecomputeReport();
-        });
+        // editing a time highlights Apply so an unsaved change is obvious until it is applied
+        [qcToEl, qcLdEl].forEach(el => el.addEventListener('input', qcMarkPhaseDirty));
 
         // relabel the reused map panel for a QC context, and hide the player-only map controls
         const sub = document.querySelector('#qcMapSlot .panel-subhead'); if (sub) sub.textContent = 'Flight Track';

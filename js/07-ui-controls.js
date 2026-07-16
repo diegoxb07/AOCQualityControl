@@ -85,7 +85,7 @@
             // Storm name: archive metadata when available, else the "(NAME)" an archive
             // load bakes into flightMetaData.id (reconArchiveMeta is set after parse).
             let storm = (reconArchiveMeta && reconArchiveMeta.stormName) || (rawId.match(/\(([^)]+)\)/) || [])[1] || '';
-            if (/unknown|training/i.test(storm)) storm = '';
+            if (/unknown|training|research/i.test(storm)) storm = '';
             if (storm) storm = storm.charAt(0).toUpperCase() + storm.slice(1).toLowerCase();
             // Aircraft designator from the tail number, NOAA name, or the mission-id letter (H/I/N).
             const acId = ((flightMetaData.aircraft || '') + ' ' + rawId).toUpperCase();

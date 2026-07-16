@@ -86,30 +86,30 @@
         const X = lo => ox + (lo - mnLo) * kx * sc;
         const Y = la => oy + (la - mnLa) * sc;
 
-        // frame + faint geography, clipped to the map rect
-        doc.poly([[aL, aB], [aR, aB], [aR, aT], [aL, aT]], 0.8, [0.6, 0.6, 0.6], true);
+        // frame + geography, clipped to the map rect. the whole rect is water (blue), land fills
+        // green on top, lakes blue — a classic green-land / blue-water map.
+        doc.poly([[aL, aB], [aR, aB], [aR, aT], [aL, aT]], 0.8, [0.55, 0.6, 0.66], true);
         doc.save(); doc.clip(aL, aB, aR - aL, aT - aB);
+        doc.fill([[aL, aB], [aR, aB], [aR, aT], [aL, aT]], [0.83, 0.91, 0.97]);
         const viewArea = (mxLo - mnLo) * (mxLa - mnLa);
         if (typeof mapFeatures !== 'undefined' && mapFeatures) {
-            const drawRing = r => { const pp = []; for (let i = 0; i < r.length; i++) pp.push([X(r[i][0]), Y(r[i][1])]); if (pp.length > 1) doc.poly(pp, 0.5, [0.72, 0.72, 0.72]); };
-            mapFeatures.forEach(f => {
-                const bb = f.properties && f.properties.bbox;
-                if (bb && (bb[2] < mnLo || bb[0] > mxLo || bb[3] < mnLa || bb[1] > mxLa)) return;
+            const inBox = bb => !bb || !(bb[2] < mnLo || bb[0] > mxLo || bb[3] < mnLa || bb[1] > mxLa);
+            const toPix = r => { const pp = []; for (let i = 0; i < r.length; i++) pp.push([X(r[i][0]), Y(r[i][1])]); return pp; };
+            const eachRing = (feats, cb) => feats.forEach(f => {
+                if (!inBox(f.properties && f.properties.bbox)) return;
                 const g = f.geometry; if (!g) return;
-                if (g.type === 'Polygon') g.coordinates.forEach(drawRing);
-                else if (g.type === 'MultiPolygon') g.coordinates.forEach(poly => poly.forEach(drawRing));
-                else if (g.type === 'LineString') drawRing(g.coordinates);
-                else if (g.type === 'MultiLineString') g.coordinates.forEach(drawRing);
+                if (g.type === 'Polygon') g.coordinates.forEach(cb);
+                else if (g.type === 'MultiPolygon') g.coordinates.forEach(poly => poly.forEach(cb));
+                else if (g.type === 'LineString') cb(g.coordinates);
+                else if (g.type === 'MultiLineString') g.coordinates.forEach(cb);
             });
-            // country / state names, skipping tiny features so the map does not clutter
-            mapFeatures.forEach(f => {
-                const bb = f.properties && f.properties.bbox; if (!bb) return;
-                if (bb[2] < mnLo || bb[0] > mxLo || bb[3] < mnLa || bb[1] > mxLa) return;
-                if ((bb[2] - bb[0]) * (bb[3] - bb[1]) < viewArea * 0.004) return;
-                const nm = f.properties.NAME || f.properties.name || f.properties.ADMIN; if (!nm) return;
-                const c = qcGeoLabelInView(f, mnLo, mxLo, mnLa, mxLa); if (!c) return;
-                doc.mtext(X(c.lon) - nm.length * 1.6, Y(c.lat), String(nm).toUpperCase(), 6.5, false, [0.55, 0.55, 0.55]);
-            });
+            // fill land (countries) green, then lakes blue, so land vs water reads at a glance;
+            // coastlines + borders stroke on top. (region NAME labels are drawn later, off the track.)
+            eachRing(mapFeatures.filter(f => !(f.properties && f.properties.isState)), r => { const pp = toPix(r); if (pp.length > 2) doc.fill(pp, [0.87, 0.94, 0.83]); });
+            if (typeof qcLakes !== 'undefined') eachRing(qcLakes, r => { const pp = toPix(r); if (pp.length > 2) doc.fill(pp, [0.80, 0.89, 0.97]); });
+            const drawRing = r => { const pp = toPix(r); if (pp.length > 1) doc.poly(pp, 0.5, [0.45, 0.55, 0.48]); };
+            eachRing(mapFeatures, drawRing);
+            if (typeof qcLakes !== 'undefined') eachRing(qcLakes, r => { const pp = toPix(r); if (pp.length > 1) doc.poly(pp, 0.4, [0.4, 0.55, 0.78]); });
         }
 
         // the flight path
@@ -131,23 +131,73 @@
             }
         }
 
-        // time markers at even intervals
+        // time markers at even intervals. the label is offset PERPENDICULAR to the local track so it
+        // never prints on top of the track (a vertical / 90-degree track would otherwise run the time
+        // straight through the line); placed to the left, it right-aligns so the text stays clear.
         const stampStep = stamps > 0 && pts.length > stamps ? Math.floor(pts.length / stamps) : 0;
         if (stampStep > 1) {
             for (let s = 0; s < pts.length; s += stampStep) {
                 const p = path[s];
                 doc.dot(p[0], p[1], 1.6, [0.1, 0.1, 0.1]);
-                doc.mtext(p[0] + 4, p[1] - 2, qcSecToLabel(qcAxisRef[pts[s].i]) + 'Z', 6.5, false, [0.1, 0.1, 0.1]);
+                const label = qcSecToLabel(qcAxisRef[pts[s].i]) + 'Z';
+                let q = null;
+                for (let j = s + 1; j < pts.length; j++) { if (Math.hypot(path[j][0] - p[0], path[j][1] - p[1]) > 2) { q = path[j]; break; } }
+                let ox = 4, oy = 2;
+                if (q) { const dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy) || 1; ox = (-dy / L) * 6; oy = (dx / L) * 6; }
+                let ax = p[0] + ox, ay = p[1] + oy;
+                if (ox < 0) ax -= label.length * 3.2;   // right-align on the left side so text stays clear
+                doc.mtext(ax, ay, label, 6.5, false, [0.1, 0.1, 0.1]);
             }
         }
 
-        // takeoff / landing
-        const to = path[0], land = path[path.length - 1];
-        const toT = qcSecToLabel(qcAxisRef[pts[0].i]), landT = qcSecToLabel(qcAxisRef[pts[pts.length - 1].i]);
+        // takeoff / landing markers at the tool's in-force phase indices (manually pinned or
+        // auto-detected), NOT the track's first/last GPS fix, so a manual takeoff/landing time
+        // moves these dots and labels too. the marker sits on the nearest valid track point to the
+        // phase second; the label always shows the exact phase time. falls back to the track ends
+        // only when no phases exist.
+        const ph = qcResult && qcResult.phases;
+        const nearestPt = idx => {
+            if (idx == null) return null;
+            let best = null, bd = Infinity;
+            for (let k = 0; k < pts.length; k++) { const d = Math.abs(pts[k].i - idx); if (d < bd) { bd = d; best = pts[k]; } }
+            return best;
+        };
+        const toPt = (ph && nearestPt(ph.toIdx)) || pts[0];
+        const landPt = (ph && nearestPt(ph.landIdx)) || pts[pts.length - 1];
+        const to = [X(toPt.lo), Y(toPt.la)], land = [X(landPt.lo), Y(landPt.la)];
+        const toT = qcSecToLabel(ph && ph.takeoffSec != null ? ph.takeoffSec : qcAxisRef[toPt.i]);
+        const landT = qcSecToLabel(ph && ph.landingSec != null ? ph.landingSec : qcAxisRef[landPt.i]);
+        // region NAME labels (state in the USA, else country/territory), pushed AWAY from the flight
+        // track so they sit off to the side rather than over it, and larger than the time stamps
+        if (typeof qcRegionLabels !== 'undefined' && qcRegionLabels.length) {
+            let tcx = 0, tcy = 0; for (let i = 0; i < path.length; i++) { tcx += path[i][0]; tcy += path[i][1]; }
+            tcx /= (path.length || 1); tcy /= (path.length || 1);
+            const rplaced = [];
+            for (let k = 0, shown = 0; k < qcRegionLabels.length && shown < 8; k++) {
+                const rp = qcRegionLabels[k];
+                if (rp.lon < mnLo || rp.lon > mxLo || rp.lat < mnLa || rp.lat > mxLa) continue;
+                let lx = X(rp.lon), ly = Y(rp.lat);
+                const dx = lx - tcx, dy = ly - tcy, L = Math.hypot(dx, dy) || 1;
+                lx += (dx / L) * 18; ly += (dy / L) * 18;   // push outward, off the track
+                lx = Math.max(aL + 6, Math.min(aR - 6, lx)); ly = Math.max(aB + 8, Math.min(aT - 6, ly));
+                if (rplaced.some(z => z.name === rp.name || (Math.abs(z.lx - lx) < 66 && Math.abs(z.ly - ly) < 12))) continue;
+                rplaced.push({ lx: lx, ly: ly, name: rp.name }); shown++;
+                const nm = String(rp.name).toUpperCase();
+                doc.mtext(lx - nm.length * 2.4, ly, nm, 9.5, true, [0.28, 0.32, 0.30]);
+            }
+        }
+
+        // takeoff / landing dots + labels. when both are at the same field the two labels are STACKED
+        // above the shared point instead of overprinting into one unreadable clump.
         doc.dot(to[0], to[1], 4, [0.16, 0.66, 0.33]);
-        doc.mtext(to[0] + 6, to[1] + 4, 'Takeoff ' + toT + 'Z', 8, true, [0.11, 0.5, 0.24]);
         doc.dot(land[0], land[1], 4, [0.85, 0.24, 0.24]);
-        doc.mtext(land[0] + 6, land[1] + 4, 'Landing ' + landT + 'Z', 8, true, [0.72, 0.16, 0.16]);
+        if (Math.hypot(land[0] - to[0], land[1] - to[1]) < 12) {
+            doc.mtext(to[0] + 6, to[1] + 13, 'Takeoff ' + toT + 'Z', 8, true, [0.11, 0.5, 0.24]);
+            doc.mtext(to[0] + 6, to[1] + 4, 'Landing ' + landT + 'Z', 8, true, [0.72, 0.16, 0.16]);
+        } else {
+            doc.mtext(to[0] + 6, to[1] + 4, 'Takeoff ' + toT + 'Z', 8, true, [0.11, 0.5, 0.24]);
+            doc.mtext(land[0] + 6, land[1] + 4, 'Landing ' + landT + 'Z', 8, true, [0.72, 0.16, 0.16]);
+        }
         doc.restore();
 
         // title

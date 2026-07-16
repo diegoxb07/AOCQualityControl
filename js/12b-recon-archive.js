@@ -239,7 +239,7 @@
             reconStormsForYear = (data && data.storms) || [];
             // The storms payload carries no dates, so prefetch every storm's mission list in parallel
             // to date and sort the dropdown chronologically and make the storm pick instant. A failed
-            // list (e.g. "Unknown / Training", whose slash breaks its routing) sorts to the end.
+            // list (e.g. "Training/Research", whose slash breaks its routing) sorts to the end.
             const lists = await Promise.all(reconStormsForYear.map(s =>
                 reconApiJson('/v1/recon/' + year + '/' + encodeURIComponent(s.storm_name)).catch(() => null)));
             if (req !== stormListReqId) return;
@@ -252,7 +252,7 @@
                     s._dateSpan = reconDateSpan(ms);
                 } else { s._firstUnix = Infinity; s._dateSpan = ''; }
             });
-            // latest storm first; undated buckets (Unknown / Training) sink to the end
+            // latest storm first; undated buckets (Training/Research) sink to the end
             reconStormsForYear.sort((a, b) => {
                 const av = a._firstUnix === Infinity ? -Infinity : a._firstUnix;
                 const bv = b._firstUnix === Infinity ? -Infinity : b._firstUnix;
@@ -326,7 +326,7 @@
 
     // --- Free-text mission search ------------------------------------------------------------
     // The Year -> Storm -> Flight cascade is exact but unforgiving: a flight filed under the wrong
-    // storm, or one of the dozens in "Unknown / Training", is easy to lose. This searches a whole
+    // storm, or one of the dozens in "Training/Research", is easy to lose. This searches a whole
     // season's missions by any of id / storm / date / aircraft, and loads any full mission id
     // directly (mission ids are unique across all years, so the storm need not be known).
     (function wireMissionSearch() {
@@ -337,7 +337,7 @@
         const yearIndex = {};        // year -> flat [{...mission, storm_name}]; fetched once per year
         let searchSeq = 0;           // guards a slow index fetch against a newer keystroke
 
-        // Every mission for a season, flattened across its storms (Unknown / Training included).
+        // Every mission for a season, flattened across its storms (Training/Research included).
         async function fetchYearIndex(year) {
             if (yearIndex[year]) return yearIndex[year];
             const data = await reconApiJson('/v1/recon/' + year);
@@ -636,7 +636,7 @@
     // Pure fetch (no globals): shared by the live loader and the mission preloader.
     async function fetchStormTrackData(mission) {
         const stormName = mission.storm_name;
-        if (!stormName || /unknown|training/i.test(stormName)) return null;
+        if (!stormName || /unknown|training|research/i.test(stormName)) return null;
         const basin = mission.storm_id ? mission.storm_id.slice(0, 2) : undefined;
         const params = new URLSearchParams({}); if (basin) params.set('basin', basin);
         const qs = params.toString();
@@ -652,7 +652,7 @@
 
     async function loadStormTrackForMission(mission) {
         stormTrackPoints = []; stormTrackMeta = null;
-        if (!mission.storm_name || /unknown|training/i.test(mission.storm_name)) { setReconStatus(`Loaded ${mission.mission_id}. No named storm to fetch a best-track for.`); refreshStormTrackDisplay(); return; }
+        if (!mission.storm_name || /unknown|training|research/i.test(mission.storm_name)) { setReconStatus(`Loaded ${mission.mission_id}. No named storm to fetch a best-track for.`); refreshStormTrackDisplay(); return; }
         try {
             const track = await fetchStormTrackData(mission);
             stormTrackPoints = track.points; stormTrackMeta = track.meta;

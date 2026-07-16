@@ -139,25 +139,38 @@
             const ctx = chart.ctx, xa = chart.scales.x;
             const area = chart.chartArea; if (!area) return;
             ctx.save();
-            // gap shading: EVERY gap marker gets its pillar, whole-family holes and per-member
-            // gaps alike (pillars under only some carets read as broken). overlapping ranges
-            // merge first so stacked fills cannot darken one gap over another; a one second gap
-            // draws as a thin 2px line (zooming in grows it to its true width)
-            const gapRanges = chart.$qcGapRanges || [];
-            const pillars = gapRanges.concat(chart.$qcGapMarks || []).sort((a, b) => a.fromIdx - b.fromIdx);
-            const merged = [];
-            pillars.forEach(g => {
-                const m = merged[merged.length - 1];
-                if (m && g.fromIdx <= m.toIdx) { if (g.toIdx > m.toIdx) m.toIdx = g.toIdx; }
-                else merged.push({ fromIdx: g.fromIdx, toIdx: g.toIdx });
-            });
+            // gap shading: ONE pillar per gap region (whole-family holes + every per-member gap
+            // merged into clusters), so two sensors sharing a gap read as a single band. a one
+            // second gap draws as a thin 2px line (zooming in grows it to its true width).
+            const clusters = chart.$qcGapClusters || [];
             ctx.fillStyle = QC_GAP_FILL;
-            merged.forEach(g => {
+            clusters.forEach(g => {
                 const x0 = xa.getPixelForValue(g.fromIdx), x1 = xa.getPixelForValue(g.toIdx);
                 if (x1 < area.left || x0 > area.right) return;
                 const left = Math.max(x0, area.left);
                 ctx.fillRect(left, area.top, Math.max(2, Math.min(x1, area.right) - left), area.bottom - area.top);
             });
+            // darker where 2+ sensors gap at the SAME time: sweep the per-member gaps into depth
+            // segments and lay extra fills (capped) over the overlaps, so a shared gap reads darker
+            // than a single sensor's. the base pillars above already cover every gap once.
+            const memMarks = chart.$qcGapMarks || [];
+            if (memMarks.length > 1) {
+                const evs = [];
+                memMarks.forEach(g => { if (g.fromIdx != null && g.toIdx >= g.fromIdx) { evs.push([g.fromIdx, 1]); evs.push([g.toIdx + 1, -1]); } });
+                evs.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+                let depth = 0, segStart = null;
+                for (let si = 0; si < evs.length; si++) {
+                    if (segStart != null && evs[si][0] > segStart && depth >= 2) {
+                        const x0 = xa.getPixelForValue(segStart), x1 = xa.getPixelForValue(evs[si][0]);
+                        if (x1 >= area.left && x0 <= area.right) {
+                            const left = Math.max(x0, area.left), w = Math.max(1, Math.min(x1, area.right) - left);
+                            for (let k = 0, layers = Math.min(depth - 1, 2); k < layers; k++) ctx.fillRect(left, area.top, w, area.bottom - area.top);
+                        }
+                    }
+                    depth += evs[si][1];
+                    segStart = evs[si][0];
+                }
+            }
             // red shading for Check regions: implausible values the engine flagged on this family
             (chart.$qcCheckMarks || []).forEach(g => {
                 const x0 = xa.getPixelForValue(g.fromIdx), x1 = xa.getPixelForValue(g.toIdx);
@@ -179,9 +192,9 @@
                     const x0 = Math.max(xa.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), area.right);
                     if (x1 < x0) return;
                     const cx = (x0 + x1) / 2;
-                    // fixed size caret no matter the zoom; the shaded pillar underneath is what
-                    // tells how wide the gap really is
-                    const hw = 5;
+                    // fixed HEIGHT, but the base spreads to the ends of a wide gap so a large gap
+                    // gets a wide marker (small gaps keep the 5px minimum); the apex depth is constant
+                    const hw = Math.max(5, (x1 - x0) / 2);
                     ctx.beginPath();
                     ctx.moveTo(cx - hw, area.top + 1); ctx.lineTo(cx + hw, area.top + 1); ctx.lineTo(cx, area.top + 9);
                     ctx.closePath(); ctx.fill();
@@ -190,8 +203,8 @@
                 ctx.textAlign = 'left';
             };
             const light = document.documentElement.dataset.theme === 'light';
-            const gapCarets = gapRanges.concat(chart.$qcGapMarks || []).slice().sort((a, b) => a.fromIdx - b.fromIdx);
-            drawCarets(gapCarets, light ? 'rgba(170, 120, 20, 0.95)' : 'rgba(240, 190, 60, 0.95)', '');
+            // one caret per merged cluster (not one per sensor); the hover names the sensor(s)
+            drawCarets(clusters, light ? 'rgba(170, 120, 20, 0.95)' : 'rgba(240, 190, 60, 0.95)', '');
             drawCarets(chart.$qcCheckMarks || [], light ? 'rgba(198, 40, 40, 0.95)' : 'rgba(234, 84, 85, 0.95)', 'check');
             // a graph whose members carry zero finite samples says so in place, centered in the
             // takeoff to landing window so the empty frame cannot be mistaken for a render bug
@@ -216,7 +229,15 @@
                     const x = xa.getPixelForValue(mk[0]);
                     if (x < area.left || x > area.right) return;
                     ctx.beginPath(); ctx.moveTo(x, area.top); ctx.lineTo(x, area.bottom); ctx.stroke();
-                    ctx.fillText(mk[1], Math.min(x + 3, area.right - 42), area.top + 2);
+                    // takeoff sits just right of its line; landing is right-aligned just LEFT of its
+                    // line so the text clears the dotted line (purely cosmetic — line and time unchanged)
+                    if (mk[1] === 'landing') {
+                        ctx.textAlign = 'right';
+                        ctx.fillText(mk[1], Math.max(x - 3, area.left + 42), area.top + 2);
+                        ctx.textAlign = 'left';
+                    } else {
+                        ctx.fillText(mk[1], Math.min(x + 3, area.right - 42), area.top + 2);
+                    }
                 });
                 ctx.setLineDash([]);
             }
@@ -248,13 +269,14 @@
         // that range AND zooms the graph into it. only the triangle itself counts (half width
         // 5px, plus a hair): clicking near a marker but not on it just moves the playhead.
         if (a && py != null && py <= a.top + 12) {
-            const marks = (chart.$qcGapRanges || []).concat(chart.$qcGapMarks || [], chart.$qcCheckMarks || []);
-            let best = null, bd = 6.5;
+            const marks = (chart.$qcGapClusters || []).concat(chart.$qcCheckMarks || []);
+            let best = null, bd = Infinity;
             marks.forEach(g => {
                 const x0 = Math.max(xa.getPixelForValue(g.fromIdx), a.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), a.right);
                 if (x1 < x0) return;
-                const d = Math.abs(px - (x0 + x1) / 2);
-                if (d < bd) { bd = d; best = g; }
+                // the whole (possibly widened) marker is clickable: hit anywhere within its base
+                const cx = (x0 + x1) / 2, hw = Math.max(6.5, (x1 - x0) / 2), d = Math.abs(px - cx);
+                if (d <= hw && d < bd) { bd = d; best = g; }
             });
             if (best) {
                 if (typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[best.fromIdx]));
@@ -318,26 +340,27 @@
             // pointer cursor over the caret strip whenever a marker sits under the cursor (the
             // same hit test the click jump uses), so jumpable markers advertise themselves
             let overMark = false;
+            const clusters = chart.$qcGapClusters || [];
             if (py >= area.top && py <= area.top + 12 && px >= area.left && px <= area.right) {
-                const marks = (chart.$qcGapRanges || []).concat(chart.$qcGapMarks || [], chart.$qcCheckMarks || []);
+                const marks = clusters.concat(chart.$qcCheckMarks || []);
                 const xs = chart.scales.x;
                 overMark = marks.some(g => {
                     const x0 = Math.max(xs.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xs.getPixelForValue(g.toIdx), area.right);
-                    return x1 >= x0 && Math.abs(px - (x0 + x1) / 2) < 6.5;
+                    return x1 >= x0 && Math.abs(px - (x0 + x1) / 2) <= Math.max(6.5, (x1 - x0) / 2);
                 });
             }
             canvas.style.cursor = overMark ? 'pointer' : qcToolCursor(chart.$qcTool || 'scrub');
-            const famGaps = chart.$qcGapRanges || [], memGaps = chart.$qcGapMarks || [];
-            if (!famGaps.length && !memGaps.length) { tip.classList.add('hidden'); return; }
+            if (!clusters.length) { tip.classList.add('hidden'); return; }
             if (px < area.left || px > area.right || py < area.top || py > area.bottom) { tip.classList.add('hidden'); return; }
             const x = chart.scales.x;
             const v = x.getValueForPixel(px);
             const tol = Math.max(0.5, (x.max - x.min) / Math.max(1, area.right - area.left));   // a gap thinner than a pixel still hits
-            const hit = list => list.find(r => v >= r.fromIdx - tol && v <= r.toIdx + tol);
-            // whole-family holes outrank single-sensor gaps when both sit under the cursor
-            const g = hit(famGaps) || hit(memGaps);
+            const g = clusters.find(r => v >= r.fromIdx - tol && v <= r.toIdx + tol);
             if (!g) { tip.classList.add('hidden'); return; }
-            tip.textContent = (g.name ? g.name + ' data gap from ' : 'Data gap from ') + qcSecToLabel(qcAxisRef[g.fromIdx]) + ' - ' + qcSecToLabel(qcAxisRef[g.toIdx]) + ' (' + (g.toIdx - g.fromIdx + 1) + ' s)';
+            // name the sensor(s) the marker covers (a few by name, otherwise a count)
+            const names = g.names ? Array.from(g.names) : [];
+            const who = !names.length ? '' : names.length <= 3 ? names.join(', ') + ' ' : names.length + ' sensors ';
+            tip.textContent = who + 'data gap from ' + qcSecToLabel(qcAxisRef[g.fromIdx]) + ' - ' + qcSecToLabel(qcAxisRef[g.toIdx]) + ' (' + (g.toIdx - g.fromIdx + 1) + ' s)';
             tip.style.left = (ev.clientX + 14) + 'px'; tip.style.top = (ev.clientY + 14) + 'px';
             tip.classList.remove('hidden');
         });
@@ -605,6 +628,28 @@
         return ranges;
     }
 
+    // merge overlapping/touching gaps (whole-family holes + every per-member gap) into ONE cluster
+    // per gap region, each carrying the SET of sensor names that gap inside it. the overlay draws a
+    // single marker per cluster (so two sensors sharing a gap show one marker, not two), and the
+    // hover/click read the same clusters so a marker can name which sensor(s) it covers.
+    function qcClusterGaps(memMarks, famRanges) {
+        const all = (famRanges || []).map(g => ({ fromIdx: g.fromIdx, toIdx: g.toIdx, name: null }))
+            .concat(memMarks || [])
+            .filter(g => g.fromIdx != null && g.toIdx != null)
+            .sort((a, b) => a.fromIdx - b.fromIdx);
+        const out = [];
+        all.forEach(g => {
+            const c = out[out.length - 1];
+            if (c && g.fromIdx <= c.toIdx + 1) {          // overlapping or touching -> same cluster
+                if (g.toIdx > c.toIdx) c.toIdx = g.toIdx;
+                if (g.name) c.names.add(g.name);
+            } else {
+                out.push({ fromIdx: g.fromIdx, toIdx: g.toIdx, names: new Set(g.name ? [g.name] : []) });
+            }
+        });
+        return out;
+    }
+
     // ---- html legend bar: group chips, per-variable checkboxes, std dev toggle -----------------
     // flip to false to fall back to the chart.js canvas legend exactly as before
     const QC_HTML_LEGEND = true;
@@ -674,6 +719,18 @@
         return { mean: (sSum / sN).toFixed(2), max: sMax.toFixed(2), at: qcTimeLabels[sMaxI] || '', cv: cv };
     }
 
+    // a blacked-out legend chip with a small UNAVAILABLE tag, for a sensor with no data this flight —
+    // reused both inline in a graph's legend and for a whole graph that has no data in any variable
+    function qcUnavailItem(name) {
+        const it = document.createElement('span'); it.className = 'qc-lg-item qc-lg-unavail';
+        it.title = name + ' — no data for this flight';
+        const box = document.createElement('span'); box.className = 'qc-lg-box';
+        const txt = document.createElement('span'); txt.textContent = name;
+        const tag = document.createElement('span'); tag.className = 'qc-lg-unavail-tag'; tag.textContent = 'UNAVAILABLE';
+        it.appendChild(box); it.appendChild(txt); it.appendChild(tag);
+        return it;
+    }
+
     function qcRenderHtmlLegend(chart, fam) {
         const bar = chart.$qcLegendBar; if (!bar) return;
         bar.innerHTML = '';
@@ -738,6 +795,15 @@
             }
             bar.appendChild(it);
         });
+        // no-data members still get a legend slot, blacked out with a small UNAVAILABLE tag, so a
+        // missing sensor stays visible instead of silently vanishing (skipped on the fused map legend)
+        if (!chart.$qcIsMap && fam && fam.members) {
+            const shownNames = new Set(ds.map(d => d.$qcName));
+            fam.members.forEach(m => {
+                if (shownNames.has(m.name) || m.count) return;   // only members with zero samples
+                bar.appendChild(qcUnavailItem(m.name));
+            });
+        }
         // the standard deviation between the selected sensors, at the right end of the panel's
         // bottom strip. families with fewer than two similar sensors selected list nothing.
         const bandHost = chart.$qcBandSlot || bar;
@@ -760,6 +826,11 @@
             cv.appendChild(cl); cv.appendChild(cval);
             cv.title = 'Mean sigma as a percent of the mean value';
             bandHost.appendChild(cv);
+            // caret note pointing up at the std-dev / coefficient-of-variation figures above, spelling
+            // out that both are computed only over the variables currently selected on the graph
+            const cvNote = document.createElement('span'); cvNote.className = 'qc-lg-bandnote';
+            cvNote.textContent = '^^ (of selected variables)';
+            bandHost.appendChild(cvNote);
         }
         // the gap marker is defined ONCE here instead of a word under every caret on the plot
         if ((chart.$qcGapMarks && chart.$qcGapMarks.length) || (chart.$qcGapRanges && chart.$qcGapRanges.length)) {
@@ -778,28 +849,52 @@
             const area = chart.chartArea, x = chart.scales.x, y = chart.scales.y, ctx = chart.ctx;
             if (!area || typeof mapFeatures === 'undefined' || !mapFeatures.length) return;
             const light = document.documentElement.dataset.theme === 'light';
-            const key = [x.min, x.max, y.min, y.max, chart.width, chart.height, light].join('|');
+            // the lake count is in the key so a late async lake load rebuilds the cached geography
+            const key = [x.min, x.max, y.min, y.max, chart.width, chart.height, light, (typeof qcLakes !== 'undefined' ? qcLakes.length : 0)].join('|');
             if (chart.$qcGeoKey !== key) {
                 chart.$qcGeoKey = key;
                 const off = chart.$qcGeoCv || (chart.$qcGeoCv = document.createElement('canvas'));
                 off.width = Math.max(1, Math.round(chart.width)); off.height = Math.max(1, Math.round(chart.height));
                 const c2 = off.getContext('2d');
-                c2.strokeStyle = light ? 'rgba(71, 85, 105, 0.28)' : 'rgba(148, 163, 184, 0.16)';
-                c2.lineWidth = 1;
-                const ring = pts => {
-                    c2.beginPath();
-                    for (let i = 0; i < pts.length; i++) { const px = x.getPixelForValue(pts[i][0]), py = y.getPixelForValue(pts[i][1]); if (i) c2.lineTo(px, py); else c2.moveTo(px, py); }
-                    c2.stroke();
+                const inView = bb => !bb || !(bb[2] < x.min || bb[0] > x.max || bb[3] < y.min || bb[1] > y.max);
+                const addRing = pts => { for (let i = 0; i < pts.length; i++) { const px = x.getPixelForValue(pts[i][0]), py = y.getPixelForValue(pts[i][1]); if (i) c2.lineTo(px, py); else c2.moveTo(px, py); } };
+                // fill a feature's polygons, even-odd so inner rings read as holes
+                const fillGeom = (g, color) => {
+                    if (!g) return; c2.fillStyle = color; c2.beginPath();
+                    if (g.type === 'Polygon') g.coordinates.forEach(r => { addRing(r); c2.closePath(); });
+                    else if (g.type === 'MultiPolygon') g.coordinates.forEach(poly => poly.forEach(r => { addRing(r); c2.closePath(); }));
+                    else return;
+                    c2.fill('evenodd');
                 };
-                mapFeatures.forEach(f => {
-                    const bb = f.properties && f.properties.bbox;
-                    if (bb && (bb[2] < x.min || bb[0] > x.max || bb[3] < y.min || bb[1] > y.max)) return;
-                    const g = f.geometry; if (!g) return;
+                const stroke = g => {
+                    if (!g) return;
+                    const ring = pts => { c2.beginPath(); addRing(pts); c2.stroke(); };
                     if (g.type === 'Polygon') g.coordinates.forEach(ring);
                     else if (g.type === 'MultiPolygon') g.coordinates.forEach(poly => poly.forEach(ring));
                     else if (g.type === 'LineString') ring(g.coordinates);
                     else if (g.type === 'MultiLineString') g.coordinates.forEach(ring);
+                };
+                // classic map look: the whole panel is water (blue), land filled green on top, lakes
+                // carved back to water, then coastlines/borders and lake outlines. states are borders
+                // over the same land, so they are stroked but not filled (no double-fill).
+                const water = light ? '#cfe3f5' : '#122a3e';
+                const landFill = light ? '#d6e8cc' : '#1a3622';
+                const lakeFill = light ? '#c2ddf2' : '#153a52';
+                c2.fillStyle = water; c2.fillRect(0, 0, off.width, off.height);
+                mapFeatures.forEach(f => {
+                    if (f.properties && f.properties.isState) return;
+                    if (!inView(f.properties && f.properties.bbox)) return;
+                    fillGeom(f.geometry, landFill);
                 });
+                if (typeof qcLakes !== 'undefined') qcLakes.forEach(f => { if (inView(f.properties && f.properties.bbox)) fillGeom(f.geometry, lakeFill); });
+                // coastlines + country/state borders (a neutral line that reads over both green and blue)
+                c2.strokeStyle = light ? 'rgba(60, 90, 75, 0.5)' : 'rgba(150, 190, 165, 0.35)';
+                c2.lineWidth = 1;
+                mapFeatures.forEach(f => { if (inView(f.properties && f.properties.bbox)) stroke(f.geometry); });
+                if (typeof qcLakes !== 'undefined') {
+                    c2.strokeStyle = light ? 'rgba(37, 99, 235, 0.35)' : 'rgba(96, 150, 235, 0.32)';
+                    qcLakes.forEach(f => { if (inView(f.properties && f.properties.bbox)) stroke(f.geometry); });
+                }
             }
             ctx.save();
             ctx.beginPath(); ctx.rect(area.left, area.top, area.right - area.left, area.bottom - area.top); ctx.clip();
@@ -808,9 +903,31 @@
         },
         afterDraw: chart => {
             const area = chart.chartArea, x = chart.scales.x, y = chart.scales.y, ctx = chart.ctx;
-            const la = chart.$qcMapLat, lo = chart.$qcMapLon;
-            if (!area || !la || !lo) return;
+            if (!area) return;
             const light = document.documentElement.dataset.theme === 'light';
+            // region labels: the state name in the USA, otherwise the country/territory name, one per
+            // landmass in view. capped and de-collided (also by name) so the map never clutters.
+            if (typeof qcRegionLabels !== 'undefined' && qcRegionLabels.length) {
+                ctx.save();
+                ctx.beginPath(); ctx.rect(area.left, area.top, area.right - area.left, area.bottom - area.top); ctx.clip();
+                ctx.font = "600 10.5px 'Manrope', ui-sans-serif, system-ui, sans-serif"; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+                const txtC = light ? '#1e293b' : '#e2e8f0', halo = light ? 'rgba(255,255,255,0.9)' : 'rgba(8,15,25,0.85)';
+                const placed = [];
+                for (let k = 0, shown = 0; k < qcRegionLabels.length && shown < 9; k++) {
+                    const p = qcRegionLabels[k];
+                    if (p.lon < x.min || p.lon > x.max || p.lat < y.min || p.lat > y.max) continue;
+                    const px = x.getPixelForValue(p.lon), py = y.getPixelForValue(p.lat);
+                    if (px < area.left + 4 || px > area.right - 4 || py < area.top + 4 || py > area.bottom - 4) continue;
+                    if (placed.some(q => q.name === p.name || (Math.abs(q.px - px) < 72 && Math.abs(q.py - py) < 16))) continue;
+                    placed.push({ px: px, py: py, name: p.name }); shown++;
+                    ctx.lineWidth = 3; ctx.strokeStyle = halo; ctx.strokeText(p.name, px, py);
+                    ctx.fillStyle = txtC; ctx.fillText(p.name, px, py);
+                }
+                ctx.textAlign = 'left';
+                ctx.restore();
+            }
+            const la = chart.$qcMapLat, lo = chart.$qcMapLon;
+            if (!la || !lo) return;
             const dot = (i, fill, r) => {
                 if (i == null || i < 0 || i >= la.length) return;
                 const a = la[i], b = lo[i];
@@ -836,7 +953,7 @@
         const pairs = [];
         latFam.members.forEach(m => {
             const lm = lonBy[lonName(m.name)];
-            if (m.series && lm && lm.series) pairs.push({ la: m, lo: lm, isRef: !!m.isRef });
+            if (m.series && m.count > 0 && lm && lm.series && lm.count > 0) pairs.push({ la: m, lo: lm, isRef: !!m.isRef });
         });
         pairs.sort((a, b) => (b.isRef ? 1 : 0) - (a.isRef ? 1 : 0));   // ref first, drawn on top
         let mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
@@ -931,7 +1048,7 @@
     }
 
     function qcBuildMainChart(canvas, fam, famModel) {
-        const plotted = famModel.members.filter(m => m.series);              // only members with data
+        const plotted = famModel.members.filter(m => m.series && m.count > 0);   // only members with VALID data (not all-NaN)
         const last = qcTimeLabels.length - 1, first = 0;
         // a family can split into two sensor groups (explicit catalog groups like AccAZI vs
         // AccZI or AltPaADDU vs AltBCADDU, or the direct-vs-GPS name heuristic). every group
@@ -961,6 +1078,8 @@
         const gapMarks = [];
         plotted.forEach(m => (m.gaps || []).forEach(g => { if (g.fromIdx != null) gapMarks.push({ fromIdx: g.fromIdx, toIdx: g.toIdx, name: m.name }); }));
         chart.$qcGapMarks = gapMarks;
+        // one merged marker per gap region (across sensors + family holes); overlay/hover/click use it
+        chart.$qcGapClusters = qcClusterGaps(gapMarks, chart.$qcGapRanges);
         // implausible-value regions (the engine's Check flags), shaded red by the overlay
         const checkMarks = [];
         plotted.forEach(m => (m.checks || []).forEach(g => checkMarks.push({ fromIdx: g.fromIdx, toIdx: g.toIdx })));
@@ -983,7 +1102,7 @@
         // every combination WITHIN a sensor group (3 sensors -> 1-2, 1-3, 2-3), plus cross-group
         // pairs for curiosity's sake (unchecked by default, labeled as cross group). the ref and
         // derived channels stay out: the ref duplicates a member and would compare as zero.
-        const members = famModel.members.filter(m => m.series && !m.isRef && !m.isDerived);
+        const members = famModel.members.filter(m => m.series && m.count > 0 && !m.isRef && !m.isDerived);
         const names = members.map(m => m.name);
         const bySensor = {}; members.forEach(m => { bySensor[m.name] = m.series; });
         const groups = qcFamilyLegendGroups(famModel, names);
@@ -1166,21 +1285,32 @@
         // sfmr families sink to the bottom of the column; everything else keeps catalog order
         const famsOrdered = qcResult.families.slice().sort((a, b) => (/^sfmr/.test(a.key) ? 1 : 0) - (/^sfmr/.test(b.key) ? 1 : 0));
         famsOrdered.forEach(fam => {
+          try {
             // latitude and longitude fuse into ONE map style panel (x = longitude, y = latitude),
             // like the script's flight track plot; the lon family folds into the lat panel
             const latFamAll = qcResult.families.find(f => f.key === 'lat');
-            if (fam.key === 'lon' && latFamAll && latFamAll.members.some(m => m.series) && fam.members.some(m => m.series)) return;
+            // "has data" means at least one VALID sample (count > 0): a channel present in the file
+            // but all-NaN has a truthy .series yet no data, and must read as UNAVAILABLE, not plotted.
+            if (fam.key === 'lon' && latFamAll && latFamAll.members.some(m => m.count > 0) && fam.members.some(m => m.count > 0)) return;
             const lonFam = fam.key === 'lat' ? qcResult.families.find(f => f.key === 'lon') : null;
-            const isMapPanel = !!(lonFam && lonFam.members.some(m => m.series) && fam.members.some(m => m.series));
-            const hasMain = fam.members.some(m => m.series);
-            const hasDiff = fam.diffs.some(d => d.series);
+            const isMapPanel = !!(lonFam && lonFam.members.some(m => m.count > 0) && fam.members.some(m => m.count > 0));
+            const hasMain = fam.members.some(m => m.count > 0);
+            const hasDiff = fam.diffs.some(d => d.series && !Number.isNaN(d.max));
             if (!hasMain && !hasDiff) {
-                // whole family absent: say so in place instead of silently skipping the panel
+                // whole family absent: instead of a bare NO DATA box, list every sensor blacked out
+                // with an UNAVAILABLE tag, so a graph with no data in any variable reads the same as
+                // a partially-missing graph's legend.
                 const empty = document.createElement('div'); empty.className = 'qc-chart-panel';
                 empty.id = 'qcpanel_' + fam.key;
                 empty.innerHTML = '<div class="qc-chart-head"><span class="qc-chart-title">' + fam.label + '</span>' +
-                    '<span class="qc-unit">' + qcUnitLabel(fam.unit) + '</span></div>' +
-                    '<div class="qc-nodata-box">NO DATA</div>';
+                    '<span class="qc-unit">' + qcUnitLabel(fam.unit) + '</span></div>';
+                const box = document.createElement('div'); box.className = 'qc-nodata-box qc-nodata-unavail';
+                const lead = document.createElement('span'); lead.className = 'qc-nodata-lead'; lead.textContent = 'NO DATA';
+                box.appendChild(lead);
+                const row = document.createElement('div'); row.className = 'qc-nodata-chips';
+                (fam.members || []).forEach(m => row.appendChild(qcUnavailItem(m.name)));
+                if (row.childNodes.length) box.appendChild(row);
+                empty.appendChild(box);
                 container.appendChild(empty);
                 return;
             }
@@ -1284,6 +1414,15 @@
             panel.appendChild(bottom);
             const mainChart = qcCharts[isMapPanel ? 'qc_latlon' : 'qc_' + fam.key];
             if (mainChart) { mainChart.$qcBandSlot = bandSlot; qcRenderHtmlLegend(mainChart, fam); }
+          } catch (famErr) {
+            // one bad family must not blank every other graph: drop an error tile in its place
+            // (with the panel id graph-search/jump expect) and carry on with the rest.
+            console.warn('QC family "' + fam.key + '" failed to render:', famErr);
+            const errEl = document.createElement('div'); errEl.className = 'qc-chart-panel'; errEl.id = 'qcpanel_' + fam.key;
+            errEl.innerHTML = '<div class="qc-chart-head"><span class="qc-chart-title">' + (fam.label || fam.key) + '</span></div>' +
+                '<div class="qc-nodata-box">Could not render this graph (see console)</div>';
+            container.appendChild(errEl);
+          }
         });
         // charts scrolled back into view would otherwise show the playhead where it was when they
         // scrolled out; refresh the visible ones as the column scrolls
@@ -1469,7 +1608,9 @@
             if (counts.early) totals.push('<span class="qc-tot-note">' + counts.early + ' early stop' + (counts.early === 1 ? '' : 's') + '</span>');
             const sumEl = document.createElement('div');
             sumEl.className = 'qc-issue-totals';
-            sumEl.innerHTML = '(' + totals.join(', ') + ')';
+            // "total" spells out that these parenthetical counts are the full tallies (not just the
+            // three chips shown before the +N more toggle)
+            sumEl.innerHTML = '(' + totals.join(', ') + ') total';
             wrap.appendChild(sumEl);
             chips.slice(VISIBLE).forEach(c => mkChip(c, true));
         }

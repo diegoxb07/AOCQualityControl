@@ -23,31 +23,49 @@
     }
     const qcHtmlOf = sel => { const el = document.querySelector(sel); return el ? el.innerHTML : ''; };
 
-    // country and state outlines clipped to the flight's region (with margin), rounded to 3
-    // decimals, so the exported map carries the same faint geography without the whole basemap
+    // geography clipped to the flight's region (with margin), rounded to 3 decimals, as a typed
+    // bundle so the exported map can fill land, tint lakes, stroke borders, and label regions exactly
+    // like the app — all embedded, so the file stays self-contained and works offline.
     function qcExportGeo(latArr, lonArr) {
-        if (typeof mapFeatures === 'undefined' || !mapFeatures || !mapFeatures.length) return [];
+        const empty = { land: [], states: [], lakes: [], labels: [] };
+        if (typeof mapFeatures === 'undefined' || !mapFeatures || !mapFeatures.length) return empty;
         let mnLa = Infinity, mxLa = -Infinity, mnLo = Infinity, mxLo = -Infinity;
         for (let i = 0; i < latArr.length; i++) {
             const a = latArr[i], b = lonArr[i];
             if (Number.isNaN(a) || Number.isNaN(b)) continue;
             if (a < mnLa) mnLa = a; if (a > mxLa) mxLa = a; if (b < mnLo) mnLo = b; if (b > mxLo) mxLo = b;
         }
-        if (mnLa === Infinity) return [];
+        if (mnLa === Infinity) return empty;
         const mLa = (mxLa - mnLa) * 0.35 + 0.5, mLo = (mxLo - mnLo) * 0.35 + 0.5;
         const box = [mnLo - mLo, mnLa - mLa, mxLo + mLo, mxLa + mLa];
-        const rings = [];
         const round = pts => pts.map(p => [Math.round(p[0] * 1000) / 1000, Math.round(p[1] * 1000) / 1000]);
+        const inBox = bb => !bb || !(bb[2] < box[0] || bb[0] > box[2] || bb[3] < box[1] || bb[1] > box[3]);
+        const land = [], states = [], lakes = [], labels = [];
+        // countries fill land (and stroke as coastlines); states/lines stroke only
         mapFeatures.forEach(f => {
-            const bb = f.properties && f.properties.bbox;
-            if (bb && (bb[2] < box[0] || bb[0] > box[2] || bb[3] < box[1] || bb[1] > box[3])) return;
+            if (!inBox(f.properties && f.properties.bbox)) return;
             const g = f.geometry; if (!g) return;
-            if (g.type === 'Polygon') g.coordinates.forEach(r => rings.push(round(r)));
-            else if (g.type === 'MultiPolygon') g.coordinates.forEach(poly => poly.forEach(r => rings.push(round(r))));
-            else if (g.type === 'LineString') rings.push(round(g.coordinates));
-            else if (g.type === 'MultiLineString') g.coordinates.forEach(r => rings.push(round(r)));
+            const poly = (f.properties && f.properties.isState) ? states : land;
+            if (g.type === 'Polygon') g.coordinates.forEach(r => poly.push(round(r)));
+            else if (g.type === 'MultiPolygon') g.coordinates.forEach(pp => pp.forEach(r => poly.push(round(r))));
+            else if (g.type === 'LineString') states.push(round(g.coordinates));
+            else if (g.type === 'MultiLineString') g.coordinates.forEach(r => states.push(round(r)));
         });
-        return rings;
+        if (typeof qcLakes !== 'undefined') qcLakes.forEach(f => {
+            if (!inBox(f.properties && f.properties.bbox)) return;
+            const g = f.geometry; if (!g) return;
+            if (g.type === 'Polygon') g.coordinates.forEach(r => lakes.push(round(r)));
+            else if (g.type === 'MultiPolygon') g.coordinates.forEach(pp => pp.forEach(r => lakes.push(round(r))));
+        });
+        // region labels in view (state/country names, already ranked); the viewer caps + de-collides
+        if (typeof qcRegionLabels !== 'undefined') {
+            for (let i = 0; i < qcRegionLabels.length && labels.length < 30; i++) {
+                const p = qcRegionLabels[i];
+                if (p.lon < box[0] || p.lon > box[2] || p.lat < box[1] || p.lat > box[3]) continue;
+                labels.push([Math.round(p.lon * 1000) / 1000, Math.round(p.lat * 1000) / 1000, p.name]);
+            }
+        }
+        return { land: land, states: states, lakes: lakes, labels: labels };
     }
 
     // build one export panel from a family's live chart (a line graph, or the fused lat/lon map);
@@ -76,7 +94,7 @@
                 type: 'map', tracks: tracks,
                 refLat: chart.$qcMapLat ? qcB64FromF32(chart.$qcMapLat) : null,
                 refLon: chart.$qcMapLon ? qcB64FromF32(chart.$qcMapLon) : null,
-                geo: chart.$qcMapLat && chart.$qcMapLon ? qcExportGeo(chart.$qcMapLat, chart.$qcMapLon) : []
+                geo: chart.$qcMapLat && chart.$qcMapLon ? qcExportGeo(chart.$qcMapLat, chart.$qcMapLon) : { land: [], states: [], lakes: [], labels: [] }
             });
         }
         const series = [];
@@ -197,18 +215,29 @@
 "var overlay={id:'ov',afterDraw:function(ch){ var xa=ch.scales.x, a=ch.chartArea, ctx=ch.ctx; if(!a) return; ctx.save();",
 "  function fill(list,color,minw){ ctx.fillStyle=color; (list||[]).forEach(function(g){ var x0=xa.getPixelForValue(g[0]),x1=xa.getPixelForValue(g[1]); if(x1<a.left||x0>a.right)return; var L=Math.max(x0,a.left); ctx.fillRect(L,a.top,Math.max(minw,Math.min(x1,a.right)-L),a.bottom-a.top); }); }",
 "  var merged=(ch.$gaps||[]).concat(ch.$marks||[]).slice().sort(function(p,q){return p[0]-q[0];}).reduce(function(acc,g){ var m=acc[acc.length-1]; if(m&&g[0]<=m[1]){ if(g[1]>m[1])m[1]=g[1]; } else acc.push([g[0],g[1]]); return acc; },[]);",
-"  fill(merged,'rgba(240,190,60,0.10)',2); fill(ch.$checks,'rgba(234,84,85,0.14)',4);",
-"  function carets(list,color,word){ ctx.fillStyle=color; ctx.font=\"8px 'IBM Plex Mono',monospace\"; ctx.textAlign='center'; ctx.textBaseline='top'; var lastX=-1e9; (list||[]).forEach(function(g){ var x0=Math.max(xa.getPixelForValue(g[0]),a.left),x1=Math.min(xa.getPixelForValue(g[1]),a.right); if(x1<x0)return; var cx=(x0+x1)/2; ctx.beginPath(); ctx.moveTo(cx-5,a.top+1); ctx.lineTo(cx+5,a.top+1); ctx.lineTo(cx,a.top+9); ctx.closePath(); ctx.fill(); if(word&&cx-lastX>=22){ ctx.fillText(word,cx,a.top+11); lastX=cx; } }); ctx.textAlign='left'; }",
+"  fill(merged,'rgba(240,190,60,0.10)',2);",
+"  (function(){ var mk=ch.$marks||[]; if(mk.length<2)return; var evs=[]; mk.forEach(function(g){ if(g[1]>=g[0]){ evs.push([g[0],1]); evs.push([g[1]+1,-1]); } }); evs.sort(function(p,q){return p[0]-q[0]||q[1]-p[1];}); ctx.fillStyle='rgba(240,190,60,0.10)'; var depth=0,seg=null; for(var i=0;i<evs.length;i++){ if(seg!=null&&evs[i][0]>seg&&depth>=2){ var x0=xa.getPixelForValue(seg),x1=xa.getPixelForValue(evs[i][0]); if(x1>=a.left&&x0<=a.right){ var L=Math.max(x0,a.left),w=Math.max(1,Math.min(x1,a.right)-L),layers=Math.min(depth-1,2); for(var k=0;k<layers;k++)ctx.fillRect(L,a.top,w,a.bottom-a.top); } } depth+=evs[i][1]; seg=evs[i][0]; } })();",
+"  fill(ch.$checks,'rgba(234,84,85,0.14)',4);",
+"  function carets(list,color,word){ ctx.fillStyle=color; ctx.font=\"8px 'IBM Plex Mono',monospace\"; ctx.textAlign='center'; ctx.textBaseline='top'; var lastX=-1e9; (list||[]).forEach(function(g){ var x0=Math.max(xa.getPixelForValue(g[0]),a.left),x1=Math.min(xa.getPixelForValue(g[1]),a.right); if(x1<x0)return; var cx=(x0+x1)/2,hw=Math.max(5,(x1-x0)/2); ctx.beginPath(); ctx.moveTo(cx-hw,a.top+1); ctx.lineTo(cx+hw,a.top+1); ctx.lineTo(cx,a.top+9); ctx.closePath(); ctx.fill(); if(word&&cx-lastX>=22){ ctx.fillText(word,cx,a.top+11); lastX=cx; } }); ctx.textAlign='left'; }",
 "  carets(merged, LIGHT?'rgba(170,120,20,0.95)':'rgba(240,190,60,0.95)','');",
 "  carets(ch.$checks, LIGHT?'rgba(198,40,40,0.95)':'rgba(234,84,85,0.95)','check');",
 "  if(ch.$allEmpty){ ctx.fillStyle=LIGHT?'rgba(71,85,105,0.7)':'rgba(148,163,184,0.7)'; ctx.font=\"700 26px 'IBM Plex Mono',monospace\"; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('NO DATA',(a.left+a.right)/2,(a.top+a.bottom)/2); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }",
 "  var faint=LIGHT?'rgba(71,85,105,0.45)':'rgba(148,163,184,0.4)'; ctx.strokeStyle=faint; ctx.fillStyle=faint; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.font=\"8.5px 'IBM Plex Mono',monospace\"; ctx.textBaseline='top';",
-"  [[QCX.toIdx,'takeoff'],[QCX.landIdx,'landing']].forEach(function(mk){ var x=xa.getPixelForValue(mk[0]); if(x<a.left||x>a.right)return; ctx.beginPath(); ctx.moveTo(x,a.top); ctx.lineTo(x,a.bottom); ctx.stroke(); ctx.fillText(mk[1],Math.min(x+3,a.right-42),a.top+2); }); ctx.setLineDash([]);",
+"  [[QCX.toIdx,'takeoff'],[QCX.landIdx,'landing']].forEach(function(mk){ var x=xa.getPixelForValue(mk[0]); if(x<a.left||x>a.right)return; ctx.beginPath(); ctx.moveTo(x,a.top); ctx.lineTo(x,a.bottom); ctx.stroke(); if(mk[1]==='landing'){ ctx.textAlign='right'; ctx.fillText(mk[1],Math.max(x-3,a.left+42),a.top+2); ctx.textAlign='left'; } else { ctx.fillText(mk[1],Math.min(x+3,a.right-42),a.top+2); } }); ctx.setLineDash([]);",
 "  var px=xa.getPixelForValue(PLAY.i); if(px>=a.left&&px<=a.right){ ctx.strokeStyle=LIGHT?'#0f172a':'#ffffff'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(px,a.top); ctx.lineTo(px,a.bottom); ctx.stroke(); }",
 "  ctx.restore(); }};",
 // map overlay: faint geography under the tracks, takeoff/landing/playhead dots on top
-"function mapOverlay(geo,refLa,refLo){ return {id:'mov', beforeDatasetsDraw:function(ch){ var a=ch.chartArea,x=ch.scales.x,y=ch.scales.y,ctx=ch.ctx; if(!a||!geo||!geo.length)return; ctx.save(); ctx.beginPath(); ctx.rect(a.left,a.top,a.right-a.left,a.bottom-a.top); ctx.clip(); ctx.strokeStyle=LIGHT?'rgba(71,85,105,0.28)':'rgba(148,163,184,0.16)'; ctx.lineWidth=1; geo.forEach(function(r){ ctx.beginPath(); for(var i=0;i<r.length;i++){ var px=x.getPixelForValue(r[i][0]),py=y.getPixelForValue(r[i][1]); if(i)ctx.lineTo(px,py); else ctx.moveTo(px,py);} ctx.stroke(); }); ctx.restore(); },",
-"  afterDraw:function(ch){ var a=ch.chartArea,x=ch.scales.x,y=ch.scales.y,ctx=ch.ctx; if(!a||!refLa)return; function dot(i,fill,r){ if(i==null||i<0||i>=refLa.length)return; var la=refLa[i],lo=refLo[i]; if(isNaN(la)||isNaN(lo))return; var px=x.getPixelForValue(lo),py=y.getPixelForValue(la); if(px<a.left||px>a.right||py<a.top||py>a.bottom)return; ctx.beginPath(); ctx.arc(px,py,r,0,2*Math.PI); ctx.fillStyle=fill; ctx.fill(); ctx.strokeStyle=LIGHT?'#ffffff':'#0d1117'; ctx.lineWidth=1.4; ctx.stroke(); } dot(QCX.toIdx,'#28c76f',4); dot(QCX.landIdx,'#ea5455',4); dot(PLAY.i,LIGHT?'#0f172a':'#ffffff',5); } }; }",
+"function mapOverlay(geo,refLa,refLo){ return {id:'mov', beforeDatasetsDraw:function(ch){ var a=ch.chartArea,x=ch.scales.x,y=ch.scales.y,ctx=ch.ctx; if(!a||!geo)return; ctx.save(); ctx.beginPath(); ctx.rect(a.left,a.top,a.right-a.left,a.bottom-a.top); ctx.clip();",
+"  function addRing(r){ for(var i=0;i<r.length;i++){ var px=x.getPixelForValue(r[i][0]),py=y.getPixelForValue(r[i][1]); if(i)ctx.lineTo(px,py); else ctx.moveTo(px,py);} }",
+"  function fillRings(list,color){ if(!list||!list.length)return; ctx.fillStyle=color; ctx.beginPath(); list.forEach(function(r){ addRing(r); ctx.closePath(); }); ctx.fill('evenodd'); }",
+"  function strokeRings(list,color){ if(!list||!list.length)return; ctx.strokeStyle=color; ctx.lineWidth=1; list.forEach(function(r){ ctx.beginPath(); addRing(r); ctx.stroke(); }); }",
+"  var water=LIGHT?'#cfe3f5':'#122a3e'; ctx.fillStyle=water; ctx.fillRect(a.left,a.top,a.right-a.left,a.bottom-a.top);",
+"  fillRings(geo.land,LIGHT?'#d6e8cc':'#1a3622'); fillRings(geo.lakes,LIGHT?'#c2ddf2':'#153a52');",
+"  strokeRings(geo.land,LIGHT?'rgba(60,90,75,0.5)':'rgba(150,190,165,0.35)'); strokeRings(geo.states,LIGHT?'rgba(60,90,75,0.5)':'rgba(150,190,165,0.35)'); strokeRings(geo.lakes,LIGHT?'rgba(37,99,235,0.35)':'rgba(96,150,235,0.32)');",
+"  ctx.restore(); },",
+"  afterDraw:function(ch){ var a=ch.chartArea,x=ch.scales.x,y=ch.scales.y,ctx=ch.ctx; if(!a)return;",
+"    if(geo&&geo.labels&&geo.labels.length){ ctx.save(); ctx.beginPath(); ctx.rect(a.left,a.top,a.right-a.left,a.bottom-a.top); ctx.clip(); ctx.font=\"600 10.5px 'Manrope',ui-sans-serif,system-ui,sans-serif\"; ctx.textBaseline='middle'; ctx.textAlign='center'; var placed=[]; for(var k=0,shown=0;k<geo.labels.length&&shown<9;k++){ var c=geo.labels[k]; if(c[0]<x.min||c[0]>x.max||c[1]<y.min||c[1]>y.max)continue; var cx=x.getPixelForValue(c[0]),cy=y.getPixelForValue(c[1]); if(cx<a.left+4||cx>a.right-4||cy<a.top+4||cy>a.bottom-4)continue; var hit=false; for(var q=0;q<placed.length;q++){ if(placed[q][2]===c[2]||(Math.abs(placed[q][0]-cx)<72&&Math.abs(placed[q][1]-cy)<16)){hit=true;break;} } if(hit)continue; placed.push([cx,cy,c[2]]); shown++; ctx.lineWidth=3; ctx.strokeStyle=LIGHT?'rgba(255,255,255,0.9)':'rgba(8,15,25,0.85)'; ctx.strokeText(c[2],cx,cy); ctx.fillStyle=LIGHT?'#1e293b':'#e2e8f0'; ctx.fillText(c[2],cx,cy); } ctx.textAlign='left'; ctx.restore(); }",
+"    if(!refLa)return; function dot(i,fill,r){ if(i==null||i<0||i>=refLa.length)return; var la=refLa[i],lo=refLo[i]; if(isNaN(la)||isNaN(lo))return; var px=x.getPixelForValue(lo),py=y.getPixelForValue(la); if(px<a.left||px>a.right||py<a.top||py>a.bottom)return; ctx.beginPath(); ctx.arc(px,py,r,0,2*Math.PI); ctx.fillStyle=fill; ctx.fill(); ctx.strokeStyle=LIGHT?'#ffffff':'#0d1117'; ctx.lineWidth=1.4; ctx.stroke(); } dot(QCX.toIdx,'#28c76f',4); dot(QCX.landIdx,'#ea5455',4); dot(PLAY.i,LIGHT?'#0f172a':'#ffffff',5); } }; }",
 "function refresh(ch){ var x=ch.scales.x; ch.data.datasets.forEach(function(ds){ if(ds.$full) ds.data=decim(ds.$full,x.min,x.max); }); ch.update('none'); }",
 "function setPlay(i){ PLAY.i=Math.max(0,Math.min(QCX.n-1,Math.round(i))); document.getElementById('clock').textContent=lbl(PLAY.i)+' UTC'; charts.forEach(function(c){ c.draw(); }); maps.forEach(function(c){ c.draw(); }); }",
 "var tickColor=function(){ return LIGHT?'#475569':'#94a3b8'; };",

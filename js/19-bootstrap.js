@@ -271,8 +271,9 @@
     const fetchGeo = (localPath, remoteUrl) =>
         fetch(localPath).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
             .catch(() => fetch(remoteUrl).then(r => r.json()));
+    const NE = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/';
     Promise.all([
-        fetchGeo('data/ne_50m_admin_0_countries.geojson', 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson'),
+        fetchGeo('data/ne_50m_admin_0_countries.geojson', NE + 'ne_50m_admin_0_countries.geojson'),
         fetchGeo('data/us-states.json', 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json')
     ]).then(([world, us]) => {
         if (world && world.features) {
@@ -282,14 +283,46 @@
             });
         }
         if (us && us.features) {
-            us.features.forEach(f => { 
+            us.features.forEach(f => {
                 f.properties = f.properties || {}; f.properties.isState = true; f.properties.bbox = calculateFeatureBBox(f);
                 mapFeatures.push(f);
             });
         }
+        buildQcRegionLabels();
         bgNeedsUpdate = true; if (filteredData.length > 0 && trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
         loadAirports();
     }).catch(e => {});
+
+    // one region label per labelable landmass for the QC flight map: the US state name (us-states),
+    // else the country/territory name (ne_50m countries, excluding the mainland-USA feature since its
+    // states carry the label). a MultiPolygon labels each sizeable landmass, so overseas islands get
+    // their country's name placed near them too. one representative point = its largest ring's centroid.
+    function buildQcRegionLabels() {
+        qcRegionLabels.length = 0;
+        const titleCase = s => String(s || '').replace(/\b\w/g, c => c.toUpperCase());
+        mapFeatures.forEach(f => {
+            const pr = f.properties || {};
+            let name;
+            if (pr.isState) name = titleCase(pr.name);
+            else { const nm = pr.NAME || pr.name || pr.ADMIN; name = (nm && !/^united states of america$/i.test(nm)) ? nm : null; }
+            if (!name) return;
+            const g = f.geometry; if (!g) return;
+            const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+            const rings = polys.map(poly => poly[0]).filter(r => r && r.length).sort((a, b) => b.length - a.length);
+            rings.forEach((ring, idx) => {
+                if (idx > 0 && ring.length < 40) return;   // biggest landmass always; others only if sizeable
+                let sx = 0, sy = 0; for (let i = 0; i < ring.length; i++) { sx += ring[i][0]; sy += ring[i][1]; }
+                qcRegionLabels.push({ name: name, lon: sx / ring.length, lat: sy / ring.length, n: ring.length });
+            });
+        });
+        qcRegionLabels.sort((a, b) => b.n - a.n);   // bigger landmasses first, so de-collision keeps them
+    }
+
+    // inland water bodies for the QC flight map, loaded independently so a failure never blocks geography
+    fetchGeo('data/ne_50m_lakes.geojson', NE + 'ne_50m_lakes.geojson').then(lk => {
+        if (lk && lk.features) lk.features.forEach(f => { f.properties = f.properties || {}; f.properties.bbox = calculateFeatureBBox(f); qcLakes.push(f); });
+        bgNeedsUpdate = true;
+    }).catch(() => {});
 
     // --- MP4 Video Zoom & Pan Logic ---
     let vidZoom = 1;
