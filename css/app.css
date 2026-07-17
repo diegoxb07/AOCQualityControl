@@ -731,14 +731,18 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    qcRenderCharts (js/22) fully overwrite qcChartsPanel/qcReportPanel's innerHTML once a flight
    loads, so this markup is simply replaced wholesale, never patched around. */
 @keyframes qcSkelPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-.qc-skel-block { background: color-mix(in oklab, var(--text-faint) 24%, var(--panel-strip)); border-radius: 5px; animation: qcSkelPulse 1.6s ease-in-out infinite; }
+.qc-skel-block { background: color-mix(in oklab, var(--text-faint) 24%, var(--panel-strip)); border-radius: 5px; animation: none; }
+/* static while idle: the pulse runs ONLY while a flight is actually being loaded/parsed
+   (body.qc-skel-live, toggled by show/hideLoadingOverlay in js/12-file-parsing.js), so a page
+   waiting on the user never reads as something in progress */
+body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qcSkelPulse 1.6s ease-in-out infinite; }
 /* sits above the skeleton shapes (not animated itself) so a pre-flight panel doesn't read as an
    actively-loading spinner stuck forever -- it's idle, waiting on a flight to be picked/uploaded */
 .qc-skel-label { color: var(--text-muted); font-size: 12px; font-weight: 600; padding: 2px 2px 12px; }
 /* toolbar buttons + the graph search input: same box as the real control, so nothing shifts when
    it loads, just the text hidden and the skin swapped to the pulsing gray fill. !important because
    #qcExportMenuBtn carries a per-theme ID-level text color a plain class can't outrank. */
-.qc-skel-btn { color: transparent !important; background: color-mix(in oklab, var(--text-faint) 24%, var(--panel-strip)) !important; border-color: transparent !important; box-shadow: none !important; pointer-events: none; animation: qcSkelPulse 1.6s ease-in-out infinite; }
+.qc-skel-btn { color: transparent !important; background: color-mix(in oklab, var(--text-faint) 24%, var(--panel-strip)) !important; border-color: transparent !important; box-shadow: none !important; pointer-events: none; animation: none; }
 .qc-skel-btn::placeholder { color: transparent; }
 .qc-skel-title-bar { display: inline-block; width: 160px; height: 15px; vertical-align: middle; }
 .qc-skel-pill { display: inline-block; width: 64px; height: 18px; border-radius: 999px; margin-right: 6px; }
@@ -756,7 +760,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-skel-row { display: flex; align-items: center; gap: 10px; padding: 5px 10px; }
 .qc-skel-rowname { flex: 1; max-width: 140px; height: 11px; }
 .qc-skel-rowdetail { width: 60px; height: 11px; }
-@media (prefers-reduced-motion: reduce) { .qc-skel-block, .qc-skel-btn { animation: none; opacity: 0.75; } }
+@media (prefers-reduced-motion: reduce) { .qc-skel-block, .qc-skel-btn, body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: none; opacity: 0.75; } }
 
 .qc-chart-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; padding-right: 72px; }
 .qc-chart-title { font-weight: 700; font-size: 13px; color: var(--text); }

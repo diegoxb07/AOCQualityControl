@@ -37,7 +37,7 @@ Both paths feed the **same** QC parser, so the graphs, report, and exports behav
 
 ## 2. Takeoff, landing & trimming
 
-Takeoff and landing are auto-detected from altitude (airspeed as fallback). Everything recorded more than five minutes before takeoff is trimmed away and never reaches the graphs, gaps, or stats; those five minutes are the **takeoff phase** of the phase statistics.
+Takeoff and landing are auto-detected from the blended INS-GPS altitude (median across units; pure GPS, then airspeed, as fallbacks). Takeoff is the first climb through field elevation + 100 m that holds and keeps climbing over the next minutes and — when an airspeed channel exists — coincides with flying airspeed, so pre-takeoff sensor fluctuation on the ramp is not mistaken for departure. Everything recorded more than five minutes before takeoff is trimmed away and never reaches the graphs, gaps, or stats; those five minutes are the **takeoff phase** of the phase statistics.
 
 To override, type `HHMMSS` times in the **T/O** and **LND** boxes in the header and press **Apply**; the whole report (trim, phases, stats, references, graphs) recomputes. **Auto** returns to detection.
 

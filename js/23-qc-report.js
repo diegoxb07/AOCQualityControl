@@ -156,6 +156,9 @@
         return '<div class="qc-skel-label">No flight loaded.</div>' + group + group + group;
     }
     function qcRenderEmpty() {
+        // idle by definition: whatever happened before (an aborted load path that skipped
+        // hideLoadingOverlay, a reset), the skeletons must sit STATIC now, so drop the live flag
+        document.body.classList.remove('qc-skel-live');
         const rep = document.getElementById('qcReportPanel'), ch = document.getElementById('qcChartsPanel');
         if (rep) rep.innerHTML = qcSkelReportHTML();
         if (ch) ch.innerHTML = qcSkelChartsHTML();
@@ -760,7 +763,7 @@
                 '<div class="qc-help-card" id="qchs7">' +
                   '<h3>Takeoff and landing</h3>' +
                   '<ul>' +
-                    '<li>Takeoff and landing are detected automatically from altitude (or airspeed as fallback).</li>' +
+                    '<li>Takeoff and landing are detected automatically from the blended GPS altitude (a climb through field + 100 m that holds and keeps climbing, cross-checked against airspeed), with pure GPS and airspeed as fallbacks.</li>' +
                     '<li><b>Manual pins:</b> the T/O and LND boxes under the top right buttons take HHMMSS times. Editing a box highlights Apply Changes; applying recomputes everything with the entered times. Clear both boxes and apply to return to automatic detection.</li>' +
                     '<li>The pinned takeoff and landing times flow through every export: the interactive report, flight-track map PDF, error summary, gap report, and stats all use them.</li>' +
                     '<li>Everything recorded before five minutes ahead of takeoff is trimmed away and never reaches the graphs, gaps, or stats.</li>' +

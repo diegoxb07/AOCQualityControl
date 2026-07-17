@@ -9,6 +9,9 @@
     let lastParseStats = null;   // stats ledger from the most recent load (see parseFlightTextToRows)
 
     function showLoadingOverlay() {
+        // flags the QC skeleton placeholders as live: they pulse only while this overlay is up
+        // (an actual load/parse in progress), and sit static while just waiting on the user
+        document.body.classList.add('qc-skel-live');
         const l = document.getElementById('loadingOverlay'); l.classList.remove('hidden'); l.classList.add('flex');
         const s = document.getElementById('loadingSpinner'); if (s) s.classList.remove('done');   // spin fresh, never open on the previous load's checkmark
         const st = document.getElementById('loadingOverlaySubtext'); if (st) st.textContent = 'Pulling variables...';
@@ -18,7 +21,7 @@
         const pp = document.getElementById('loadingProgressPct'); if (pp) pp.textContent = '0%';
         const ps = document.getElementById('loadingProgressSpeed'); if (ps) ps.textContent = '';
     }
-    function hideLoadingOverlay() { const l = document.getElementById('loadingOverlay'); l.classList.add('hidden'); l.classList.remove('flex'); }
+    function hideLoadingOverlay() { document.body.classList.remove('qc-skel-live'); const l = document.getElementById('loadingOverlay'); l.classList.add('hidden'); l.classList.remove('flex'); }
 
     document.getElementById('videoInput').addEventListener('change', function(e) {
         if (!e.target.files[0]) return;

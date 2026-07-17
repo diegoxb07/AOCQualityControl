@@ -112,44 +112,100 @@
         return out;
     }
 
-    // auto-detect the in-air window. takeoff = first SUSTAINED climb of the pure-GPS altitude
-    // through field elevation + 100 m; landing = last second the altitude is above ground + 200 ft.
-    // pure GPS altitude (AltGPS.*) is preferred over the ref/pressure channels, with an airspeed
-    // fallback. optional overrides let the UI pin exact takeoff/landing seconds.
+    // auto-detect the in-air window. takeoff = first climb through field elevation + 100 m that
+    // KEEPS climbing; landing = last second the altitude is above field + 200 ft. optional
+    // overrides let the UI pin exact takeoff/landing seconds.
+    //
+    // hardened against pre-takeoff sensor noise (a single GPS unit oscillating 0 -> 200+ m -> 0 on
+    // the ramp used to fool the old running-min + 45 s rule). four independent defenses:
+    //   1. the altitude series is the BLENDED INS-GPS altitude (inertially damped, so it carries
+    //      none of the raw-GPS ramp spikes), reduced to the per-second MEDIAN when several units
+    //      exist so a spike on one unit is outvoted by the healthy ones;
+    //   2. field elevation is the median of the lowest decile of samples (the ground cluster), not
+    //      a running/global min that one downward glitch drags low enough to break the bar;
+    //   3. a candidate must HOLD above the bar for 90% of the next two minutes, be a real climb
+    //      (still >= 60 m higher at the window's end), and STILL be above the bar five minutes on:
+    //      an oscillation fails the hold, a lone spike fails both horizons;
+    //   4. when an airspeed channel exists, the aircraft must actually be at flying speed just
+    //      after the candidate -- altitude climbing while airspeed reads taxi is a sensor problem,
+    //      not a takeoff, and the scan continues past it. (airspeed is used here instead of the
+    //      x-acceleration burst of the takeoff roll on purpose: sustained speed IS that
+    //      acceleration integrated, without the taxi-bump/turbulence spikes raw AccX carries.)
     function qcDetectPhases(raw, timeAxis, override) {
-        const pick = names => { for (const nm of names) if (raw[nm]) return raw[nm]; return null; };
-        // pure GPS altitude first (the user's reference for takeoff); ALTref is a GPS-derived ref
-        // that can switch source, ALTPA.d is pressure altitude and drifts with weather — last resort.
-        const alt = pick(['AltGPS.1', 'AltGPS.2', 'AltGPS.3', 'ALTref', 'ALTPA.d']);
-        const spd = pick(['TAS.d', 'TasADDU.1', 'CasADDU.1', 'IAS.d']);
         const n = timeAxis.length;
+        const pick = names => { for (const nm of names) if (raw[nm]) return raw[nm]; return null; };
+        // composite altitude (defense 1): blended INS-GPS altitude first (AltI-GPS.* on the P-3s,
+        // AltI.* on the G-IV), pure GPS units when no blended channel exists, then ALTref (a
+        // GPS-derived ref that can switch source), then ALTPA.d (pressure alt, drifts) last resort.
+        // whichever family is used, multiple units collapse to their per-second median.
+        const unitsOf = names => names.map(nm => raw[nm]).filter(Boolean);
+        const blendUnits = unitsOf(['AltI-GPS.1', 'AltI-GPS.2', 'AltI.1', 'AltI.2', 'AltI.3']);
+        const gpsUnits = blendUnits.length ? blendUnits : unitsOf(['AltGPS.1', 'AltGPS.2', 'AltGPS.3', 'AltGPS.4']);
+        let alt = null;
+        if (gpsUnits.length === 1) alt = gpsUnits[0];
+        else if (gpsUnits.length > 1) {
+            alt = new Float32Array(n);
+            const vals = [];
+            for (let i = 0; i < n; i++) {
+                vals.length = 0;
+                for (const u of gpsUnits) { const v = u[i]; if (!Number.isNaN(v)) vals.push(v); }
+                if (!vals.length) { alt[i] = NaN; continue; }
+                vals.sort((a, b) => a - b);
+                alt[i] = vals.length % 2 ? vals[(vals.length - 1) / 2] : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+            }
+        } else alt = pick(['ALTref', 'ALTPA.d']);
+        const spd = pick(['TAS.d', 'TasADDU.1', 'CasADDU.1', 'IAS.d']);
         let toIdx = 0, landIdx = n - 1;
 
         const secToIdx = sec => { if (sec == null) return null; const i = Math.round(sec - timeAxis[0]); return (i >= 0 && i < n) ? i : null; };
         const ovTo = override && secToIdx(override.takeoffSec);
         const ovLand = override && secToIdx(override.landingSec);
 
-        // first index where the altitude climbs `rise` metres above the lowest altitude seen so far
-        // (the departure field elevation, so `rise` is field-relative and MSL-safe at any field) AND
-        // stays up: it holds above that bar for most of the next ~45 s and is still higher at the end
-        // of the window. this rejects the taxi bumps and lone GPS spikes that made the old global-min
-        // + 200 ft single-crossing rule pin takeoff long before the aircraft actually left the ground.
-        // the axis is a continuous 1 Hz series (js/11b), so one index == one second.
-        const SUSTAIN = 45, HOLD = 0.8;
-        const sustainedClimb = (v, rise) => {
-            let runMin = Infinity;
+        // field elevation (defense 2): median of the lowest tenth of finite samples. the ground
+        // minutes before takeoff and after landing dominate that low cluster, and a handful of
+        // negative glitch samples sit in its tail without moving the median.
+        const fieldElev = a => {
+            const fin = [];
+            for (let i = 0; i < a.length; i++) { const v = a[i]; if (!Number.isNaN(v)) fin.push(v); }
+            if (!fin.length) return NaN;
+            fin.sort((x, y) => x - y);
+            const dec = fin.slice(0, Math.max(1, Math.floor(fin.length / 10)));
+            return dec[Math.floor(dec.length / 2)];
+        };
+        const fld = alt ? fieldElev(alt) : NaN;
+
+        // median airspeed over the three minutes after k, or null when the channel is absent or too
+        // patchy to judge. 40 clears any taxi and is well under any climb-out in both unit systems
+        // this channel appears in (40 kt, or 40 m/s = 78 kt), so no unit sniffing is needed.
+        const flyingAt = k => {
+            if (!spd) return null;
+            const b = Math.min(n - 1, k + 180), vals = [];
+            for (let i = k; i <= b; i++) { const v = spd[i]; if (!Number.isNaN(v)) vals.push(v); }
+            if (vals.length < 30) return null;
+            vals.sort((x, y) => x - y);
+            return vals[Math.floor(vals.length / 2)];
+        };
+
+        // defense 3 + 4. the axis is a continuous 1 Hz series (js/11b), so one index == one second.
+        const SUSTAIN = 120, HOLD = 0.9, RECHECK = 300, KEEP_CLIMBING = 60;
+        const sustainedClimb = (a, rise) => {
+            if (Number.isNaN(fld)) return -1;
+            const bar = fld + rise;
             for (let i = 0; i < n; i++) {
-                const a = v[i]; if (Number.isNaN(a)) continue;
-                if (a < runMin) runMin = a;
-                const thr = runMin + rise;
-                if (a > thr) {
-                    let valid = 0, above = 0, last = a;
-                    for (let j = i; j <= i + SUSTAIN && j < n; j++) {
-                        const b = v[j]; if (Number.isNaN(b)) continue;
-                        valid++; if (b > thr) { above++; last = b; }
-                    }
-                    if (valid && above / valid >= HOLD && last > a) return i;
-                }
+                const v = a[i]; if (Number.isNaN(v) || v <= bar) continue;
+                const end = Math.min(n - 1, i + SUSTAIN);
+                let fin = 0, above = 0, last = NaN;
+                for (let k = i; k <= end; k++) { const w = a[k]; if (Number.isNaN(w)) continue; fin++; if (w > bar) above++; last = w; }
+                if (!fin || above / fin < HOLD) continue;         // oscillated back down: not a takeoff
+                if (!(last >= v + KEEP_CLIMBING)) continue;       // held but stopped rising: not a climb-out
+                // five-minute horizon: a real departure is far above the field by now
+                const rk = Math.min(n - 1, i + RECHECK);
+                let rv = NaN;
+                for (let k = rk; k >= Math.max(i, rk - 30); k--) { if (!Number.isNaN(a[k])) { rv = a[k]; break; } }
+                if (!Number.isNaN(rv) && rv <= bar) continue;
+                const ms = flyingAt(i);
+                if (ms != null && ms < 40) continue;              // airspeed says taxi: sensor spike, keep scanning
+                return i;
             }
             return -1;
         };
@@ -159,9 +215,8 @@
             let i = sustainedClimb(alt, 100);
             if (i < 0) i = sustainedClimb(alt, 60.96);          // a flight that never gains 100 m
             if (i < 0 && spd) { for (let k = 0; k < n; k++) if (!Number.isNaN(spd[k]) && spd[k] > 30) { i = k; break; } }
-            if (i < 0) {                                          // last resort: the old single-crossing rule
-                let lo = Infinity; for (let k = 0; k < n; k++) if (!Number.isNaN(alt[k]) && alt[k] < lo) lo = alt[k];
-                const thr = (Number.isFinite(lo) ? lo : 0) + 60.96;
+            if (i < 0) {                                          // last resort: single crossing of the robust bar
+                const thr = (Number.isNaN(fld) ? 0 : fld) + 60.96;
                 for (let k = 0; k < n; k++) if (!Number.isNaN(alt[k]) && alt[k] > thr) { i = k; break; }
             }
             if (i >= 0) toIdx = i;
@@ -171,9 +226,16 @@
 
         if (ovLand != null) { landIdx = ovLand; }
         else if (alt) {
-            let lo = Infinity; for (let i = 0; i < n; i++) if (!Number.isNaN(alt[i]) && alt[i] < lo) lo = alt[i];
-            const thr = (Number.isFinite(lo) ? lo : 0) + 60.96;
-            for (let i = n - 1; i >= 0; i--) { if (!Number.isNaN(alt[i]) && alt[i] > thr) { landIdx = i; break; } }
+            // same robust field elevation for touchdown, plus a trailing-minute hold so one high
+            // glitch during the post-landing taxi can't stretch the flight to it
+            const thr = (Number.isNaN(fld) ? 0 : fld) + 60.96;
+            for (let i = n - 1; i >= 0; i--) {
+                const v = alt[i]; if (Number.isNaN(v) || v <= thr) continue;
+                const s = Math.max(0, i - 60);
+                let fin = 0, above = 0;
+                for (let k = s; k <= i; k++) { const w = alt[k]; if (Number.isNaN(w)) continue; fin++; if (w > thr) above++; }
+                if (fin && above / fin >= 0.6) { landIdx = i; break; }
+            }
         } else if (spd) {
             for (let i = n - 1; i >= 0; i--) { if (!Number.isNaN(spd[i]) && spd[i] > 30) { landIdx = i; break; } }
         }
