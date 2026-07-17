@@ -22,8 +22,12 @@ in each state**, so during a training or replay session you always know your opt
 | --- | --- | --- |
 | **noaa-recon-api** (`https://joshmurdock.net/api`) | Archive flight loading (mission NetCDF plus storm best-track) and archive GOES satellite imagery | Only for archive load and GOES imagery |
 | **NASA GIBS** | MODIS / VIIRS polar satellite overlays | Only for MODIS/VIIRS overlays |
-| **GitHub-hosted GeoJSON** (Natural Earth plus US states) | The map's coastline and state geometry | Fetched once at startup; map still runs if it fails |
-| **CDNs** (Tailwind, Chart.js, Three.js, netcdfjs, Tesseract.js) | App libraries | Needed to load the page the first time, then browser-cached |
+| **GitHub-hosted GeoJSON** (Natural Earth plus US states) | Fallback for the map's coastline and state geometry if the repo's local copies fail | Fetched once at startup; map still runs if it fails |
+
+There are **no CDNs**: all libraries, fonts, and basemap data ship in the repo and are served
+same-origin. A **service worker** (`sw.js`) precaches the entire app on the first visit, so the
+page itself, its scripts, fonts, coastlines, and terrain all load with **no network at all**
+afterwards.
 
 **None of your uploaded data is ever sent anywhere.** Files are read and parsed in the browser.
 The requests above are for imagery, geometry, libraries, and the archive catalog only.
@@ -174,6 +178,9 @@ The flight is outside that satellite's Earth-disk view (more than about 65° fro
 An Atlantic flight greys out GOES-West; an east-Pacific flight greys out GOES-East.
 
 **Can I use this completely offline (no internet at all)?**
-The page must be loaded once (to fetch CDN libraries, which are then browser-cached). After that,
-manual upload, local replay, video sync, charts, and export all work with no network. Map
-coastlines and any satellite imagery need connectivity, or a warm cache.
+Yes, after one online visit. A service worker (`sw.js`) precaches the whole app on first load,
+so the page opens with no network and manual upload, local replay, video sync, charts, map
+coastlines/terrain, and every export all work. The only things that still need connectivity are
+the network features themselves: archive loading and GOES (recon-api) and MODIS/VIIRS (NASA
+GIBS), unless you pre-cached imagery while online. The app updates itself on the next page load
+after a new version is deployed.

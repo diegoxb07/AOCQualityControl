@@ -769,5 +769,22 @@
     <script src="js/25-qc-error-summary.js?v=20260717f"></script>
     <script src="js/26-qc-track-pdf.js?v=20260717f"></script>
     <script src="js/27-nc-txt-converter.js?v=20260717f"></script>
+
+    <!-- Offline support: sw.js precaches the whole app (css/js/lib/fonts/data), so after one
+         online visit the page loads and replays flights with no network (docs/CONNECTIVITY.md).
+         Registered on 'load' so the first-visit precache download never competes with startup
+         fetches; the relative './sw.js' keeps the scope scoped to this project-pages path.
+         github.io-only: on localhost / Codespaces previews the cache-first worker would keep
+         serving the precached snapshot and mask live edits (CACHE_VERSION only rolls at deploy),
+         so local serving stays SW-free and always shows the working tree. -->
+    <script>
+        if ('serviceWorker' in navigator && /\.github\.io$/.test(location.hostname)) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('./sw.js').catch(function (err) {
+                    console.warn('Service worker registration failed:', err);
+                });
+            });
+        }
+    </script>
 </body>
 </html>

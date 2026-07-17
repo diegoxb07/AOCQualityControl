@@ -34,7 +34,9 @@ jobs:
       - name: Cache-bust asset URLs with the commit SHA
         # Rewrites every ?v=... on the css/js includes in index.html to this deploy's commit SHA, so
         # browsers always fetch fresh assets after a push (no manual token bumping, no stale-cache trap).
-        run: sed -i "s/?v=[0-9A-Za-z._-]\{1,\}/?v=${GITHUB_SHA}/g" index.html
+        # The same rewrite stamps sw.js's CACHE_VERSION, so every deploy installs a fresh offline
+        # precache and the service worker drops the previous deploy's cache on activate.
+        run: sed -i "s/?v=[0-9A-Za-z._-]\{1,\}/?v=${GITHUB_SHA}/g" index.html sw.js
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
