@@ -442,6 +442,16 @@
         // delegated on the list container (not the rows), so it survives qcConvPopulateList rebuilding
         // #qcConvList's contents on every open, preset switch, or search
         document.getElementById('qcConvList').addEventListener('pointerdown', qcConvDragStart);
+        // the rows are <label>s, and canceling pointerdown does NOT cancel the browser's follow-up
+        // click: that click activates the label and flips the checkbox straight BACK, which made a
+        // clean click look like the row refused to toggle (pointer-events:none on the box stops
+        // direct hits, not label forwarding). The toggle already happened in qcConvDragStart, so
+        // cancel every click in the list -- except one targeting the checkbox itself, which only
+        // keyboard activation (Tab + Space) can produce here; canceling that would roll it back.
+        document.getElementById('qcConvList').addEventListener('click', e => {
+            const t = e.target;
+            if (!(t && t.classList && t.classList.contains('qc-conv-cb'))) e.preventDefault();
+        });
         document.getElementById('qcConvResetTrim').addEventListener('click', () => { qcConvSetDefaultTrim(); qcConvUpdateEstimate(); });
         [document.getElementById('qcConvStart'), document.getElementById('qcConvEnd'), document.getElementById('qcConvTimeFmt')]
             .forEach(el => el.addEventListener('input', qcConvUpdateEstimate));
