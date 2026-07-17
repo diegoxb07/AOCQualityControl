@@ -182,5 +182,6 @@ Yes, after one online visit. A service worker (`sw.js`) precaches the whole app 
 so the page opens with no network and manual upload, local replay, video sync, charts, map
 coastlines/terrain, and every export all work. The only things that still need connectivity are
 the network features themselves: archive loading and GOES (recon-api) and MODIS/VIIRS (NASA
-GIBS), unless you pre-cached imagery while online. The app updates itself on the next page load
-after a new version is deployed.
+GIBS), unless you pre-cached imagery while online. After a new version is deployed, the first
+page load still shows the previous build while the update installs in the background; the
+following reload shows the new one.

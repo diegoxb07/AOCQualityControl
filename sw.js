@@ -81,13 +81,20 @@ const PRECACHE = [
 ];
 
 self.addEventListener('install', (e) => {
-    // skipWaiting: a new deploy takes over on the next page load instead of waiting for every
-    // tab to close. The cache is a complete per-deploy snapshot, so the only skew window is a
-    // page from deploy N runtime-fetching from deploy N+1's cache (data files, parse-worker),
-    // which is harmless here and better than pinned tabs staying stale for days.
+    // 'no-cache' forces every precache fetch to revalidate with the server (ETag -> 304 when
+    // unchanged, so installs stay cheap). Without it, addAll's default-mode fetches are answered
+    // by the browser HTTP cache, and GitHub Pages serves everything with max-age=600 -- a deploy
+    // installed inside that window would fill the NEW cache with the PREVIOUS deploy's bytes
+    // (whole or torn), and cache-first serving would pin users there until the deploy after next.
+    //
+    // skipWaiting: the new deploy takes over without waiting for every tab to close. The load
+    // that discovers the new sw.js still renders from the old cache; the refresh after that
+    // shows the new version. The cache is a complete per-deploy snapshot, so the only skew
+    // window is a page from deploy N runtime-fetching from deploy N+1's cache (data files,
+    // parse-worker), which is harmless here and better than pinned tabs staying stale for days.
     e.waitUntil(
         caches.open(CACHE_NAME)
-            .then((c) => c.addAll(PRECACHE))
+            .then((c) => c.addAll(PRECACHE.map((u) => new Request(u, { cache: 'no-cache' }))))
             .then(() => self.skipWaiting())
     );
 });
