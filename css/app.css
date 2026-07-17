@@ -115,7 +115,7 @@ select:not(:disabled):focus { border-color: var(--accent); }
 
 /* Sharp edges: flat 3px radius on all controls (was a forced 9999px pill everywhere). */
 button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):not([type="checkbox"]) { border-radius: 3px; }
-#dataDropZone, #videoDropZone, #reconSourceLink { border-radius: 3px; }
+#dataDropZone, #videoDropZone { border-radius: 3px; }
 .status-chip { border-radius: 4px; }
 
 /* Both media-panel subheaders: Manrope, title-case (not uppercase), slightly larger + brighter.
@@ -571,7 +571,10 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-ov-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .qc-ov-field { font-size: 11px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; display: inline-flex; align-items: center; gap: 4px; }
 .qc-ov-input { width: 56px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 3px 6px; }
-.qc-ov-btn { background: var(--panel-strip); border: 1px solid var(--border); color: var(--text); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: background .12s, border-color .12s; }
+/* color is in the transition list so un-skeletonizing (js/23 qcToggleReportControls) fades the
+   label back in WITH the background: without it, the Export button's ID-level black text snapped
+   in over the still-gray skeleton fill and the button read as flashing black for ~120ms. */
+.qc-ov-btn { background: var(--panel-strip); border: 1px solid var(--border); color: var(--text); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: background .12s, border-color .12s, color .12s; }
 .qc-ov-btn:hover { background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); border-color: var(--accent); }
 .qc-ov-btn.active { color: var(--accent); border-color: var(--accent); }
 .qc-ov-btn-accent { background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); border-color: var(--accent); color: var(--accent); }
@@ -721,6 +724,40 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    keep their natural size). Chart.js is responsive + maintainAspectRatio:false, so the canvas
    follows its wrap and the plot just gets taller — same x/y scales, ticks, zoom, and functions. */
 .qc-chart-panel:fullscreen .qc-canvas-wrap { flex: 1 1 auto; height: auto; min-height: 340px; }
+
+/* ---- skeleton loaders: pre-flight placeholders -------------------------------------------------
+   Toolbar buttons/search and the two main panels read as flat gray shapes of what will render,
+   instead of vanishing or showing plain "waiting" text. Nothing to keep in sync: qcRenderReport /
+   qcRenderCharts (js/22) fully overwrite qcChartsPanel/qcReportPanel's innerHTML once a flight
+   loads, so this markup is simply replaced wholesale, never patched around. */
+@keyframes qcSkelPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.qc-skel-block { background: color-mix(in oklab, var(--text-faint) 24%, var(--panel-strip)); border-radius: 5px; animation: qcSkelPulse 1.6s ease-in-out infinite; }
+/* sits above the skeleton shapes (not animated itself) so a pre-flight panel doesn't read as an
+   actively-loading spinner stuck forever -- it's idle, waiting on a flight to be picked/uploaded */
+.qc-skel-label { color: var(--text-muted); font-size: 12px; font-weight: 600; padding: 2px 2px 12px; }
+/* toolbar buttons + the graph search input: same box as the real control, so nothing shifts when
+   it loads, just the text hidden and the skin swapped to the pulsing gray fill. !important because
+   #qcExportMenuBtn carries a per-theme ID-level text color a plain class can't outrank. */
+.qc-skel-btn { color: transparent !important; background: color-mix(in oklab, var(--text-faint) 24%, var(--panel-strip)) !important; border-color: transparent !important; box-shadow: none !important; pointer-events: none; animation: qcSkelPulse 1.6s ease-in-out infinite; }
+.qc-skel-btn::placeholder { color: transparent; }
+.qc-skel-title-bar { display: inline-block; width: 160px; height: 15px; vertical-align: middle; }
+.qc-skel-pill { display: inline-block; width: 64px; height: 18px; border-radius: 999px; margin-right: 6px; }
+.qc-skel-card { display: flex; flex-direction: column; gap: 10px; }
+.qc-skel-ctitle { width: 180px; height: 13px; }
+.qc-skel-canvas { height: 30vh; }
+/* the big idle notice, centered OVER the first skeleton graph. A sibling overlay, not a child of
+   the pulsing block, so the text holds steady while the shape breathes under it. Type treatment
+   matches the "Load a Mission" loader label (Manrope bold, uppercase, tracked); white on the dark
+   theme, flipped to ink on light where white would vanish (same pattern as .qc-badge-warn). */
+.qc-skel-canvas-wrap { position: relative; }
+.qc-skel-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 18px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: clamp(20px, 3vw, 32px); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in oklab, #ffffff 68%, transparent); pointer-events: none; }
+:root[data-theme="light"] .qc-skel-wait { color: color-mix(in oklab, #0f172a 68%, transparent); }
+.qc-skel-famhead { width: 40%; min-width: 90px; height: 13px; margin: 10px 0 6px; }
+.qc-skel-row { display: flex; align-items: center; gap: 10px; padding: 5px 10px; }
+.qc-skel-rowname { flex: 1; max-width: 140px; height: 11px; }
+.qc-skel-rowdetail { width: 60px; height: 11px; }
+@media (prefers-reduced-motion: reduce) { .qc-skel-block, .qc-skel-btn { animation: none; opacity: 0.75; } }
+
 .qc-chart-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; padding-right: 72px; }
 .qc-chart-title { font-weight: 700; font-size: 13px; color: var(--text); }
 .qc-chart-meta { font-size: 10px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; flex: 1; display: inline-flex; align-items: center; flex-wrap: wrap; min-width: 0; }
@@ -905,31 +942,26 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 }
 
 /* ---- NC-to-TXT converter (js/27) ---------------------------------------------------------- */
-/* opener in the top-left brand corner, beside the relocated raw-.nc download link (js/27
-   qcInitNcTxtConverter moves #reconSourceLink here). Both pinned to one height so they line up
-   regardless of each one's own font metrics/padding, and share the accent border treatment. */
-.qc-brand-actions { padding: 6px 0 2px 2px; display: flex; align-items: center; gap: 8px; }
-.qc-conv-open { font-weight: 700; color: var(--accent); border-color: color-mix(in oklab, var(--accent) 55%, var(--border)); }
-.qc-conv-open:hover { background: color-mix(in oklab, var(--accent) 20%, var(--panel-strip)); border-color: var(--accent); }
-#qcBrandActions #qcConvBtn, #qcBrandActions #reconSourceLink { height: 30px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
-#qcBrandActions #reconSourceLink { border-color: color-mix(in oklab, var(--accent) 55%, var(--border)); }
-#qcBrandActions #reconSourceLink:hover { border-color: var(--accent); }
-/* the display:inline-flex two lines up (2 IDs) outranks Tailwind's plain .hidden class (1 class),
-   so without this override .hidden could never actually hide the relocated link; this ups the
-   specificity just enough to win back when .hidden is toggled on (js/12-file-parsing.js
-   applyParsedFlight, js/19-bootstrap.js resetAppToDefault) -- hidden until a flight with a source
-   URL is loaded, exactly like #qcConvBtn's own hidden-until-loaded state. */
-#qcBrandActions #reconSourceLink.hidden { display: none; }
+/* the converter opener + the relocated raw-.nc download link: real-button entries stacked at the
+   bottom of the Export dropdown, under Share QC Link (appended there by qcInitNcTxtConverter).
+   No display property here on purpose: as flex children of the row they already fill it, and
+   setting one would out-rank Tailwind's .hidden and break the link's archive-only visibility. */
+.qc-menu-btnrow { display: flex; flex-direction: column; gap: 6px; padding: 4px 6px 6px; }
+.qc-menu-btnrow .qc-ov-btn { text-align: center; text-decoration: none; }
 
 .qc-conv-card { max-width: 760px; max-height: 90vh; overflow-y: auto; }
 .qc-conv-note { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: -4px 0 0; }
 .qc-conv-note b { color: var(--text); font-weight: 700; }
 
-.qc-conv-toprow, .qc-conv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+.qc-conv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+/* flex, not grid, specifically so the Start/End pair can sit tighter together than the gap in front
+   of the Reset button -- a shared grid gap can't do two different spacings at once. */
+.qc-conv-toprow { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+.qc-conv-timegroup { display: flex; gap: 10px; }
 .qc-conv-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .qc-conv-field label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
-.qc-conv-field-btn { justify-content: flex-end; }
-.qc-conv-field-btn .qc-ov-btn { align-self: flex-start; white-space: nowrap; }
+.qc-conv-field-btn { justify-content: flex-start; }
+.qc-conv-field-btn .qc-ov-btn { align-self: flex-start; white-space: nowrap; margin-top: 18px; }
 .qc-conv-hint { font-size: 10px; color: var(--text-faint); }
 .qc-conv-time { width: 96px; text-align: center; font-size: 12px; }
 .qc-conv-sel { width: 100%; font-family: inherit; font-size: 12px; cursor: pointer; }

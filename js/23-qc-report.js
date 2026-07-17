@@ -123,23 +123,47 @@
 
     // ---- QC app is the primary, always-on view (not a dismissible overlay) -----------------------
     // the report controls only exist once there is a flight: pre-flight there is nothing to
-    // search, view on the map, summarize, or export
+    // search, view on the map, summarize, or export. They stay VISIBLE but skeletonized (a flat
+    // gray placeholder, inert) rather than vanishing, so the toolbar keeps its shape and nothing
+    // jumps into existence the moment a flight finishes loading.
     function qcToggleReportControls(show) {
-        const d = show ? '' : 'none';
-        ['qcPhaseStatsBtn', 'qcSideToggle', 'qcConvBtn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = d; });
-        const gsWrap = document.querySelector('.qc-graph-search'); if (gsWrap) gsWrap.style.display = d;
-        const exWrap = document.querySelector('.qc-export-wrap'); if (exWrap) exWrap.style.display = d;
+        // (the NC->TXT opener and the .nc download link live INSIDE the export menu, so the
+        // skeletonized-and-disabled Export button gates them pre-flight without separate handling)
+        ['qcPhaseStatsBtn', 'qcSideToggle', 'qcExportMenuBtn'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.classList.toggle('qc-skel-btn', !show);
+        });
+        const gs = document.getElementById('qcGraphSearch');
+        if (gs) { gs.classList.toggle('qc-skel-btn', !show); gs.disabled = !show; }
     }
 
+    // ---- skeleton placeholders: pre-flight, these stand in for the mission title/pills and the
+    // chart/report panels, mimicking their eventual shape (see css/app.css qc-skel-*). Both panels
+    // get fully overwritten by qcRenderReport/qcRenderCharts once a flight loads, so there is never
+    // a mix of skeleton and real rows to reconcile.
+    function qcSkelChartsHTML() {
+        // overlay: the big waiting text centers over the FIRST skeleton graph. It is a SIBLING of
+        // the pulsing block (absolutely positioned over it), never a child -- a child would inherit
+        // the parent's opacity pulse and read as actively loading instead of idle-waiting.
+        const card = overlay => '<div class="qc-chart-panel qc-skel-card">' +
+            '<span class="qc-skel-block qc-skel-ctitle"></span>' +
+            '<div class="qc-skel-canvas-wrap"><div class="qc-skel-block qc-skel-canvas"></div>' + (overlay || '') + '</div>' +
+          '</div>';
+        return card('<span class="qc-skel-wait">Waiting for flight file&hellip;</span>') + card() + card();
+    }
+    function qcSkelReportHTML() {
+        const row = '<div class="qc-skel-row"><span class="qc-skel-block qc-skel-rowname"></span><span class="qc-skel-block qc-skel-rowdetail"></span></div>';
+        const group = '<span class="qc-skel-block qc-skel-famhead"></span>' + row + row + row;
+        return '<div class="qc-skel-label">No flight loaded.</div>' + group + group + group;
+    }
     function qcRenderEmpty() {
         const rep = document.getElementById('qcReportPanel'), ch = document.getElementById('qcChartsPanel');
-        if (rep) rep.innerHTML = '<div class="qc-empty">No flight loaded.</div>';
-        if (ch) ch.innerHTML = '<div class="qc-empty qc-charts-empty">Waiting for flight file&hellip;</div>';
-        const nm = document.getElementById('qcMissionName'); if (nm) nm.textContent = '';
-        const sp = document.getElementById('qcSummaryPills'); if (sp) sp.innerHTML = '';
+        if (rep) rep.innerHTML = qcSkelReportHTML();
+        if (ch) ch.innerHTML = qcSkelChartsHTML();
+        const nm = document.getElementById('qcMissionName'); if (nm) nm.innerHTML = '<span class="qc-skel-block qc-skel-title-bar"></span>';
+        const sp = document.getElementById('qcSummaryPills'); if (sp) sp.innerHTML = '<span class="qc-skel-block qc-skel-pill"></span><span class="qc-skel-block qc-skel-pill"></span><span class="qc-skel-block qc-skel-pill"></span>';
         const ex = document.getElementById('qcExportMenuBtn'); if (ex) ex.disabled = true;
         qcToggleReportControls(false);
-        // a cleared flight also closes the sidebar, since its toggle is hidden now
+        // a cleared flight also closes the sidebar, since its toggle is inert now
         const qapp = document.getElementById('qcApp');
         if (qapp && qapp.classList.contains('qc-side-open')) {
             qapp.classList.remove('qc-side-open');
@@ -178,9 +202,14 @@
             sp.querySelectorAll('.qc-pill').forEach(p => { p.classList.add('qc-pill-click'); p.title = 'List these sensors'; p.addEventListener('click', () => qcShowStatusModal(p.dataset.kind)); });
         }
 
-        // isolate the two heavy renders so a failure in one (or in a single chart family) can never
+        // isolate the heavy renders so a failure in one (or in a single chart family) can never
         // blank the whole panel and strand the user on the "waiting for flight file" text.
         try { qcBuildFlightContext(); } catch (e) { console.warn('QC flight context failed:', e); }
+        // builds the sidebar's per-sensor report list. Safe to run even while the sidebar is
+        // hidden (plain innerHTML, no canvas/layout dependency like the map/player below), so this
+        // runs eagerly here rather than waiting on qcSideToggle -- the report is ready the moment
+        // the flight loads, matching qcMissionName/qcSummaryPills right above it.
+        try { qcBuildReportTable(); } catch (e) { console.warn('QC report table failed:', e); }
         try { qcRenderCharts(document.getElementById('qcChartsPanel'), qcResult); }
         catch (e) { console.warn('QC charts failed:', e); qcRenderError('The QC charts failed to render (see console for details).'); }
         qcRefreshTimeline();
@@ -912,7 +941,9 @@
         // the QC app is up and opaque now; drop the boot cover that hid the visualizer during load.
         const cover = document.getElementById('qcBootCover'); if (cover) setTimeout(() => cover.remove(), 80);
 
-        // NC-to-TXT converter (js/27): its opener button lives in the top-left brand corner
+        // NC-to-TXT converter (js/27): appends its opener + the relocated .nc download link to the
+        // bottom of the Export menu. Must run before the export-menu wiring below, while the menu
+        // exists but its outside-click close handler hasn't been bound yet.
         if (typeof qcInitNcTxtConverter === 'function') qcInitNcTxtConverter();
 
         // wire actions

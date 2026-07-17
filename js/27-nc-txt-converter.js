@@ -287,8 +287,32 @@
         qcConvBuildUI();
         const id = (typeof flightMetaData !== 'undefined' && flightMetaData.id) ? flightMetaData.id : 'flight';
         const total = Object.keys(src.raw).length;
+        // this always reflects whatever flight is CURRENTLY loaded (qcConvSource reads the live
+        // qcRawDataAll/qcRawData globals, overwritten by applyParsedFlight on every load), never a
+        // fixed file. The badge names the exact source FILE when the client knows it, revision
+        // letter included: file revisions are lettered (...H1A.nc, ...H1B.nc, ...) and the archive
+        // server always serves the latest letter -- the browser only ever sees the final download
+        // URL, so its basename IS the chosen revision. A manual upload's name comes from the
+        // drop-zone label. Fallback (e.g. the decimated API preview): just the data format.
+        let srcFile = '';
+        try {
+            if (typeof reconArchiveMeta !== 'undefined' && reconArchiveMeta && reconArchiveMeta.sourceUrl
+                && typeof isNcFile !== 'undefined' && isNcFile)   // decimated fallback is NOT the .nc; don't claim it
+                srcFile = decodeURIComponent(String(reconArchiveMeta.sourceUrl).split(/[?#]/)[0].split('/').pop() || '');
+        } catch (e) {}
+        if (!srcFile) {
+            const dl = document.getElementById('dataDropLabel');
+            const t = dl ? dl.textContent.trim() : '';
+            if (/\.(nc|txt)$/i.test(t)) srcFile = t;
+        }
+        const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const srcType = (typeof isNcFile !== 'undefined' && isNcFile) ? '.nc' : '.txt';
         const note = document.getElementById('qcConvNote');
-        note.innerHTML = '<b>' + total + '</b> variables from <b>' + id + '</b>';
+        note.innerHTML = '<b>' + total + '</b> variables from <b>' + esc(id) + '</b>' +
+            '<span class="qc-badge" title="' + (srcFile
+                ? 'The exact file this flight was loaded from. Revisions are lettered (A, B, C…) and the archive always serves the latest.'
+                : 'The format of the currently loaded flight data') + '">' +
+            (srcFile ? esc(srcFile) : srcType + ' source') + '</span>';
         document.getElementById('qcConvSearch').value = '';
         document.getElementById('qcConvPreset').value = '';   // default to no preset (all selected) each open
         document.getElementById('qcConvShowUnsel').checked = true;   // default to showing everything each open
@@ -351,12 +375,14 @@
               '<h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">Convert Flight Data to Text (.txt)</h2>' +
               '<p class="qc-conv-note" id="qcConvNote"></p>' +
               '<div class="qc-conv-toprow">' +
-                '<div class="qc-conv-field"><label>Start time (HHMMSS)</label>' +
-                  '<input id="qcConvStart" class="qc-ov-input qc-conv-time" maxlength="6" inputmode="numeric" placeholder="HHMMSS">' +
-                  '<span class="qc-conv-hint" id="qcConvStartHint">5 min before takeoff</span></div>' +
-                '<div class="qc-conv-field"><label>End time (HHMMSS)</label>' +
-                  '<input id="qcConvEnd" class="qc-ov-input qc-conv-time" maxlength="6" inputmode="numeric" placeholder="HHMMSS">' +
-                  '<span class="qc-conv-hint">end of data</span></div>' +
+                '<div class="qc-conv-timegroup">' +
+                  '<div class="qc-conv-field"><label>Start time (HHMMSS)</label>' +
+                    '<input id="qcConvStart" class="qc-ov-input qc-conv-time" maxlength="6" inputmode="numeric" placeholder="HHMMSS">' +
+                    '<span class="qc-conv-hint" id="qcConvStartHint">5 min before takeoff</span></div>' +
+                  '<div class="qc-conv-field"><label>End time (HHMMSS)</label>' +
+                    '<input id="qcConvEnd" class="qc-ov-input qc-conv-time" maxlength="6" inputmode="numeric" placeholder="HHMMSS">' +
+                    '<span class="qc-conv-hint">end of data</span></div>' +
+                '</div>' +
                 '<div class="qc-conv-field qc-conv-field-btn">' +
                   '<button id="qcConvResetTrim" class="qc-ov-btn" title="Reset the window to 5 minutes before takeoff through the end of the data">Reset Times to Default</button>' +
                 '</div>' +
@@ -369,7 +395,7 @@
                     '<option value="pipe">Pipe  |</option></select></div>' +
                 '<div class="qc-conv-field"><label>Empty / gap cells</label>' +
                   '<select id="qcConvMissing" class="qc-ov-input qc-conv-sel">' +
-                    '<option value="nan" selected>NaN  (best for MATLAB)</option>' +
+                    '<option value="nan" selected>NaN</option>' +
                     '<option value="blank">Blank</option><option value="fill">-9999</option></select></div>' +
                 '<div class="qc-conv-field"><label>Time column</label>' +
                   '<select id="qcConvTimeFmt" class="qc-ov-input qc-conv-sel">' +
@@ -436,18 +462,32 @@
         document.getElementById('qcConvDownload').addEventListener('click', qcConvDownload);
     }
 
-    // called from qcInitUI (js/23) once the QC app shell exists: drop the opener into the top-left
-    // brand corner, beside the raw-.nc download link (relocated here from the mission loader console,
-    // where js/23's own qcRelocate already moved missionLoadConsole by this point in bootstrap — so
-    // reconSourceLink is reachable and this just re-parents that one link). Safe to call more than once.
+    // called from qcInitUI (js/23) once the QC app shell exists: append the converter opener and the
+    // raw-.nc download link (relocated from the mission loader console) to the BOTTOM of the Export
+    // menu, under Share QC Link, past a separator. Both keep real button skins (.qc-ov-btn), not the
+    // flat menu-item look. Not .qc-menu-item, so the menu's own close-on-click pass skips them --
+    // each closes the menu itself. The link keeps its id, so its existing show/hide (archive
+    // missions only, js/12b) and API-offline greying (js/02) still apply untouched. Safe to call
+    // more than once.
     function qcInitNcTxtConverter() {
-        const host = document.getElementById('qcBrandActions');
-        if (!host || document.getElementById('qcConvBtn')) return;
+        const menu = document.getElementById('qcExportMenu');
+        if (!menu || document.getElementById('qcConvBtn')) return;
+        const sep = document.createElement('div'); sep.className = 'qc-menu-sep';
+        menu.appendChild(sep);
+        const row = document.createElement('div'); row.className = 'qc-menu-btnrow';
+        menu.appendChild(row);
         const btn = document.createElement('button');
-        btn.id = 'qcConvBtn'; btn.type = 'button'; btn.className = 'qc-ov-btn qc-conv-open';
+        // accent skin on both, so the pair reads blue like Share QC Link above them
+        btn.id = 'qcConvBtn'; btn.type = 'button'; btn.className = 'qc-ov-btn qc-ov-btn-accent';
         btn.title = 'Convert this flight\'s data to a delimited .txt file (pick parameters, delimiter, and time window)';
-        btn.textContent = 'NC → TXT';
-        btn.addEventListener('click', qcConvOpen);
-        host.appendChild(btn);
-        if (typeof qcRelocate === 'function') qcRelocate('reconSourceLink', 'qcBrandActions');
+        btn.textContent = 'NC → TXT (.txt)';
+        btn.addEventListener('click', () => { menu.classList.add('hidden'); qcConvOpen(); });
+        row.appendChild(btn);
+        const link = document.getElementById('reconSourceLink');
+        if (link) {
+            link.className = 'qc-ov-btn qc-ov-btn-accent' + (link.classList.contains('hidden') ? ' hidden' : '');
+            link.textContent = 'Download Original (.nc)';
+            link.addEventListener('click', () => menu.classList.add('hidden'));
+            row.appendChild(link);
+        }
     }
