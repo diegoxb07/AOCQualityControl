@@ -46,15 +46,15 @@
                 AccZfilterI-GPS.2 UWINGX.d UWINGY.d UWINGZ.d USLIPX.d USLIPY.d USLIPZ.d ACCZref UTAILX.d
                 UTAILY.d UTAILZ.d DIFF.1 GDIFF.1 GDIFF.2 GsXI-GPS.2 GsXI-GPS.1 GsYI-GPS.2 GsYI-GPS.1
                 GsZI-GPS.2 GsZI-GPS.1 GSXref GSYref GSZref TRK.d GS.d UIZ.d USLIP_SQ.d UWING_SQ.d VINE.d
-                DSLIP.d DWING.d GPS_AltErr.3 GPS_GeoidHt.3 GPS_Hdop.3 GPS_LatErr.3 GPS_LonErr.3
+                DSLIP.d DWING.d GPS_AltErr.3 GPS_Hdop.3 GPS_LatErr.3 GPS_LonErr.3
                 GPS_Quality.3 GPS_SatNum.3 GPS_GGAcnt.3 GPS_GSAcnt.3 GPS_GSTcnt.3 GPS_Fxtime.3
                 AltBCADDUft.1 AltGPSft.1 AltI-GPSft.1 AltPaADDUft.1 AltRaft.2 AltRaft.1 CasADDUkt.1
                 TasADDUkt.1 DA.d SST.1 Salinity.1 Time
                 TTM.1 TTM.2 TDM.3
                 PDALPHA.1 PQALPHA.1 TDM.1
-                AltGPS.4 GPS_AltErr.4 GPS_Fxtime.4 GPS_GGAcnt.4 GPS_GSAcnt.4 GPS_GSTcnt.4 GPS_GeoidHt.4
+                AltGPS.4 GPS_AltErr.4 GPS_Fxtime.4 GPS_GGAcnt.4 GPS_GSAcnt.4 GPS_GSTcnt.4
                 GPS_Hdop.4 GPS_LatErr.4 GPS_LonErr.4 GPS_Quality.4 GPS_SatNum.4 LatGPS.4 LonGPS.4
-                AADChecksum.3 AADQC1Volt.3 AADQC2Volt.3 AADGroundVolt.3 AADStatus1.3 AADStatus2.3
+                AADChecksum.3 AADQC1Volt.3 AADQC2Volt.3 AADGroundVolt.3 AADStatus1.3
                 PDALPHA.2 PDBETA.2 PQM.4 PTM.1 TRadS.1
                 PCAB.1 PSM.2 PQM.2 PQM.3 PDBETA.1 PQBETA.1 AA.d SA.d PSM.1 PQM.1 TDM.2 TDMref TTMref
                 PQMref PSMref PQ.c PS.c EE.d TD.c ALTPA.d ALTPAft.d MDSHOUR.1 TWC.1 MDSMINUTE.1
