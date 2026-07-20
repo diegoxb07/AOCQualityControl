@@ -25,7 +25,7 @@ This tool reuses selected pieces of the AOC Mission Visualizer (the design, NetC
 
 **Archive browser (needs API to be online).** Pick **Year → Storm → Flight**, then **⤓ Load Flight + Storm Track**. The search box takes a full mission id to load it directly, or a storm name alone to find that storm across every season. Every flight you load is saved on this device and reopens instantly from the **already loaded** list, newest first.
 
-**Manual upload (always works, no internet needed).** Drop a **`.txt`** or **`.nc`** file on the **"or upload:"** zone. Every flight you load is saved on this device and reopens instantly from the **already loaded** list, newest first.
+**Manual upload (works offline).** Drop a **`.txt`** or **`.nc`** file on the **"or upload:"** zone. Every flight you load is saved on this device and reopens instantly from the **already loaded** list, newest first.
 
 > If the archive shows greyed out with an **"API Offline"** banner mean the archive service is unreachable; and the user should use manual upload. It will re-check periodically and re-enables itself (refresh recommended).
 
@@ -47,7 +47,7 @@ To override this automated detection, you can type `HHMMSS` times in the **T/O**
 - **Check regions.** Red shading marks physically implausible values (humidity above 200 percent, a 100 m/s wind change in under 15 s, vertical winds beyond 40 m/s, a 5 degree lat/lon position move within 30 minutes). User should judge each in the flights' context: a 20 m/s vertical wind is suspect at cruise, plausible in an eyewall.
 - **Markers.** Dotted verticals are takeoff and landing; the solid line is the playhead. `NO DATA` appears in place when a family of sensors (ex. SFMR) has nothing to plot.
 
-**Tools:** scrub (dragging moves the player), pan (drags the window), and select zoom (drag a box). **Reset Zoom** will appear on a zoomed graph. The **graph search** bar jumps to any variable, sensor, or title.
+**Tools:** slide (dragging moves the player), pan (drags the window), and select zoom (drag a box). **Reset Zoom** will appear on a zoomed graph. The **graph search** bar jumps to any variable, sensor, or title.
 
 ---
 
@@ -55,7 +55,7 @@ To override this automated detection, you can type `HHMMSS` times in the **T/O**
 
  **Group chips** toggle a whole sensor set; several groups can be selected at once. Each block lists the **standard deviation** and **coefficient of variation** between the selected sensors, with the worst-disagreement moment named.
 
-A connector shows the **reference** to every sensor it rode across the flight, in order. If it switched mid-flight, a badge in the title names each switch with its time (click a time to jump there), and the source in force at the playhead reads blue as you scrub.
+A connector shows the **reference** to every sensor it rode across the flight, in order. If it switched mid-flight, a badge in the title names each switch with its time (click a time to jump there), and the source in force at the playhead reads blue as you slide.
 
 ---
 
@@ -71,7 +71,7 @@ The **Flight Track** panel shows latitude and longitude into one map (longitude 
 
 ## 6. Flight context
 
-**Flight Context** button will give context to users: the 2D/3D map tracker, and the per-sensor report. The 2D map follows the aircraft; pan away and **Recenter on Aircraft** appears. Scrub from any graph, the arrow keys, or Play, and everything should follow the same time.
+**Flight Context** button will give context to users: the 2D/3D map tracker, and the per-sensor report. The 2D map follows the aircraft; pan away and **Recenter on Aircraft** appears. Slide from any graph, the arrow keys, or Play, and everything should follow the same time.
 
 Keyboard Shortcuts: **Space** play/pause, **← / →** step one second (**Shift** for ten), **Ctrl/Cmd + Z** step a zoom back, **Esc** close panels.
 

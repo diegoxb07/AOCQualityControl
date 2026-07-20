@@ -123,7 +123,7 @@
             const collapsed = bar.classList.toggle('collapsed');
             btn.setAttribute('aria-expanded', String(!collapsed));
             btn.innerHTML = collapsed ? '&#9660; Show media' : '&#9650; Collapse media';
-            // while the media is collapsed the full playback bar is hidden; the mini bar in the strip covers play/scrub/mark.
+            // while the media is collapsed the full playback bar is hidden; the mini bar in the strip covers play/slide/mark.
             const bottom = document.getElementById('stickyBottomBar');
             if (bottom) bottom.style.display = collapsed ? 'none' : '';
             if (typeof syncMiniPlaybackBar === 'function') syncMiniPlaybackBar();

@@ -331,7 +331,7 @@
 
     // the follower: drives the player to the playhead through the contract above and renders only
     // the map frame + clock, throttled. the full player pipeline never runs from here, which is
-    // what keeps scrubbing free of ghosting. a no-op while the 2d/3d context is hidden.
+    // what keeps sliding free of ghosting. a no-op while the 2d/3d context is hidden.
     let qcDriveAt = 0;
     function qcDrivePlayer(force) {
         const app = document.getElementById('qcApp');
@@ -561,7 +561,7 @@
         qcStatsPicker.style.display = 'flex';
     }
 
-    // ---- QC clock (graphs and arrow keys are the scrubber; there is no timeslider) --------------
+    // ---- QC clock (graphs and arrow keys do the sliding; there is no timeslider) ----------------
     function qcRefreshTimeline() { qcSyncTimeLabel(); }
     function qcSyncTimeLabel() {
         qcUpdateFlightContext();   // the sidebar's live flight-conditions readout follows the playhead too
@@ -635,7 +635,7 @@
                 '<button id="qcSpeedBtn" class="qc-ov-btn" title="Playback speed, click to cycle" style="min-width:44px">1x</button>' +
                     '<span id="qcTimeLabel" class="qc-time-label">--:--:--</span>' +
                   '</div>' +
-                  '<div class="qc-context-note">scrub by clicking or dragging on any graph, or with the arrow keys (shift for 10 s steps); playback stays between takeoff and landing</div>' +
+                  '<div class="qc-context-note">slide by clicking or dragging on any graph, or with the arrow keys (shift for 10 s steps); playback stays between takeoff and landing</div>' +
                 '</div>' +
                 '<div class="qc-report" id="qcReportPanel"></div>' +
               '</aside>' +
@@ -674,10 +674,9 @@
               '<button id="qcHelpClose" class="qc-cmd-x" style="position:absolute;top:14px;right:14px" title="Close">\u2715</button>' +
               '<div class="border-b border-hairline pr-8" style="padding-bottom:10px;">' +
                 '<h2 class="text-ink text-lg font-bold">Help &amp; Feature Guide</h2>' +
-                '<p class="text-[11px] text-muted mt-1 leading-snug">Built for the NOAA Aircraft Operations Center &middot; Science Branch. Based on the qc_plots_with_map_v2.py workflow, automated into one tool.</p>' +
+                '<p class="text-[11px] text-muted mt-1 leading-snug">Full documentation and source: <a href="https://github.com/diegoxb07/AOCQualityControl" target="_blank" rel="noopener" class="text-accent underline">github.com/diegoxb07/AOCQualityControl</a> &middot; Built for the Aircraft Operations Center &middot; Science Branch.</p>' +
               '</div>' +
               '<div class="help-body">' +
-                '<p class="help-lead" style="margin-top:10px">The QC Tool grades every sensor on a hurricane-hunter flight: raw flight-level data on a continuous 1 second axis, recorder gaps separated from per-sensor gaps, implausible values flagged, the legacy script statistics reproduced, and the same reports the archive workflow expects.</p>' +
                 '<div class="qc-help-toc">' +
                   ['Load a mission','Reading a graph','Check regions','Legend and groups','Tools and zoom','Issues and pills','Statistics','Takeoff and landing','Flight context','Exports','Shortcuts'].map(function (t, i) { return '<button onclick="document.getElementById(\'qchs' + i + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + t + '</button>'; }).join('') +
                 '</div>' +
@@ -709,7 +708,7 @@
                   '<ul>' +
                     '<li><b>Archive (API online):</b> search by id, storm, or date, or pick Year, Storm, Flight, then Load Flight + Storm Track.</li>' +
                     '<li><b>Can\'t find the mission you\'re looking for?</b> Check that the flight has been put onto the SEB Archive; a new mission can take up to a day to populate. You can always manually upload it in the meantime.</li>' +
-                    '<li><b>Manual upload:</b> drop a .txt or .nc on the upload zone; works with no internet.</li>' +
+                    '<li><b>Manual upload:</b> drop a .txt or .nc on the upload zone; works offline.</li>' +
                     '<li><b>Already loaded:</b> every flight is stored on this device and reopens instantly; the red cross removes one. The store keeps the 100 most recent.</li>' +
                     '<li><b>Batch Load Flight Data:</b> download whole seasons for instant, offline reopening.</li>' +
                   '</ul>' +
@@ -718,9 +717,18 @@
                 '<div class="qc-help-card" id="qchs2">' +
                   '<h3>Check regions</h3>' +
                   '<ul>' +
-                    '<li>Red shading and red markers flag implausible values. Judge them in flight context: a 20 m/s vertical wind at cruise is suspect, the same value inside an eyewall may be real.</li>' +
-                    '<li>Current rules: humidity above 200 percent, a 100 m/s wind change in under 15 s, vertical wind beyond 40 m/s, and a 5 degree position change within 30 minutes.</li>' +
+                    '<li><b>Red shading</b> and red markers flag implausible values. Judge them in flight context: a 20 m/s vertical wind at cruise is suspect, the same value inside an eyewall may be real.</li>' +
+                    '<li><b>Current rules:</b> humidity above 200 percent, a 100 m/s wind change in under 15 s, vertical wind beyond 40 m/s, and a 5 degree position change within 30 minutes.</li>' +
                   '</ul>' +
+                  '<svg class="qc-help-fig" width="300" height="76" viewBox="0 0 300 76">' +
+                    '<rect x="0.5" y="0.5" width="299" height="75" rx="6" fill="none" stroke="var(--border)"/>' +
+                    '<rect x="138" y="3" width="76" height="70" fill="rgba(239,68,68,0.14)"/>' +
+                    '<path d="M12 46 C 55 40, 100 50, 138 44" stroke="#5b9dff" fill="none" stroke-width="1.6"/>' +
+                    '<path d="M138 44 L168 45 L176 7 L184 45 L214 45" stroke="#ef4444" fill="none" stroke-width="1.6"/>' +
+                    '<path d="M214 45 C 250 48, 272 42, 290 46" stroke="#5b9dff" fill="none" stroke-width="1.6"/>' +
+                    '<text x="176" y="68" text-anchor="middle">check region</text>' +
+                    '<text x="70" y="64" text-anchor="middle">plausible data</text>' +
+                  '</svg>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs3">' +
@@ -729,15 +737,15 @@
                     '<li>One checkbox per variable; click to select or unselect it.</li>' +
                     '<li><b>Group chips:</b> a chip toggles its whole sensor group on or off, and several groups can be lit on one graph at the same time.</li>' +
                     '<li><b>Standard deviation and coefficient of variation</b> for the selected sensors sit under each graph, with the worst moment named.</li>' +
-                    '<li><b>Ref linkage:</b> the pipe connector chains the ref to every sensor it rode; the source in force at the playhead reads blue as you scrub. A badge in the title lists each switch; click a switch time to jump there.</li>' +
+                    '<li><b>Ref linkage:</b> the pipe connector chains the ref to every sensor it rode; the source in force at the playhead reads blue as you slide. A badge in the title lists each switch; click a switch time to jump there.</li>' +
                   '</ul>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs4">' +
                   '<h3>Tools and zoom</h3>' +
                   '<ul>' +
-                    '<li><b>Scrub</b> drags the playhead, <b>pan</b> moves the window (vertically too), <b>select zoom</b> drags a box. The wheel always zooms time.</li>' +
-                    '<li><b>Reset Zoom</b> floats on a zoomed graph; double click does the same and hands the mouse back to scrub.</li>' +
+                    '<li><b>Slide</b> drags the playhead, <b>pan</b> moves the window (vertically too), <b>select zoom</b> drags a box. The wheel always zooms time.</li>' +
+                    '<li><b>Reset Zoom</b> floats on a zoomed graph; double click does the same and hands the mouse back to the slide tool.</li>' +
                     '<li>Each graph carries <b>save as PNG</b> and <b>fullscreen</b> at its top right; <b>graph search</b> (far left of the status bar) jumps to any panel.</li>' +
                   '</ul>' +
                 '</div>' +
@@ -776,7 +784,7 @@
                   '<ul>' +
                     '<li><b>Flight Context</b> opens the sidebar: the 2D/3D tracker, a live flight-conditions readout, Play, the speed control, and the flight clock.</li>' +
                     '<li>The 2D map follows the aircraft; pan away and Recenter on Aircraft appears.</li>' +
-                    '<li>Scrub from any graph, the arrow keys, or Play; every surface follows the same playhead.</li>' +
+                    '<li>Slide from any graph, the arrow keys, or Play; every surface follows the same playhead.</li>' +
                   '</ul>' +
                   '<p style="font-size:12px;color:var(--text-muted);margin:8px 0 8px">Wind barbs on the 2D map are colored by wind speed (knots), across a 0 to 160 kt ramp.</p>' +
                   '<div class="wb-legend">' +
@@ -1022,7 +1030,7 @@
         }, true);
 
         // play/pause borrows the visualizer engine via its real button; there is no timeslider
-        // (the graphs and the arrow keys are the scrubber)
+        // (the graphs and the arrow keys do the sliding)
         document.getElementById('qcPlayBtn').addEventListener('click', () => {
             const pb = document.getElementById('playPauseBtn'); if (!pb || pb.disabled) return;
             pb.click();

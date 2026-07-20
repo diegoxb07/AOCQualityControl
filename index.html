@@ -32,8 +32,8 @@
          with no internet; only the recon-archive API needs one.
          css/tailwind.css is COMPILED, not hand-written, regenerate after changing Tailwind
          classes in index.html or js/*.js:  npx tailwindcss@3 -i tailwind.input.css -o css/tailwind.css --minify -->
-    <link rel="stylesheet" href="css/fonts.css?v=20260717f">
-    <link rel="stylesheet" href="css/tailwind.css?v=20260717f">
+    <link rel="stylesheet" href="css/fonts.css?v=20260720a">
+    <link rel="stylesheet" href="css/tailwind.css?v=20260720a">
     <script src="lib/chart.umd.min.js"></script>
     <!-- hammer.js provides the drag gesture the zoom plugin's pan mode requires; without it pan is silently inert -->
     <script src="lib/hammer.min.js"></script>
@@ -42,7 +42,7 @@
     <script src="lib/OrbitControls.js"></script>
     <script src="lib/netcdfjs.min.js"></script>
 
-    <link rel="stylesheet" href="css/app.css?v=20260717f">
+    <link rel="stylesheet" href="css/app.css?v=20260720a">
 </head>
 <body class="font-sans antialiased">
     <!-- QC boot cover: paints from the first frame so the reused visualizer never flashes on refresh
@@ -313,13 +313,13 @@
         <!-- collapser: sits on the drag grip's line at the bottom right, so it adds no extra row -->
         <button id="mediaCollapseBtn" type="button" title="Collapse or expand the media players" aria-expanded="true" class="media-collapse-btn px-2 py-0.5 bg-panel-strip text-muted border border-hairline hover:bg-elevated hover:text-ink rounded text-[11px] font-semibold transition-colors whitespace-nowrap leading-tight">&#9650; Collapse media</button>
         <!-- shown only when the media is collapsed: the full playback bar hides, and this compact row
-             keeps play/pause, scrubbing, marking and S.I. usable inside the thin media strip. -->
+             keeps play/pause, timeline sliding, marking and S.I. usable inside the thin media strip. -->
         <div id="miniPlaybackBar" class="mini-playback-bar">
             <button id="miniPlayBtn" type="button" class="mini-pb-btn mini-pb-accent" title="Play / pause">Play</button>
             <button id="miniMarkBtn" type="button" class="mini-pb-btn mini-pb-accent" title="Mark point">Mark</button>
             <button id="miniClearBtn" type="button" class="mini-pb-btn" title="Clear marks">&#10005;</button>
             <label class="mini-pb-si" title="S.I units"><input type="checkbox" id="miniToggleSI"> S.I</label>
-            <input type="range" id="miniTimelineSlider" min="0" max="100" value="0" class="mini-timeline" title="Scrub the flight" />
+            <input type="range" id="miniTimelineSlider" min="0" max="100" value="0" class="mini-timeline" title="Slide through the flight" />
             <span id="miniTimeDisplay" class="mini-pb-time">00:00:00 UTC</span>
         </div>
     </div>
@@ -663,7 +663,7 @@
             <h3>Keyboard shortcuts</h3>
             <ul>
                 <li><kbd>Space</kbd> plays or pauses.</li>
-                <li><kbd>Left</kbd> / <kbd>Right</kbd> arrows scrub the timeline (hold to accelerate).</li>
+                <li><kbd>Left</kbd> / <kbd>Right</kbd> arrows slide through the timeline (hold to accelerate).</li>
                 <li><kbd>Shift</kbd> + <kbd>Left</kbd> / <kbd>Right</kbd> jumps 10 flight-minutes.</li>
             </ul>
 
@@ -671,7 +671,7 @@
             <p>Both paths feed the same parser, so the map, charts, PFD, and export behave identically.</p>
             <ul>
                 <li><b>Archive browser (needs API online):</b> in the top-left card, type in the search box to find a mission by id, storm name, or date (YY-MM-DD), or pick <b>Year</b>, <b>Storm</b>, and <b>Flight</b> from the dropdowns, then click <b>Load Flight + Storm Track</b>. This streams the full-resolution mission NetCDF plus the storm's whole-life best-track.</li>
-                <li><b>Manual upload (always works, no internet):</b> drop a <b>.nc</b> file (for example <kbd>20221028H1_A.nc</kbd>) on the "or upload" zone. When the API is offline the archive greys out with an "API Offline" banner and the upload button enlarges. It re-checks every 60 seconds and re-enables itself.</li>
+                <li><b>Manual upload (works offline):</b> drop a <b>.nc</b> file (for example <kbd>20221028H1_A.nc</kbd>) on the "or upload" zone. When the API is offline the archive greys out with an "API Offline" banner and the upload button enlarges. It re-checks every 60 seconds and re-enables itself.</li>
                 <li><b>Batch Load Flight Data</b> downloads and parses missions in the background. They save on this device and reopen instantly from <b>Previously Loaded Missions</b>, even after a reload.</li>
                 <li><b>Metrics Across Flights</b> finds which loaded flight recorded the highest or lowest value of any metric, with a comparison graph (works offline).</li>
             </ul>
@@ -680,7 +680,7 @@
             <p>Everything lives in the sticky bottom bar. Set the <b>Flight-Data Start and End</b> times (<kbd>HHMMSS</kbd> UTC) to replay just a segment, and the map, charts, PFD, and timeline render only that window.</p>
             <ul>
                 <li><b>Play</b> and <b>Pause</b>, playback speed, and <b>Reset</b> (jump to the window start).</li>
-                <li><b>Timeline slider</b> scrubs anywhere, and the UTC readout updates live.</li>
+                <li><b>Timeline slider</b> lets you slide to any moment in the flight, with the UTC time alongside it.</li>
                 <li><b>8Hz Smoothing</b> (map header) interpolates between the 1-second samples for fluid motion, recommended for training.</li>
                 <li>With a synced MMR video loaded, the video clock drives playback. Otherwise the engine advances on its own clock.</li>
             </ul>
@@ -748,36 +748,36 @@
      whole page. Classic scripts, one shared global scope, load order matters. -->
     <!-- ?v= cache-buster: bump this token after editing any css/js so browsers (and the Codespaces
          port-preview) fetch the new files instead of a stale cached copy. -->
-    <script src="js/00b-qc-catalog.js?v=20260717f"></script>
-    <script src="js/01-state.js?v=20260717f"></script>
-    <script src="js/02-recon-api.js?v=20260717f"></script>
-    <script src="js/03-metrics.js?v=20260717f"></script>
-    <script src="js/06-ocr.js?v=20260717f"></script>
-    <script src="js/07-ui-controls.js?v=20260717f"></script>
-    <script src="js/07b-plane-models.js?v=20260717f"></script>
-    <script src="js/07c-terrain.js?v=20260717f"></script>
-    <script src="js/09-interaction.js?v=20260717f"></script>
-    <script src="js/11-layout.js?v=20260717f"></script>
-    <script src="js/11b-parser-core.js?v=20260717f"></script>
-    <script src="js/12-file-parsing.js?v=20260717f"></script>
-    <script src="js/12b-recon-archive.js?v=20260717f"></script>
-    <script src="js/13-charts-master.js?v=20260717f"></script>
-    <script src="js/14-filters-sync.js?v=20260717f"></script>
-    <script src="js/15-map-render.js?v=20260717f"></script>
-    <script src="js/17-charts.js?v=20260717f"></script>
-    <script src="js/18-engine.js?v=20260717f"></script>
-    <script src="js/18b-flight-search.js?v=20260717f"></script>
-    <script src="js/19-bootstrap.js?v=20260717f"></script>
-    <script src="js/20-ui-polish.js?v=20260717f"></script>
+    <script src="js/00b-qc-catalog.js?v=20260720a"></script>
+    <script src="js/01-state.js?v=20260720a"></script>
+    <script src="js/02-recon-api.js?v=20260720a"></script>
+    <script src="js/03-metrics.js?v=20260720a"></script>
+    <script src="js/06-ocr.js?v=20260720a"></script>
+    <script src="js/07-ui-controls.js?v=20260720a"></script>
+    <script src="js/07b-plane-models.js?v=20260720a"></script>
+    <script src="js/07c-terrain.js?v=20260720a"></script>
+    <script src="js/09-interaction.js?v=20260720a"></script>
+    <script src="js/11-layout.js?v=20260720a"></script>
+    <script src="js/11b-parser-core.js?v=20260720a"></script>
+    <script src="js/12-file-parsing.js?v=20260720a"></script>
+    <script src="js/12b-recon-archive.js?v=20260720a"></script>
+    <script src="js/13-charts-master.js?v=20260720a"></script>
+    <script src="js/14-filters-sync.js?v=20260720a"></script>
+    <script src="js/15-map-render.js?v=20260720a"></script>
+    <script src="js/17-charts.js?v=20260720a"></script>
+    <script src="js/18-engine.js?v=20260720a"></script>
+    <script src="js/18b-flight-search.js?v=20260720a"></script>
+    <script src="js/19-bootstrap.js?v=20260720a"></script>
+    <script src="js/20-ui-polish.js?v=20260720a"></script>
     <!-- QC Mode: catalog loads up top (00b); engine, charts, and report/controller load last so
          they can wrap the player's update path. See js/21..23 and js/11b parseFlightRawQC. -->
-    <script src="js/21-qc-engine.js?v=20260717f"></script>
-    <script src="js/22-qc-charts.js?v=20260717f"></script>
-    <script src="js/23-qc-report.js?v=20260717f"></script>
-    <script src="js/24-qc-export-html.js?v=20260717f"></script>
-    <script src="js/25-qc-error-summary.js?v=20260717f"></script>
-    <script src="js/26-qc-track-pdf.js?v=20260717f"></script>
-    <script src="js/27-nc-txt-converter.js?v=20260717f"></script>
+    <script src="js/21-qc-engine.js?v=20260720a"></script>
+    <script src="js/22-qc-charts.js?v=20260720a"></script>
+    <script src="js/23-qc-report.js?v=20260720a"></script>
+    <script src="js/24-qc-export-html.js?v=20260720a"></script>
+    <script src="js/25-qc-error-summary.js?v=20260720a"></script>
+    <script src="js/26-qc-track-pdf.js?v=20260720a"></script>
+    <script src="js/27-nc-txt-converter.js?v=20260720a"></script>
 
     <!-- Offline support: sw.js precaches the whole app (css/js/lib/fonts/data), so after one
          online visit the page loads and replays flights with no network (docs/CONNECTIVITY.md).

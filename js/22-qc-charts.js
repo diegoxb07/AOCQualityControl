@@ -11,7 +11,7 @@
     let qcTimeLabels = null;           // HH:MM:SS label per axis second, built once per flight
     let qcAxisRef = null;              // the active qcResult.timeAxis, for playhead second->index mapping
     let qcActiveChart = null;          // chart under the cursor / last interacted, for ctrl+z undo
-    let qcPhaseMarks = null;           // { toIdx, landIdx }: takeoff/landing markers + scrub bounds
+    let qcPhaseMarks = null;           // { toIdx, landIdx }: takeoff/landing markers + slide bounds
     // ONE playhead, one owner: qcScrubIdx is the single source of truth for "the current second".
     // the graph line draws from it, the map and clock FOLLOW it (qcDrivePlayer), and the only thing
     // that moves it automatically is active playback (the player wrapper mirrors its row into it).
@@ -116,7 +116,7 @@
         return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
     }
 
-    // arrow keys scrub the playhead: left/right one second, shift for ten
+    // arrow keys slide the playhead: left/right one second, shift for ten
     document.addEventListener('keydown', e => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         const t = e.target; if (t && /input|textarea|select/i.test(t.tagName)) return;
@@ -288,7 +288,7 @@
         if (typeof qcJumpToSecond === 'function') qcJumpToSecond(Math.round(qcAxisRef[i]));
     }
 
-    // scrub bounds: the whole recording is scrubbable, before takeoff included, so the graphs and
+    // slide bounds: the playhead can slide through the whole recording, before takeoff included, so the graphs and
     // the flight-track map roam the full range. the flight-context player clamps ITSELF to
     // takeoff..landing through qcPlayheadToRow (a pre-takeoff playhead just shows the takeoff
     // frame), so nothing is pinned here.
@@ -309,7 +309,7 @@
     function qcWireCanvas(canvas, chart) {
         canvas.addEventListener('mousedown', ev => {
             chart.$qcDownX = ev.clientX; chart.$qcDownY = ev.clientY; qcActiveChart = chart;
-            // scrub tool: the playhead follows the cursor from the moment the button goes down.
+            // slide tool: the playhead follows the cursor from the moment the button goes down.
             // engages only inside the plot area, so legend clicks stay legend clicks.
             if (ev.button === 0 && (chart.$qcTool || 'scrub') === 'scrub' && chart.chartArea) {
                 const rect = canvas.getBoundingClientRect();
@@ -367,7 +367,7 @@
         canvas.addEventListener('mouseleave', () => { qcGapTip().classList.add('hidden'); });
     }
 
-    // tool switch on one chart. scrub (default): dragging moves the playhead under the cursor.
+    // tool switch on one chart. slide (default): dragging moves the playhead under the cursor.
     // pan: dragging moves the time window. select zoom: dragging draws a zoom box (both axes,
     // like bokeh's BoxZoomTool). wheel zoom stays on in every mode.
     const qcToolCursor = t => t === 'scrub' ? 'ew-resize' : t === 'pan' ? 'grab' : 'crosshair';
@@ -381,7 +381,7 @@
         chart.update('none');
     }
 
-    // live scrub, atomic: while the button is down ONLY the scrubber line moves (pure canvas
+    // live slide, atomic: while the button is down ONLY the playhead line moves (pure canvas
     // redraws, the player is never touched, so nothing else can flash). the map, sliders, and
     // player sync exactly once, on release.
     function qcScrubMove(chart, canvas, ev, hard) {
@@ -510,7 +510,7 @@
         // the home window is set with explicit limits, which the plugin counts as "zoomed";
         // the float staying up after a reset would read as a failed reset
         if (chart.$qcResetBtn) chart.$qcResetBtn.classList.remove('show');
-        // a reset also hands the mouse back to the scrubber, the default tool
+        // a reset also hands the mouse back to the slide tool, the default
         if (chart.$qcSelectTool) chart.$qcSelectTool('scrub'); else qcSetTool(chart, 'scrub');
         qcActiveChart = chart;
     }
@@ -539,7 +539,7 @@
             interaction: { mode: 'nearest', axis: 'xy', intersect: false },
             elements: { point: { radius: 0 }, line: { borderWidth: 1.2, tension: 0 } },
             scales: {
-                // the graphs show the FULL recording (pre-takeoff included); only the scrubber is
+                // the graphs show the FULL recording (pre-takeoff included); only the playhead is
                 // clamped to takeoff..landing, since the 2d/3d player has no rows outside it
                 x: { type: 'linear', bounds: 'data', grid: { color: 'rgba(148,163,184,0.08)' }, ticks: xTicks },
                 // the top tenth of every graph is reserved: data that reaches its ceiling would
@@ -1194,7 +1194,7 @@
             '<div class="modal-card qc-diff-context" id="qcDiffContext" style="display:none">' +
               '<div class="qc-context-head">Flight Track <span>context</span></div>' +
               '<div class="qc-map-slot" id="qcDiffMapSlot"></div>' +
-              '<div class="qc-context-note">the map follows the graph playhead, so scrub to the moment the difference occurs</div>' +
+              '<div class="qc-context-note">the map follows the graph playhead, so slide to the moment the difference occurs</div>' +
             '</div>';
         document.body.appendChild(m);
         m.addEventListener('click', e => { if (e.target === m) qcCloseDiffModal(); });
@@ -1481,7 +1481,7 @@
         };
         const modeBtns = [];
         const setActive = btn => { modeBtns.forEach(b => b.classList.toggle('active', b === btn)); };
-        // the map panel has no time axis to scrub: pan is its resting tool
+        // the map panel has no time axis to slide through: pan is its resting tool
         const scrubBtn = chart.$qcIsMap ? null : mk('scrub', 'scrub', 'Drag anywhere on the graph and the playhead follows the cursor', () => { qcSetTool(chart, 'scrub'); setActive(scrubBtn); });
         const panBtn = mk('pan', 'pan', chart.$qcIsMap ? 'Drag moves the map, wheel zooms' : 'Drag moves the time window, wheel zooms', () => { qcSetTool(chart, 'pan'); setActive(panBtn); });
         const boxBtn = mk('box', 'select zoom', 'Drag a box to zoom into that area', () => { qcSetTool(chart, 'box'); setActive(boxBtn); });
@@ -1647,16 +1647,16 @@
         qcRefLiveHighlight();
     }
 
-    // the flight-track map's mini timeslider: a follower of qcScrubIdx that scrubs the WHOLE
+    // the flight-track map's mini timeslider: a follower of qcScrubIdx that slides through the WHOLE
     // recording. dragging it sets the one source of truth and drives the same sync path as the
-    // white-bar scrubber; qcSyncPlayhead pushes other scrubs back to it.
+    // white-bar slider; qcSyncPlayhead pushes playhead moves from elsewhere back to it.
     function qcBuildMiniSlider() {
         const n = qcAxisRef ? qcAxisRef.length : 0;
         const wrap = document.createElement('div'); wrap.className = 'qc-mini-slider';
         const range = document.createElement('input'); range.type = 'range'; range.className = 'qc-mini-range';
         range.min = '0'; range.max = String(Math.max(0, n - 1)); range.step = '1';
         range.value = String(qcScrubIdx != null ? qcScrubIdx : 0);
-        range.title = 'Scrub the flight timeline';
+        range.title = 'Slide through the flight timeline';
         const time = document.createElement('span'); time.className = 'qc-mini-time';
         const scrub = hard => {
             qcScrubIdx = qcClampScrub(Math.round(range.valueAsNumber));

@@ -184,7 +184,7 @@
         const currentRow = filteredData[idx]; if (!currentRow) return;
 
         // the storm badge and chart playheads depend only on idx, so a same-idx refresh
-        // (skipCharts=true, from scrubbing) skips rebuilding them; any idx change or full
+        // (skipCharts=true, from sliding) skips rebuilding them; any idx change or full
         // update (unit toggle, marker add) still redraws everything.
         const skipStatic = skipCharts && idx === _lastStaticIdx;
 

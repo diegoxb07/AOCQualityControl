@@ -1,4 +1,4 @@
-/* Mission Visualizer, menus, scrub, keyboard, canvas input
+/* Mission Visualizer, menus, timeline sliding, keyboard, canvas input
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
@@ -37,7 +37,7 @@
     timelineSlider.addEventListener('mousedown', () => { isScrubbing = true; wasPlayingBeforeScrub = isPlaying; if (isPlaying) { isPlaying = false; if (videoLoaded) video.pause(); } });
     timelineSlider.addEventListener('touchstart', () => { isScrubbing = true; wasPlayingBeforeScrub = isPlaying; if (isPlaying) { isPlaying = false; if (videoLoaded) video.pause(); } }, {passive: true});
 
-    // Only treat a click as a scrub if it lands inside the chart's plotting area.
+    // Only treat a click as a slide if it lands inside the chart's plotting area.
     // The legend strip above chartArea acts as the per-variable filter toggles, so
     // clicking a variable there must NOT jump the playhead (start a drag).
     const pointInChartPlotArea = (chart, xPixel, yPixel) => {
@@ -118,14 +118,14 @@
         if (!filteredData || filteredData.length === 0) return; if (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) return;
         // Space = play/pause. Skipped when a button/select/checkbox has focus, space already
         // activates those natively and hijacking it would double-fire (a focused range slider is
-        // fine though: space is a no-op there, and scrub-then-space is a common flow).
+        // fine though: space is a no-op there, and slide-then-space is a common flow).
         if (e.code === 'Space' && !/SELECT|BUTTON|TEXTAREA/.test(e.target.tagName)
             && !(e.target.tagName === 'INPUT' && /checkbox|radio/.test(e.target.type))) {
             e.preventDefault(); if (!playPauseBtn.disabled) playPauseBtn.click(); return;
         }
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-            // the qc app owns arrow scrubbing (js/22 steps the raw-axis playhead); stepping the
-            // cleaned-row index here too would fight it and judder a held-key scrub
+            // the qc app owns arrow sliding (js/22 steps the raw-axis playhead); stepping the
+            // cleaned-row index here too would fight it and judder a held-key slide
             if (document.body.classList.contains('qc-app-on')) return;
             // Shift+arrow = jump 10 flight-minutes.
             if (e.shiftKey) { e.preventDefault(); skipFlightMinutes(e.key === 'ArrowRight' ? 10 : -10); return; }

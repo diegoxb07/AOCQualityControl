@@ -61,7 +61,7 @@
         Object.values(customCharts).forEach(c => { try { c.destroy(); } catch (e) {} }); customCharts = {};
         if (typeof destroyClipPreviews === 'function') destroyClipPreviews();
 
-        // clear the loaded flight, storm-track, analysis and scrub state.
+        // clear the loaded flight, storm-track, analysis and sliding state.
         allParsedData = []; filteredData = []; availableMetrics.clear(); currentIdx = 0; _lastStaticIdx = -1;
         customMarkers = []; tempBaseline = []; lastParseStats = null;
         flightMetaData = { id: 'Unknown', date: 'Unknown', aircraft: 'Unknown' };
@@ -113,7 +113,7 @@
 
     document.getElementById('resetAppBtn').addEventListener('click', resetAppToDefault);
 
-    // Mini playback bar (shown in the collapsed media strip): keeps play/pause, scrubbing, marking and
+    // Mini playback bar (shown in the collapsed media strip): keeps play/pause, timeline sliding, marking and
     // S.I. usable when the full playback bar is collapsed away with the media. The controls proxy the
     // real ones (so all their logic runs unchanged), and syncMiniPlaybackBar mirrors state back each frame.
     (function wireMiniPlayback() {
@@ -122,7 +122,7 @@
         if (!miniSlider) return;
         const mainSlider = $('timelineSlider'), mainTime = $('timelineTimeDisplay');
         const miniTime = $('miniTimeDisplay'), miniPlay = $('miniPlayBtn'), miniSI = $('miniToggleSI');
-        // scrubbing: forward to the real slider (its own handlers scrub; the window mouseup ends it).
+        // sliding: forward to the real slider (its own handlers do the sliding; the window mouseup ends it).
         miniSlider.addEventListener('mousedown', () => mainSlider.dispatchEvent(new Event('mousedown')));
         miniSlider.addEventListener('touchstart', () => mainSlider.dispatchEvent(new Event('touchstart')), { passive: true });
         miniSlider.addEventListener('input', () => { mainSlider.value = miniSlider.value; mainSlider.dispatchEvent(new Event('input')); });
@@ -596,7 +596,7 @@
     wireClipTimeField('clipEndSlider', 'clipEndTime');
 
     // start and end frame previews: a self contained 2d mini tracker plus mmr still at each chosen
-    // point, so the range can be dialed in without leaving the modal to scrub the main view.
+    // point, so the range can be dialed in without leaving the modal to slide through the main view.
     let clipFrameProj = null;   // lon/lat bounds of the loaded flight, fit once per modal open
 
     function buildClipFrameProjection() {
