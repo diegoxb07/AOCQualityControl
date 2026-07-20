@@ -46,7 +46,6 @@
     let reconApiHealthReason = '';
 
     function isReconApiDown() {
-        return true; // DEMO: forces the API-offline UI for preview. DELETE THIS LINE to restore.
         return reconApiHealthChecked ? !reconApiHealthOk : false;
     }
     function isReconApiAvailable() {
