@@ -31,6 +31,8 @@ This tool reuses selected pieces of the AOC Mission Visualizer (the design, NetC
 
 **⤓ Batch Load Flight Data** is a tool you can use to download multiple flights in batch, (ex. whole seasons), so that when you need the flight, it will be instant, and offline reopening (browser musn't be closed)
 
+**Metrics Across Flights** finds which stored flight recorded the highest or lowest value of any metric, with a comparison graph (works offline).
+
 ---
 
 ## 2. Takeoff, landing & trimming
@@ -82,11 +84,14 @@ Keyboard Shortcuts: **Space** play/pause, **← / →** step one second (**Shift
 | Export | What it is |
 | --- | --- |
 | **Indiv. Sensor Stats CSV** | One row per sensor (presence, gaps, missing seconds, early stop) plus each pair's max difference. |
-| **Indiv. Plane Stats CSV** | Pick which stored flights go into each plane's `N42/N43/N49_Stats.txt`, byte-for-byte in the legacy format so downloads append onto historical files. Every loaded flight saves automatically. |
+| **Indiv. Plane Stats CSV** | Pick which stored flights go into each plane's `N42/N43/N49_Stats.csv`. Values are in the legacy script format, so with the header row dropped they append onto historical files. Every loaded flight saves automatically. |
 | **Gap Report (.dat)** | Recorder gaps in the archive's `GapReport.dat` wording. |
 | **Interactive Report (.html)** | One self-contained file: every graph interactive (zoom, hover), the gap markers, the flight track, and the summary. Opens anywhere, no flight load needed, sendable to anyone. |
-| **Error Summary (.pdf)** | The `qc_Error_Summary` form, prefilled by the tool and editable; the PDF layout matches the script exactly. |
+| **Error Summary (.pdf)** | The `qc_Error_Summary` form, prefilled by the tool and editable. The PDF layout matches the script exactly. |
+| **Flight Track Map (.pdf)** | A landscape PDF map of the flight track, like the ones previously exported by FD's. |
 | **Share QC Link** | Reopens an archive mission at your playhead, tracker view, and sidebar state. |
+| **NC → TXT (.txt)** | Converts the loaded flight to a delimited text file. Every variable in the file is listed (not just the graphed set), and the parameters, delimiter, and time window are all pickable. |
+| **Download Original (.nc)** | The mission's full-resolution source NetCDF (archive missions, API online). |
 
 The **Error Summary** modal prefills the flight id, takeoff/landing times, flight directory, ground locations (nearest airport within a few miles of the aircraft at takeoff/landing), and sensor designations (from what the reference variables rode). Any fields the tool can't derive are left blank rather than automated; required fields flag red while empty. You can click a designation row to graph its sensors beside the modal.
 

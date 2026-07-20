@@ -635,7 +635,7 @@
                 '<button id="qcSpeedBtn" class="qc-ov-btn" title="Playback speed, click to cycle" style="min-width:44px">1x</button>' +
                     '<span id="qcTimeLabel" class="qc-time-label">--:--:--</span>' +
                   '</div>' +
-                  '<div class="qc-context-note">slide by clicking or dragging on any graph, or with the arrow keys (shift for 10 s steps); playback stays between takeoff and landing</div>' +
+                  '<div class="qc-context-note">slide by clicking or dragging on any graph, or with the arrow keys (shift for 10 s steps). Playback stays between takeoff and landing</div>' +
                 '</div>' +
                 '<div class="qc-report" id="qcReportPanel"></div>' +
               '</aside>' +
@@ -696,10 +696,10 @@
                     '<text x="178" y="76" text-anchor="middle">missing s</text>' +
                   '</svg>' +
                   '<ul>' +
-                    '<li><b>Gap markers:</b> the small triangle in the top strip marks a gap; the faint yellow pillar under it spans the missing seconds. Click the triangle itself to jump the playhead there AND zoom into the gap; clicking anywhere else just moves the playhead. Hover the pillar for the exact window and length.</li>' +
+                    '<li><b>Gap markers:</b> the small triangle in the top strip marks a gap, and the faint yellow pillar under it spans the missing seconds. Click the triangle itself to jump the playhead there AND zoom into the gap. Clicking anywhere else just moves the playhead. Hover the pillar for the exact window and length.</li>' +
                     '<li><b>Lines:</b> dotted verticals are takeoff and landing, the solid white line is the playhead, and NO DATA appears in place when a family has nothing to plot.</li>' +
-                    '<li><b>Hover:</b> the tooltip picks the point nearest the cursor in both axes, so aiming at a spike grabs the spike; every other visible sensor at that second lists below it.</li>' +
-                    '<li><b>Flight Track:</b> latitude and longitude share one map panel (longitude across, latitude up) with faint geography behind the tracks and takeoff, landing, and playhead dots; click a track to jump the playhead there.</li>' +
+                    '<li><b>Hover:</b> the tooltip picks the point nearest the cursor in both axes, so aiming at a spike grabs the spike. Every other visible sensor at that second lists below it.</li>' +
+                    '<li><b>Flight Track:</b> latitude and longitude share one map panel (longitude across, latitude up) with faint geography behind the tracks and takeoff, landing, and playhead dots. Click a track to jump the playhead there.</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -707,10 +707,11 @@
                   '<h3>Load a mission</h3>' +
                   '<ul>' +
                     '<li><b>Archive (API online):</b> search by id, storm, or date, or pick Year, Storm, Flight, then Load Flight + Storm Track.</li>' +
-                    '<li><b>Can\'t find the mission you\'re looking for?</b> Check that the flight has been put onto the SEB Archive; a new mission can take up to a day to populate. You can always manually upload it in the meantime.</li>' +
-                    '<li><b>Manual upload:</b> drop a .txt or .nc on the upload zone; works offline.</li>' +
-                    '<li><b>Already loaded:</b> every flight is stored on this device and reopens instantly; the red cross removes one. The store keeps the 100 most recent.</li>' +
+                    '<li><b>Can\'t find the mission you\'re looking for?</b> Check that the flight has been put onto the SEB Archive. A new mission can take up to a day to populate. You can always manually upload it in the meantime.</li>' +
+                    '<li><b>Manual upload:</b> drop a .txt or .nc on the upload zone. Works offline.</li>' +
+                    '<li><b>Already loaded:</b> every flight is stored on this device and reopens instantly, and the red cross removes one. The store keeps the 100 most recent.</li>' +
                     '<li><b>Batch Load Flight Data:</b> download whole seasons for instant, offline reopening.</li>' +
+                    '<li><b>Metrics Across Flights:</b> finds which stored flight recorded the highest or lowest value of any metric, with a comparison graph. Works offline.</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -734,10 +735,10 @@
                 '<div class="qc-help-card" id="qchs3">' +
                   '<h3>Legend and groups</h3>' +
                   '<ul>' +
-                    '<li>One checkbox per variable; click to select or unselect it.</li>' +
+                    '<li>One checkbox per variable. Click to select or unselect it.</li>' +
                     '<li><b>Group chips:</b> a chip toggles its whole sensor group on or off, and several groups can be lit on one graph at the same time.</li>' +
                     '<li><b>Standard deviation and coefficient of variation</b> for the selected sensors sit under each graph, with the worst moment named.</li>' +
-                    '<li><b>Ref linkage:</b> the pipe connector chains the ref to every sensor it rode; the source in force at the playhead reads blue as you slide. A badge in the title lists each switch; click a switch time to jump there.</li>' +
+                    '<li><b>Ref linkage:</b> the pipe connector chains the ref to every sensor it rode, and the source in force at the playhead reads blue as you slide. A badge in the title lists each switch. Click a switch time to jump there.</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -745,46 +746,45 @@
                   '<h3>Tools and zoom</h3>' +
                   '<ul>' +
                     '<li><b>Slide</b> drags the playhead, <b>pan</b> moves the window (vertically too), <b>select zoom</b> drags a box. The wheel always zooms time.</li>' +
-                    '<li><b>Reset Zoom</b> floats on a zoomed graph; double click does the same and hands the mouse back to the slide tool.</li>' +
-                    '<li>Each graph carries <b>save as PNG</b> and <b>fullscreen</b> at its top right; <b>graph search</b> (far left of the status bar) jumps to any panel.</li>' +
+                    '<li><b>Reset Zoom</b> floats on a zoomed graph. Double click does the same and hands the mouse back to the slide tool.</li>' +
+                    '<li>Each graph has <b>save as PNG</b> and <b>fullscreen</b> buttons at its top right. <b>Graph search</b> (far left of the status bar) jumps to any panel.</li>' +
                   '</ul>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs5">' +
                   '<h3>Issues and pills</h3>' +
                   '<ul>' +
-                    '<li><b>Summary pills:</b> Check, OK, gaps, and no data; click one to list exactly those sensors and jump to their first issue.</li>' +
-                    '<li><b>Chip strip:</b> Check chips lead, then gaps, no data, and early stop notes; click any chip to jump the map and timeline there.</li>' +
+                    '<li><b>Summary pills:</b> Check, OK, gaps, and no data. Click one to list exactly those sensors and jump to their first issue.</li>' +
+                    '<li><b>Chip strip:</b> Check chips lead, then gaps, no data, and early stop notes. Click any chip to jump the map and timeline there.</li>' +
                     '<li><b>+N more</b> expands in place, with the color coded flag counts in parentheses beside it.</li>' +
-                    '<li>Early stops are reported but never counted as gaps.</li>' +
                   '</ul>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs6">' +
                   '<h3>Statistics</h3>' +
                   '<ul>' +
-                    '<li><b>Max/Mean/Median</b> pops out under its button: takeoff, mid-flight, and landing max, mean, and median for any variable; View graph scrolls to its panel.</li>' +
-                    '<li>The takeoff phase is the five minutes before takeoff; landing covers the last 600 seconds of the flight.</li>' +
-                    '<li><b>Difference Between Sensors</b> opens the family difference graph: every in-group pair plots with its Max Diff listed; cross group pairs sit on their own row.</li>' +
+                    '<li><b>Max/Mean/Median</b> pops out under its button: takeoff, mid-flight, and landing max, mean, and median for any variable. View graph scrolls to its panel.</li>' +
+                    '<li>The takeoff phase is the five minutes before takeoff, and landing covers the last 600 seconds of the flight.</li>' +
+                    '<li><b>Difference Between Sensors</b> opens the family difference graph: every in-group pair plots with its Max Diff listed. Cross group pairs sit on their own row.</li>' +
                   '</ul>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs7">' +
                   '<h3>Takeoff and landing</h3>' +
                   '<ul>' +
-                    '<li>Takeoff and landing are detected automatically from the blended GPS altitude (a climb through field + 100 m that holds and keeps climbing, cross-checked against airspeed), with pure GPS and airspeed as fallbacks.</li>' +
-                    '<li><b>Manual pins:</b> the T/O and LND boxes under the top right buttons take HHMMSS times. Editing a box highlights Apply Changes; applying recomputes everything with the entered times. Clear both boxes and apply to return to automatic detection.</li>' +
-                    '<li>The pinned takeoff and landing times flow through every export: the interactive report, flight-track map PDF, error summary, gap report, and stats all use them.</li>' +
-                    '<li>Everything recorded before five minutes ahead of takeoff is trimmed away and never reaches the graphs, gaps, or stats.</li>' +
+                    '<li>Takeoff and landing are detected automatically from blended GPS altitude (+ 100 m that holds and keeps climbing, cross-checked against airspeed), with pure GPS and airspeed as fallbacks.</li>' +
+                    '<li><b>Manual pins:</b> the T/O and LND boxes under the top right buttons take HHMMSS times. Editing a box highlights Apply Changes, and applying recomputes everything with the entered times. Clear both boxes and apply to return to automatic detection.</li>' +
+                    '<li>The takeoff and landing times sync with every export, so there won\'t be mismatches with user-inputted times.</li>' +
+                    '<li>Everything recorded before five minutes ahead of takeoff is trimmed away (bad data most of the time).</li>' +
                   '</ul>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs8">' +
                   '<h3>Flight context</h3>' +
                   '<ul>' +
-                    '<li><b>Flight Context</b> opens the sidebar: the 2D/3D tracker, a live flight-conditions readout, Play, the speed control, and the flight clock.</li>' +
-                    '<li>The 2D map follows the aircraft; pan away and Recenter on Aircraft appears.</li>' +
-                    '<li>Slide from any graph, the arrow keys, or Play; every surface follows the same playhead.</li>' +
+                    '<li><b>Flight Context</b> will open a sidebar with the 2D/3D tracker, and a live flight-conditions readout.</li>' +
+                    '<li>The 2D map will, by default, follow the aircraft. If the user pans away, Recenter on Aircraft will prompt.</li>' +
+                    '<li>If you slide through the time from any graph, the flight context will follow the same playhead (provided that graph is not slid to before takeoff/after landing).</li>' +
                   '</ul>' +
                   '<p style="font-size:12px;color:var(--text-muted);margin:8px 0 8px">Wind barbs on the 2D map are colored by wind speed (knots), across a 0 to 160 kt ramp.</p>' +
                   '<div class="wb-legend">' +
@@ -798,19 +798,22 @@
                       '<span style="left:81.25%;">130</span>' +
                       '<span class="wb-hi" style="left:100%;">160+ kt</span>' +
                     '</div>' +
-                    '<p class="wb-note">One continuous ramp for reading the whole wind field at once. Colors blend between the marked anchors and hold at red from 160 kt up.</p>' +
+                    '<p class="wb-note">Above is a colorbar for referencing the colors used for windbarbs.</p>' +
                   '</div>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs9">' +
                   '<h3>Exports</h3>' +
                   '<ul>' +
-                    '<li><b>Indiv. Sensor Stats CSV:</b> one row per sensor (presence, gaps, missing seconds, early stop) plus each pair max difference.</li>' +
+                    '<li><b>Error Summary (.pdf):</b> the qc_Error_Summary script form, prefilled by the tool (flight id, times, sensor designations) and editable before download. The PDF layout matches the script exactly.</li>' +
+                    '<li><b>Flight Track Map (.pdf):</b> a landscape PDF map of the flight track, like the ones previously exported by FD\'s.</li>' +
                     '<li><b>Gap Report (.dat):</b> recorder gaps in the archive GapReport.dat wording.</li>' +
-                    '<li><b>Interactive Report (.html):</b> one self-contained file with every graph interactive, the gap markers, the track, and the summary; send it to anyone, no flight load needed.</li>' +
-                    '<li><b>Error Summary (.pdf):</b> the qc_Error_Summary script form, prefilled by the tool (flight id, times, sensor designations) and editable before download; the PDF layout matches the script exactly.</li>' +
-                    '<li><b>Indiv. Plane Stats CSV:</b> pick which stored flights go into each plane .csv. Each value is the flight-average difference between a sensor pair (first sensor minus second, over takeoff to landing); a value near zero means the two sensors agree. Columns are labeled and match the legacy script values.</li>' +
+                    '<li><b>Interactive Report (.html):</b> one self-contained file with every graph interactive, the gap markers, the track, and the summary. Send it to anyone, it opens with no flight load.</li>' +
+                    '<li><b>Indiv. Sensor Stats CSV:</b> one row per sensor (presence, gaps, missing seconds, early stop) plus each pair max difference.</li>' +
+                    '<li><b>Indiv. Plane Stats CSV:</b> pick which stored flights go into each plane .csv. Each value is the flight-average difference between a sensor pair (first sensor minus second, over takeoff to landing), and a value near zero means the two sensors agree. Columns are labeled and match the legacy script values.</li>' +
                     '<li><b>Share QC Link:</b> reopens an archive mission at your playhead, view, and sidebar state.</li>' +
+                    '<li><b>NC → TXT (.txt):</b> converts the loaded flight to a delimited text file. Every variable in the file is listed (not just the graphed set), and the parameters, delimiter, and time window are all pickable.</li>' +
+                    '<li><b>Download Original (.nc):</b> the mission\'s full-resolution source NetCDF (archive missions, API online).</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -818,7 +821,7 @@
                   '<h3>Shortcuts and feedback</h3>' +
                   '<ul>' +
                     '<li><kbd>Space</kbd> play or pause &middot; <kbd>Left</kbd>/<kbd>Right</kbd> step 1 s (<kbd>Shift</kbd> for 10 s) &middot; <kbd>Ctrl</kbd>+<kbd>Z</kbd> steps a zoom back &middot; <kbd>Esc</kbd> closes panels.</li>' +
-                    '<li><b>Feedback:</b> the exclamation button opens a report form; Send hands the prefilled draft to Gmail. The draft stays until sent.</li>' +
+                    '<li><b>Feedback Button:</b> (looks like an exclamation mark) opens the report section, where you can fill out the subject and body lines to send to ask a question/report a problem. The draft will stay until sent.</li>' +
                   '</ul>' +
                 '</div>' +
 
