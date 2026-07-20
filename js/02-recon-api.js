@@ -46,6 +46,7 @@
     let reconApiHealthReason = '';
 
     function isReconApiDown() {
+        return true; // DEMO: forces the API-offline UI for preview. DELETE THIS LINE to restore.
         return reconApiHealthChecked ? !reconApiHealthOk : false;
     }
     function isReconApiAvailable() {
@@ -57,8 +58,6 @@
         const reconMissionSelect = document.getElementById('reconMissionSelect');
         const reconStormSelect = document.getElementById('reconStormSelect');
         const reconYearSelect = document.getElementById('reconYearSelect');
-        const loadFlightDataGroup = document.getElementById('loadFlightDataGroup');
-        const loadFlightDataLabel = document.getElementById('loadFlightDataLabel');
         const uploadZone = document.getElementById('dataDropZone');
         const uploadLabel = document.getElementById('dataDropLabel');
         const uploadApiOfflineToastWrapper = document.getElementById('uploadApiOfflineToastWrapper');
@@ -73,13 +72,9 @@
             reconBtn.disabled = apiDown || (reconMissionSelect ? !reconMissionSelect.value : false);
             reconBtn.title = apiDown ? 'Archive flight loading is unavailable while the API is offline' : reconBtn.dataset.defaultTitle;
         }
-        if (loadFlightDataGroup) {
-            loadFlightDataGroup.classList.toggle('opacity-70', apiDown);
-        }
-        if (loadFlightDataLabel) {
-            loadFlightDataLabel.classList.toggle('text-accent', !apiDown);
-            loadFlightDataLabel.classList.toggle('text-faint', apiDown);
-        }
+        // The "Load a Mission" header deliberately keeps its accent color and full opacity while
+        // the API is down: loading a mission still works fine offline (manual upload and the
+        // previously-loaded list), so the header must not read as disabled.
         [reconYearSelect, reconStormSelect, reconMissionSelect].forEach(sel => {
             if (!sel) return;
             // Remember whatever disabled state the cascading Year->Storm->Mission handlers had already
@@ -107,6 +102,14 @@
             srcLink.classList.toggle('saturate-0', apiDown);
             srcLink.classList.toggle('opacity-40', apiDown);
             srcLink.classList.toggle('pointer-events-none', apiDown);
+        }
+        // The static SEB-archive hint invites a search, which is disabled while the API is down;
+        // grey its yellow (text and circled ? alike, via the filter) with the rest of the block.
+        const sebHint = document.getElementById('sebArchiveHint');
+        if (sebHint) {
+            sebHint.classList.toggle('grayscale', apiDown);
+            sebHint.classList.toggle('saturate-0', apiDown);
+            sebHint.classList.toggle('opacity-60', apiDown);
         }
         if (uploadZone) {
             uploadZone.classList.toggle('border-accent', apiDown);

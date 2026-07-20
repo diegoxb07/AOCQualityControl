@@ -708,6 +708,7 @@
                   '<h3>Load a mission</h3>' +
                   '<ul>' +
                     '<li><b>Archive (API online):</b> search by id, storm, or date, or pick Year, Storm, Flight, then Load Flight + Storm Track.</li>' +
+                    '<li><b>Can\'t find the mission you\'re looking for?</b> Check that the flight has been put onto the SEB Archive; a new mission can take up to a day to populate. You can always manually upload it in the meantime.</li>' +
                     '<li><b>Manual upload:</b> drop a .txt or .nc on the upload zone; works with no internet.</li>' +
                     '<li><b>Already loaded:</b> every flight is stored on this device and reopens instantly; the red cross removes one. The store keeps the 100 most recent.</li>' +
                     '<li><b>Batch Load Flight Data:</b> download whole seasons for instant, offline reopening.</li>' +

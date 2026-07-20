@@ -363,6 +363,16 @@
             d.textContent = text;
             return d;
         }
+        // SEB-archive reminder appended to empty search results: a missing mission usually means
+        // the flight hasn't been filed to the SEB Archive yet (can lag a day), not a bad query.
+        function sebHintRow() {
+            const d = document.createElement('div');
+            d.className = 'px-2.5 py-1.5 bg-panel';
+            d.style.cssText = 'color:var(--warn);display:flex;align-items:center;gap:6px;font-size:10.5px;line-height:1.35;';
+            d.innerHTML = '<span aria-hidden="true" style="flex:none;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1.5px solid var(--warn);border-radius:50%;font-size:9px;font-weight:700;">?</span>' +
+                '<span>Can\'t find the mission you\'re looking for? Check if the flight has been put onto the SEB Archive (may take up to a day to populate; remember you can always manually upload it above).</span>';
+            return d;
+        }
         function missionRow(m, primary) {
             const b = document.createElement('button');
             b.type = 'button';
@@ -445,7 +455,10 @@
             const frag = rowFrag();
             if (idHit) frag.appendChild(missionRow({ mission_id: idHit }, true));
             if (!years.length) {
-                if (!idHit) frag.appendChild(noteRow('No storm by that name in any year. Add a year (e.g. 2024), or paste a full mission id, to search more.'));
+                if (!idHit) {
+                    frag.appendChild(noteRow('No storm by that name in any year. Add a year (e.g. 2024), or paste a full mission id, to search more.'));
+                    frag.appendChild(sebHintRow());
+                }
                 renderRows(frag);
                 return;
             }
@@ -466,7 +479,7 @@
             if (idHit) out.appendChild(missionRow({ mission_id: idHit }, true));
             const CAP = 60;
             matches.slice(0, CAP).forEach(m => { if (m.mission_id !== idHit) out.appendChild(missionRow(m, false)); });
-            if (!matches.length && !idHit) out.appendChild(noteRow('No missions match in ' + years.join(', ') + '.'));
+            if (!matches.length && !idHit) { out.appendChild(noteRow('No missions match in ' + years.join(', ') + '.')); out.appendChild(sebHintRow()); }
             else if (matches.length > CAP) out.appendChild(noteRow('Showing ' + CAP + ' of ' + matches.length + '; refine the search to narrow it.'));
             renderRows(out);
         }

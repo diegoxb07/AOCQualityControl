@@ -129,6 +129,9 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
 /* while offline the manual-upload cluster is relocated over the archive pickers (js/02-recon-api.js);
    center it in the overlay (the "API Offline" pill stays left in the flow underneath) */
 #uploadApiOfflineToastWrapper #manualUploadWrap { position: absolute; left: 33%; top: 42%; transform: translate(-50%, -50%); }
+/* Nudge only the "use manual upload instead ->" text left of its flow spot; a relative offset
+   moves the text alone, so the "or upload" zone beside it stays put. Offline-relocated only. */
+#uploadApiOfflineToastWrapper #manualUploadHint { position: relative; left: -20px; }
 #dataDropZone.data-drop-emph span { font-size: 12px; }
 #dataDropZone.data-drop-emph #dataDropLabel { max-width: 200px; }
 
