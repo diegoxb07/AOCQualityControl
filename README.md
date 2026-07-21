@@ -9,17 +9,6 @@ This tool runs entirely in the browser, with the online capabilities always bein
 
 This tool reuses selected pieces of the AOC Mission Visualizer (the design, NetCDF parser, archive loader, and the 2D/3D map for spatial context).
 
----
-
-## What it's for
-
-| Use case | What the tool gives you |
-| --- | --- |
-| **Post-flight QC** | Load a flight, read every sensor family on stacked graphs with its members and reference overlaid, spot gaps and disagreement at a glance, confirm takeoff/landing, and export the sensor, gap, and plane stats the archive expects. |
-| **Error summary/Flight track** | Fill and download the mission's Error Summary PDF, prefilled from the flight (id, times, ground locations, ref-derived sensor designations) and editable before export. Also able to download the flight track similar to previously exported by FD's in the last tool. |
-| **Sharing** | Can send a colleagues interactive HTMLs of the whole flight, or a link that reopens an archive mission at your exact playhead and view for easy sharing and collaborating. |
-
----
 
 ## 1. Loading a mission
 
