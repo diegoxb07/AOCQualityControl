@@ -324,6 +324,15 @@
         if (missionId) loadReconMission(missionId);
     });
 
+    // Inverse of reflectLoadedMissionInSelectors, used by the manual-upload handler in
+    // js/12-file-parsing.js. An uploaded file is not an archive mission, so the Year -> Storm ->
+    // Flight cascade and the status line go back to blank (as a fresh page shows them), keeping
+    // the archive card from claiming a flight it did not load.
+    function resetArchiveLoaderUI() {
+        if (reconYearSelect.value) { reconYearSelect.value = ''; reconYearSelect.dispatchEvent(new Event('change')); }
+        setReconStatus('');
+    }
+
     // --- Free-text mission search ------------------------------------------------------------
     // The Year -> Storm -> Flight cascade is exact but unforgiving: a flight filed under the wrong
     // storm, or one of the dozens in "Training/Research", is easy to lose. This searches a whole
@@ -986,6 +995,20 @@
         positionLoadedPicker();
     }
     function closeLoadedPicker() { const p = document.getElementById('loadedPickerPanel'); if (p) p.classList.add('hidden'); }
+
+    // A manually uploaded flight joins the previously loaded list too, same record shape as the
+    // preload modal's file uploads, so it reopens instantly from the picker like an archive load.
+    // Called by the upload handler in js/12-file-parsing.js once its parse has fully applied, so
+    // the globals captured here (rows, stats, QC sets) all belong to this upload.
+    function rememberUploadedFlight(fileName) {
+        const id = fileName.replace(/\.(txt|nc)$/i, '');
+        const parsed = { rows: allParsedData, stats: lastParseStats, qc: (typeof qcRawData !== 'undefined' ? qcRawData : null), qcAll: (typeof qcRawDataAll !== 'undefined' ? qcRawDataAll : null) };
+        savePreloadedMission(id, {
+            mission: { mission_id: id, storm_name: '', flight_date: flightMetaData.date === 'Unknown' ? '' : flightMetaData.date, aircraft: flightMetaData.aircraft === 'Unknown' ? '' : flightMetaData.aircraft },
+            parsed, isNc: /\.nc$/i.test(fileName), storm: null, uploaded: true
+        });
+        updatePreloadedSelect(id);   // the picker's active row and label now show this upload
+    }
 
     // Remove one flight from this device: drop it from the session map and IndexedDB, then re-render.
     function removePreloadedMission(id) {

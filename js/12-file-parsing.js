@@ -56,7 +56,12 @@
             isNcFile = isNc; if (videoLoaded) videoSyncMode.disabled = false;
             const reader = new FileReader();
             reader.onload = (evt) => {
-                parseEntireFile(evt.target.result).catch(err => {
+                parseEntireFile(evt.target.result).then(() => {
+                    // A manual upload is not an archive mission, so the archive cascade goes back
+                    // to blank, and the flight joins the previously loaded list like any other.
+                    // Best effort, the list bookkeeping must never take down a load that succeeded.
+                    try { resetArchiveLoaderUI(); rememberUploadedFlight(fName); } catch (e) {}
+                }).catch(err => {
                     hideLoadingOverlay();
                     showToast('Could not load ' + fName + ': ' + err.message, 10000);
                 });
