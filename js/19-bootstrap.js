@@ -1053,7 +1053,8 @@
 
     /* ---- Light/dark theme toggle ----
        documentElement[data-theme] is what css/app.css keys its tokens off; the inline <head>
-       script sets it before first paint (from the same aocVizPrefs blob) so there's no flash.
+       script sets it before first paint so there's no flash: a saved manual pick from the
+       aocVizPrefs blob when one exists, else the computer's own light/dark setting.
        Stored under its own 'theme' key in aocVizPrefs rather than PREF_IDS above, since the
        toggle isn't a form control that fires a 'change' event. */
     (function themeToggle() {
@@ -1066,14 +1067,14 @@
         const syncAria = () => btn.setAttribute('aria-checked', document.documentElement.dataset.theme === 'light' ? 'true' : 'false');
         syncAria();
         let themeAnimTimer = null;
-        btn.addEventListener('click', () => {
+        // Everything a theme change repaints, shared by the toggle click and the OS follower below.
+        function applyTheme(next) {
             const root = document.documentElement;
             // Fade the token-driven colors across the switch (see css/app.css .theme-anim), then drop
             // the class so it never affects ordinary hover/focus color changes.
             root.classList.add('theme-anim');
             clearTimeout(themeAnimTimer);
             themeAnimTimer = setTimeout(() => root.classList.remove('theme-anim'), 420);
-            const next = root.dataset.theme === 'light' ? 'dark' : 'light';
             root.dataset.theme = next;
             syncAria();
             // the 2D basemap palette is theme-aware now, so drop its cached render and repaint the tracker.
@@ -1090,10 +1091,29 @@
             try {
                 if (typeof customCharts !== 'undefined') Object.values(customCharts).forEach(c => c && c.update('none'));
             } catch (e) { /* charts not built yet */ }
+        }
+        btn.addEventListener('click', () => {
+            const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+            applyTheme(next);
+            // A click is a manual pick: persist it, so the app stops following the computer's
+            // setting from here on (the head script and the follower below both honor it).
             try {
                 const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
                 saved.theme = next;
                 localStorage.setItem(KEY, JSON.stringify(saved));
             } catch (e) { /* localStorage unavailable (private mode) */ }
         });
+        // With no manual pick saved, the theme keeps following the computer's light/dark setting
+        // live, so an OS-level switch mid-session re-themes the app. The first toggle click above
+        // writes saved.theme and this goes quiet for good.
+        try {
+            const mq = matchMedia('(prefers-color-scheme: light)');
+            const followOs = (e) => {
+                let manual = false;
+                try { const t = JSON.parse(localStorage.getItem(KEY) || '{}').theme; manual = t === 'light' || t === 'dark'; } catch (err) {}
+                if (!manual) applyTheme(e.matches ? 'light' : 'dark');
+            };
+            // addListener fallback: Safari before 14 has no addEventListener on MediaQueryList
+            if (mq.addEventListener) mq.addEventListener('change', followOs); else if (mq.addListener) mq.addListener(followOs);
+        } catch (e) { /* matchMedia unavailable, the head script's pick stands */ }
     })();
