@@ -910,10 +910,15 @@
             try {
                 const tx = missionDB.transaction(['missions', 'meta'], 'readwrite');
                 tx.objectStore('missions').put(rec, id);
-                tx.objectStore('meta').put({ missionId: id, stormName: (rec.mission && rec.mission.storm_name) || '', isNc: rec.isNc, uploaded: !!rec.uploaded, savedAt: Date.now() }, id);
+                // hasQc marks this as a QC-processed flight. The store is shared with the sibling
+                // Mission Visualizer on this origin, whose cached flights carry no QC data, so this
+                // flag is what keeps its flights out of this tool's list (see metaHasQc below).
+                tx.objectStore('meta').put({ missionId: id, stormName: (rec.mission && rec.mission.storm_name) || '', isNc: rec.isNc, uploaded: !!rec.uploaded, hasQc: !!(rec.parsed && rec.parsed.qc), savedAt: Date.now() }, id);
                 const listRq = tx.objectStore('meta').getAll();
                 listRq.onsuccess = () => {
-                    const metas = (listRq.result || []).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
+                    // Prune only this tool's own (QC) flights. Counting or evicting the Visualizer's
+                    // flights here would let one tool delete the other's cache from the shared store.
+                    const metas = (listRq.result || []).filter(metaHasQc).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
                     metas.slice(0, Math.max(0, metas.length - PRELOADED_STORE_MAX)).forEach(m => {
                         missionIdbDelete(m.missionId);
                         const stub = preloadedMissions.get(m.missionId);
@@ -923,20 +928,55 @@
             } catch (e) {}
         });
     }
-    // Startup: list what the store already holds as light stubs; rows stay on disk until opened.
+    // A QC-processed flight has QC data (parsed.qc), recorded by the hasQc flag on every save.
+    // The IndexedDB store is shared with the sibling Mission Visualizer on this origin, whose
+    // cached flights have no QC data, so the list keeps only flights that were processed here.
+    function metaHasQc(m) { return !!(m && m.hasQc); }
+
+    // Startup: list the QC flights the store already holds as light stubs; rows stay on disk until opened.
     missionStoreReady.then(() => {
         if (!missionDB) return;
         try {
             const rq = missionDB.transaction('meta').objectStore('meta').getAll();
             rq.onsuccess = () => {
                 (rq.result || []).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0)).forEach(m => {
-                    if (!preloadedMissions.has(m.missionId))
+                    if (metaHasQc(m) && !preloadedMissions.has(m.missionId))
                         preloadedMissions.set(m.missionId, { mission: { mission_id: m.missionId, storm_name: m.stormName }, isNc: m.isNc, uploaded: !!m.uploaded });
                 });
                 if (preloadedMissions.size) updatePreloadedSelect();
+                backfillHasQcFlag();
             };
         } catch (e) {}
     });
+
+    // One-time backfill for flights saved before the hasQc flag existed (they would otherwise all
+    // drop out of the list). Each unclassified record is peeked ONE at a time, so peak memory stays
+    // a single flight, and only QC flights (parsed.qc present) get the flag and reappear. Foreign
+    // Visualizer flights are read but left untouched, so this tool never writes to the other's
+    // records. A localStorage guard keeps the pass from repeating on later visits.
+    async function backfillHasQcFlag() {
+        try { if (localStorage.getItem('aocQcListFlagV1')) return; } catch (e) { return; }
+        try {
+            const metas = await new Promise(res => {
+                const rq = missionDB.transaction('meta').objectStore('meta').getAll();
+                rq.onsuccess = () => res(rq.result || []); rq.onerror = () => res([]);
+            });
+            let added = false;
+            for (const m of metas) {
+                if (!m || m.hasQc !== undefined) continue;   // already classified, skip
+                const full = await missionIdbGet(m.missionId);
+                if (!(full && full.parsed && full.parsed.qc)) continue;   // foreign flight, leave it hidden
+                m.hasQc = true;
+                await new Promise(res => { try { const tx = missionDB.transaction('meta', 'readwrite'); tx.objectStore('meta').put(m, m.missionId); tx.oncomplete = res; tx.onerror = res; } catch (e) { res(); } });
+                if (!preloadedMissions.has(m.missionId)) {
+                    preloadedMissions.set(m.missionId, { mission: { mission_id: m.missionId, storm_name: m.stormName }, isNc: m.isNc, uploaded: !!m.uploaded });
+                    added = true;
+                }
+            }
+            if (added) updatePreloadedSelect();
+            try { localStorage.setItem('aocQcListFlagV1', '1'); } catch (e) {}
+        } catch (e) {}
+    }
 
     // Previously-loaded-missions picker (custom popover, see index.html #loadedPickerPanel). Each row
     // is a name button (opens the flight) plus a red × that removes just that flight from this device.
