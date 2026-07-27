@@ -91,8 +91,8 @@ button { transition: background-color 0.15s, border-color 0.15s, color 0.15s, op
 .hover\:border-accent:hover { border-color: var(--accent); }
 .focus\:border-accent:focus { border-color: var(--accent); }
 /* the .border-* rules above use the border-color shorthand and load AFTER tailwind's
-   .border-t-transparent, so they were painting the ring's top edge solid too, leaving spinner rings
-   with no gap (so they looked static even while spinning). restore the transparent top here. */
+   .border-t-transparent, so on their own they paint the ring's top edge solid, closing the gap
+   that makes a spinner visibly spin. keep the top transparent here. */
 .border-t-transparent { border-top-color: transparent; }
 .accent-accent { accent-color: var(--accent); }
 .accent-muted { accent-color: var(--text-muted); }
@@ -113,7 +113,7 @@ select {
 select:not(:disabled):hover { border-color: var(--border-strong); }
 select:not(:disabled):focus { border-color: var(--accent); }
 
-/* Sharp edges: flat 3px radius on all controls (was a forced 9999px pill everywhere). */
+/* Sharp edges: flat 3px radius on all controls. */
 button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):not([type="checkbox"]) { border-radius: 3px; }
 #dataDropZone, #videoDropZone { border-radius: 3px; }
 .status-chip { border-radius: 4px; }
@@ -417,8 +417,7 @@ input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; b
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; transition: 0.2s; border: 2px solid var(--bg); }
 input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--bg); }
-/* Elapsed-portion fill, --fill is painted by js/20-ui-polish.js. Flat single-hue fill (was a
-   two-tone blue gradient). */
+/* Elapsed-portion fill, flat single-hue; --fill is painted by js/20-ui-polish.js. */
 #timelineSlider { background: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--fill, 0%), var(--panel-strip) var(--fill, 0%)); }
 
 @media (prefers-reduced-motion: reduce) {

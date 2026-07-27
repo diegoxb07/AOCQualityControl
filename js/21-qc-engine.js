@@ -117,7 +117,7 @@
     // overrides let the UI pin exact takeoff/landing seconds.
     //
     // hardened against pre-takeoff sensor noise (a single GPS unit oscillating 0 -> 200+ m -> 0 on
-    // the ramp used to fool the old running-min + 45 s rule). four independent defenses:
+    // the ramp can read as a takeoff). four independent defenses:
     //   1. the altitude series is the BLENDED INS-GPS altitude (inertially damped, so it carries
     //      none of the raw-GPS ramp spikes), reduced to the per-second MEDIAN when several units
     //      exist so a spike on one unit is outvoted by the healthy ones;

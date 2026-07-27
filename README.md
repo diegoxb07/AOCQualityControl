@@ -16,7 +16,7 @@ This tool reuses selected pieces of the AOC Mission Visualizer (the design, NetC
 
 **Manual upload (works offline).** Drop a **`.nc`** file on the **"or upload:"** button. Keep in mind that every flight that you load is saved on this device and can reopen instantly from the **already loaded** list.
 
-> If the archive loader is greyed out with an **"API Offline"** banner, this means the API archive service is unreachable; and the user should simply manually upload the nc file. It will re-check periodically and re-enables itself (refresh recommended).
+> If the archive loader is greyed out with an **"API Offline"** banner, the API archive service is unreachable. Manually upload the nc file instead. The loader re-checks periodically and re-enables itself (refresh recommended).
 
 **⤓ Batch Load Flight Data** is a tool you can use to download flights in batch, (ex. whole seasons), so that when you need many flights readily available, it will be instant, and offline reopening (if browser closes, then it will get rid of the loaded flights)
 
@@ -76,7 +76,7 @@ Keyboard Shortcuts: **Space** play/pause, **← / →** step one second (**Shift
 | **Gap Report (.dat)** | Recorder gaps in the archive's `GapReport.dat` wording. |
 | **Interactive Report (.html)** | One easy-to-share file that includes every graph interactive, gap markers, and the flight track. Opens anywhere offline, no flight loading needed. |
 | **Error Summary (.pdf)** | Based on the `qc_Error_Summary` form, but partially prefilled by the tool and editable. This matches the script exactly. |
-| **Flight Track Map (.pdf)** | A landscape PDF map of the flight track, like the ones previously exported by FD's. |
+| **Flight Track Map (.pdf)** | A landscape PDF map of the flight track, in the traditional FD style. |
 | **Share QC Link** | Reopens an archive mission at your playhead, tracker view, and sidebar state. Best used to share the entire tool. |
 | **NC → TXT (.txt)** | Converts the loaded flight to a delimited text file. Every variable in the file is listed (not just the graphed set), and the parameters, delimiter, and time window are all pickable. |
 | **Download Original (.nc)** | The mission's full-resolution source NetCDF. |

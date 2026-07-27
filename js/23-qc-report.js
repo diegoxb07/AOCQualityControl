@@ -223,7 +223,7 @@
         let html = '';
         // recorder-level gaps first, reported once and phrased exactly like the archive's
         // GapReport.dat ("Data gap from HH:MM:SS - HH:MM:SS"): seconds where NO channel has data
-        // are the data system's event, and blaming every sensor for them was pure noise.
+        // are the data system's event, not any one sensor's.
         if (qcResult.recordingGaps && qcResult.recordingGaps.length) {
             const rg = qcResult.recordingGaps;
             html += '<div class="qc-recording" title="Seconds where no instrument recorded at all">' +
@@ -806,7 +806,7 @@
                   '<h3>Exports</h3>' +
                   '<ul>' +
                     '<li><b>Error Summary (.pdf):</b> the qc_Error_Summary script form, prefilled by the tool (flight id, times, sensor designations) and editable before download. The PDF layout matches the script exactly.</li>' +
-                    '<li><b>Flight Track Map (.pdf):</b> a landscape PDF map of the flight track, like the ones previously exported by FD\'s.</li>' +
+                    '<li><b>Flight Track Map (.pdf):</b> landscape PDF map of the flight track.</li>' +
                     '<li><b>Gap Report (.dat):</b> recorder gaps in the archive GapReport.dat wording.</li>' +
                     '<li><b>Interactive Report (.html):</b> one self-contained file with every graph interactive, the gap markers, the track, and the summary. Send it to anyone, it opens with no flight load.</li>' +
                     '<li><b>Indiv. Sensor Stats CSV:</b> one row per sensor (presence, gaps, missing seconds, early stop) plus each pair max difference.</li>' +

@@ -2,8 +2,8 @@
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
-    // the tesseract ocr engine was removed with its vendored lib; the state stays declared,
-    // permanently "unavailable", because the video sync engine still reads these flags.
+    // inert ocr state, declared because the video sync engine reads these flags; with no ocr
+    // engine in this build they stay permanently "unavailable".
     let ocrWorker = null, isOcrRunning = false, lastOcrTime = 0, lastOcrVideoTime = 0, ocrHistory = [], ocrAvailable = false;
 
     // --- Non-blocking "Syncing…" badge, shown while Auto-Sync is hunting for the MMR timestamp ---

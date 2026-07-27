@@ -152,7 +152,7 @@
 
     function getBarbSpacingPx() {
         // Screen-px gap between barbs along the track. The zoomed-out cap sets density at
-        // low zoom (was 30, too sparse); zoomed in this converges to the same 8px floor.
+        // low zoom; zoomed in this converges to the 8px floor.
         const zoom = Math.max(mapScale, 0.35);
         return Math.min(16, Math.max(8, 30 / zoom));
     }

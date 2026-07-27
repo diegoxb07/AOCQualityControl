@@ -1029,7 +1029,6 @@
        Restoring dispatches 'change' so each control's normal handler runs; all of them
        no-op safely when no flight is loaded yet. */
     (function persistDisplayPrefs() {
-        // only controls that still exist persist; the 8hz and pfd toggles left with their modules.
         const PREF_IDS = ['toggleSI', 'simpleTrackerIcon', 'toggleRealScale', 'trackerModeSelect', 'pathColorSelect', 'barbColorSelect', 'trackAltSelect'];
         const KEY = 'aocVizPrefs';
         try {
