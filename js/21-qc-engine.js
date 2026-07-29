@@ -118,9 +118,10 @@
     //
     // hardened against pre-takeoff sensor noise (a single GPS unit oscillating 0 -> 200+ m -> 0 on
     // the ramp can read as a takeoff). four independent defenses:
-    //   1. the altitude series is the BLENDED INS-GPS altitude (inertially damped, so it carries
-    //      none of the raw-GPS ramp spikes), reduced to the per-second MEDIAN when several units
-    //      exist so a spike on one unit is outvoted by the healthy ones;
+    //   1. the altitude series is the BLENDED INS-GPS altitude where the airframe carries one
+    //      (the P-3s; inertially damped, so it carries none of the raw-GPS ramp spikes), else the
+    //      pure GPS units, reduced to the per-second MEDIAN when several units exist so a spike
+    //      on one unit is outvoted by the healthy ones;
     //   2. field elevation is the median of the lowest decile of samples (the ground cluster), not
     //      a running/global min that one downward glitch drags low enough to break the bar;
     //   3. a candidate must HOLD above the bar for 90% of the next two minutes, be a real climb
@@ -134,12 +135,13 @@
     function qcDetectPhases(raw, timeAxis, override) {
         const n = timeAxis.length;
         const pick = names => { for (const nm of names) if (raw[nm]) return raw[nm]; return null; };
-        // composite altitude (defense 1): blended INS-GPS altitude first (AltI-GPS.* on the P-3s,
-        // AltI.* on the G-IV), pure GPS units when no blended channel exists, then ALTref (a
-        // GPS-derived ref that can switch source), then ALTPA.d (pressure alt, drifts) last resort.
-        // whichever family is used, multiple units collapse to their per-second median.
+        // composite altitude (defense 1): blended INS-GPS altitude first (AltI-GPS.*, carried by
+        // the P-3s only; the G-IV's AltI.* are inertial-only and drift far off true altitude, so
+        // the G-IV uses its pure GPS units), then ALTref (a GPS-derived ref that can switch
+        // source), then ALTPA.d (pressure alt, drifts) last resort. whichever family is used,
+        // multiple units collapse to their per-second median.
         const unitsOf = names => names.map(nm => raw[nm]).filter(Boolean);
-        const blendUnits = unitsOf(['AltI-GPS.1', 'AltI-GPS.2', 'AltI.1', 'AltI.2', 'AltI.3']);
+        const blendUnits = unitsOf(['AltI-GPS.1', 'AltI-GPS.2']);
         const gpsUnits = blendUnits.length ? blendUnits : unitsOf(['AltGPS.1', 'AltGPS.2', 'AltGPS.3', 'AltGPS.4']);
         let alt = null;
         if (gpsUnits.length === 1) alt = gpsUnits[0];
@@ -490,13 +492,13 @@
             // redundant-member difference series + stats, and roll each mean into the cross-flight row
             const diffs = qcFamilyDiffs(fam, aircraft).map(([a, b], k) => {
                 const av = rawPlus[a], bv = rawPlus[b];
-                if (!av || !bv) return { id: a + ' ≠ ' + b, a: a, b: b, series: null, mean: NaN, max: NaN };
+                if (!av || !bv) return { id: a + ' − ' + b, a: a, b: b, series: null, mean: NaN, max: NaN };
                 const d = qcDiff(av, bv);
                 crossFlightRow[fam.key + '_d' + (k + 1)] = d.mean;
-                return { id: a + ' ≠ ' + b, a: a, b: b, series: d.series, mean: d.mean, max: d.max };
+                return { id: a + ' − ' + b, a: a, b: b, series: d.series, mean: d.mean, max: d.max };
             });
 
-            const famOut = { key: fam.key, label: fam.label, unit: fam.unit, ref: fam.ref || null, derived: !!fam.derived, p3only: !!fam.p3only, members: members, diffs: diffs, groups: (fam.groups && fam.groups[qcAirframeKey(aircraft)]) || null };
+            const famOut = { key: fam.key, label: (fam.labels && fam.labels[qcAirframeKey(aircraft)]) || fam.label, unit: fam.unit, ref: fam.ref || null, derived: !!fam.derived, p3only: !!fam.p3only, members: members, diffs: diffs, groups: (fam.groups && fam.groups[qcAirframeKey(aircraft)]) || null };
 
             // identify (and watch) the ref channel's source sensor
             if (fam.ref && rawPlus[fam.ref]) {

@@ -26,7 +26,7 @@ This tool reuses selected pieces of the AOC Mission Visualizer (the design, NetC
 
 ## 2. Takeoff, landing & trimming
 
-Takeoff and landing are auto-detected from the blended INS-GPS altitude (median across units; pure GPS, then airspeed, as fallbacks). Takeoff is detected as the first climb through field elevation + 100 m that holds and keeps climbing over the next minutes and if an airspeed channel exists, it should coincide with flying airspeed, so pre-takeoff sensor fluctuation on the ramp is not mistaken for departure. Everything recorded more than five minutes before takeoff is trimmed away and never reaches the graphs, gaps, or stats; those five minutes are the **takeoff phase** of the phase statistics.
+Takeoff and landing are auto-detected from the blended INS-GPS altitude on the P-3s and the pure GPS altitude on the G-IV (median across units; airspeed as fallback). Takeoff is detected as the first climb through field elevation + 100 m that holds and keeps climbing over the next minutes and if an airspeed channel exists, it should coincide with flying airspeed, so pre-takeoff sensor fluctuation on the ramp is not mistaken for departure. Everything recorded more than five minutes before takeoff is trimmed away and never reaches the graphs, gaps, or stats; those five minutes are the **takeoff phase** of the phase statistics.
 
 To override these automated T/O and LND times , you can type `HHMMSS` times in the **T/O** and **LND** boxes in the header and press **Apply**; the whole report (trim, phases, stats, references, graphs) recomputes. **Auto** returns to detection.
 
@@ -51,17 +51,17 @@ A horizontal line shows the **reference** and its referring sensor as it goes ac
 
 ## 5. Issues, pills & statistics
 
-**Summary pills** These pills list the flagged items on each sensor, which you can click and jump its graph with these pills. Ever graph has something similar but more in-depth on the flagged items, with the flag breakdown in parentheses beside the **+N more** toggle.
+**Summary pills** These pills list the flagged items on each sensor, which you can click and jump its graph with these pills. A **No Gaps** pill means just that: the sensor recorded without gaps, which is all the tool can attest. Ever graph has something similar but more in-depth on the flagged items, with the flag breakdown in parentheses beside the **+N more** toggle.
 
 **Max/Mean/Median** will show: takeoff, mid-flight, and landing max, mean, and median for any variable (ex. PSM, PS.c).
 
-The **Difference Between Sensors** graph plots every in-group pair with its max difference listed; cross-group pairs sit on their own row.
+The **Difference Between Sensors** graph plots every in-group pair with its max difference listed; cross-group pairs sit on their own row, and any combination of pairs (cross-group included) can be selected at once. Each pair is labeled first sensor − second sensor, and the plotted difference is computed in exactly that order.
 
 ---
 
-## 6. Flight context
+## 6. Flight map
 
-**Flight Context** button will give context to users via the 2D/3D map tracker, and a per-sensor report below it. The 2D map follows the aircraft. If you pan away, **Recenter on Aircraft** is prompted. Slide from any graph, the arrow keys, or Play, and everything should follow the same playtime.
+**Flight Map** button will give context to users via the 2D/3D map tracker, and a per-sensor report below it. The 2D map follows the aircraft. If you pan away, **Recenter on Aircraft** is prompted. Slide from any graph, the arrow keys, or Play, and everything should follow the same playtime.
 
 Keyboard Shortcuts: **Space** play/pause, **← / →** step one second (**Shift** for ten), **Ctrl/Cmd + Z** step a zoom back, **Esc** close panels.
 

@@ -38,6 +38,9 @@
               members: { HI: ['AltGPS.1','AltGPS.2','AltGPS.3','AltGPS.4'], N: ['AltGPS.1','AltGPS.2','AltGPS.3'] },
               diffs: { HI: [['AltGPS.3','AltGPS.1'],['AltGPS.3','AltGPS.2'],['AltGPS.3','AltGPS.4']], N: [['AltGPS.3','AltGPS.1'],['AltGPS.3','AltGPS.2']] } },
             { key: 'altblend', label: 'Blended GPS Altitude', unit: 'm',
+              // per-airframe title: the G-IV carries no blended INS-GPS channel, its AltI.* units
+              // are inertial-only, so that panel is named for what the sensors actually are
+              labels: { N: 'Inertial Altitude' },
               members: { HI: ['AltI-GPS.1','AltI-GPS.2'], N: ['AltI.1','AltI.2','AltI.3'] },
               diffs: { HI: [['AltI-GPS.1','AltI-GPS.2']], N: [['AltI.1','AltI.2'],['AltI.1','AltI.3']] } },
             { key: 'altpabc', label: 'PA and Baro-Corrected PA', unit: 'm',

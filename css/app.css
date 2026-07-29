@@ -585,7 +585,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    user sees there is a pending change to apply; cleared once the change is applied or re-synced */
 .qc-ov-btn.qc-ov-dirty { background: color-mix(in oklab, var(--accent) 22%, var(--panel-strip)); border-color: var(--accent); color: color-mix(in oklab, var(--accent) 72%, var(--text)); }
 .qc-ov-btn.qc-ov-dirty:hover { background: color-mix(in oklab, var(--accent) 34%, var(--panel-strip)); border-color: var(--accent); }
-/* the shared selected state for the max/mean/median and flight context toggles: solid fill,
+/* the shared selected state for the max/mean/median and flight map toggles: solid fill,
    pressed in, so an open panel reads unmistakably as on */
 .qc-ov-btn.qc-ov-sel { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3); }
 .qc-ov-btn.qc-ov-sel:hover { background: var(--accent); filter: brightness(1.08); }
@@ -803,10 +803,10 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 /* legend definition of the gap marker: same triangle the plot draws, defined once */
 .qc-lg-gapnote { display: inline-flex; align-items: center; gap: 5px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 .qc-lg-caret { display: inline-block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--warn); }
-/* flight context card sits centered (middle right) beside the diff card */
+/* flight map card sits centered (middle right) beside the diff card */
 .qc-diff-context { width: 440px; max-width: 38vw; flex: none; display: flex; flex-direction: column; align-self: center; }
 .qc-diff-context .qc-map-slot { flex: none; min-height: 0; height: 54vh; margin-top: 8px; }
-/* bottom row of the diff card: max diff list left, Flight Context button right */
+/* bottom row of the diff card: max diff list left, Flight Map button right */
 .qc-diff-bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: 8px; }
 /* bottom strip of a graph block: the cornered diff button, then the std dev control right of
    the corner lines */

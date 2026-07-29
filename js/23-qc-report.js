@@ -198,7 +198,7 @@
             const noun = n => n === 1 ? ' sensor' : ' sensors';
             // the red Check pill leads and only appears when the detector fired: it outranks gaps
             sp.innerHTML = (s.check ? qcPill('check', s.check + noun(s.check) + ' to Check') : '') +
-                qcPill('ok', s.ok + noun(s.ok) + ' OK') +
+                qcPill('ok', s.ok + noun(s.ok) + ' with no gaps') +
                 qcPill('gap', s.gap + noun(s.gap) + ' with gap' + (s.gap === 1 ? '' : 's')) +
                 qcPill('nodata', s.nodata + noun(s.nodata) + ' no data');
             // each pill opens a modal listing exactly which sensors are behind that count
@@ -249,7 +249,7 @@
                     : m.gaps.length ? Math.round(m.gaps[0].from) : null;
                 const jump = jumpSec != null ? ' data-jump="' + jumpSec + '"' : '';
                 html += '<div class="qc-row' + (jump ? ' qc-row-jump' : '') + '"' + jump + '>' +
-                    qcPill(kind, m.presence === 'nodata' ? 'NO DATA' : m.presence.toUpperCase()) +
+                    qcPill(kind, m.presence === 'nodata' ? 'NO DATA' : m.presence === 'ok' ? 'NO GAPS' : m.presence.toUpperCase()) +
                     '<span class="qc-row-name">' + m.name + (m.isRef ? ' <em>ref</em>' : '') + (m.isDerived ? ' <em>(deriv.)</em>' : '') + '</span>' +
                     '<span class="qc-row-detail">' + detail + '</span></div>';
             });
@@ -373,7 +373,7 @@
             kind === 'gap' ? rows.length + ' ' + noun + ' with in-flight gap' + (rows.length === 1 ? '' : 's')
             : kind === 'nodata' ? rows.length + ' ' + noun + ' with no data'
             : kind === 'check' ? rows.length + ' ' + noun + ' to Check'
-            : rows.length + ' ' + noun + ' OK';
+            : rows.length + ' ' + noun + ' with no gaps';
         const body = document.getElementById('qcStatusModalBody');
         body.innerHTML = rows.map(r => {
             const jump = kind === 'gap' ? Math.round(r.m.gaps[0].from) : kind === 'check' ? Math.round(qcResult.timeAxis[r.m.checks[0].fromIdx]) : null;
@@ -415,12 +415,14 @@
         const rows = [['mission', 'aircraft', 'family', 'sensor', 'is_ref', 'presence', 'samples_s', 'gaps', 'missing_s', 'early_stop_s', 'max_diff']];
         qcResult.families.forEach(fam => fam.members.forEach(m => {
             const missing = m.gaps.reduce((a, g) => a + (g.effSecs || g.secs), 0);
-            rows.push([flightMetaData.id, qcResult.aircraft, fam.key, m.name, m.isRef ? 1 : 0, m.presence, m.count, m.gaps.length, missing, m.earlyStop ? m.earlyStop.secs : '', '']);
+            rows.push([flightMetaData.id, qcResult.aircraft, fam.key, m.name, m.isRef ? 1 : 0, m.presence === 'ok' ? 'no gaps' : m.presence, m.count, m.gaps.length, missing, m.earlyStop ? m.earlyStop.secs : '', '']);
         }));
         // recorder-level gaps, one row each (sensor column marks them as the data system's)
         (qcResult.recordingGaps || []).forEach(g => rows.push([flightMetaData.id, qcResult.aircraft, '', 'recording', '', 'recording-gap', '', '', g.secs, '', '']));
         // per-pair max differences as extra rows, in their own labeled column
-        qcResult.families.forEach(fam => fam.diffs.forEach(d => { if (d.series) rows.push([flightMetaData.id, qcResult.aircraft, fam.key, 'diff:' + d.id, '', 'diff', '', '', '', '', d.max]); }));
+        // ascii pair label (the on-screen id carries a real minus sign, which Excel's ANSI
+        // decode of a BOM-less UTF-8 csv would garble)
+        qcResult.families.forEach(fam => fam.diffs.forEach(d => { if (d.series) rows.push([flightMetaData.id, qcResult.aircraft, fam.key, 'diff:' + d.a + '-' + d.b, '', 'diff', '', '', '', '', d.max]); }));
         qcDownloadCSV(rows, (flightMetaData.id || 'flight') + '_QC_report.csv');
     }
 
@@ -607,7 +609,7 @@
               '<div class="qc-summary" id="qcSummaryPills"></div>' +
               '<div class="qc-ov-actions">' +
                 '<button id="qcPhaseStatsBtn" class="qc-ov-btn" title="Takeoff, mid-flight, and landing max, mean, and median for a variable">Max/Mean/Median</button>' +
-                '<button id="qcSideToggle" class="qc-ov-btn" title="Show or hide the flight-track map and sensor report sidebar">Flight Context</button>' +
+                '<button id="qcSideToggle" class="qc-ov-btn" title="Show or hide the flight-track map and sensor report sidebar">Flight Map</button>' +
                 '<div class="qc-vdiv qc-vdiv-sm"></div>' +
                 '<div class="qc-export-wrap">' +
                   '<button id="qcExportMenuBtn" class="qc-ov-btn" title="Download reports and stats">Export ▾</button>' +
@@ -678,7 +680,7 @@
               '</div>' +
               '<div class="help-body">' +
                 '<div class="qc-help-toc">' +
-                  ['Load a mission','Reading a graph','Check regions','Legend and groups','Tools and zoom','Issues and pills','Statistics','Takeoff and landing','Flight context','Exports','Shortcuts'].map(function (t, i) { return '<button onclick="document.getElementById(\'qchs' + i + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + t + '</button>'; }).join('') +
+                  ['Load a mission','Reading a graph','Check regions','Legend and groups','Tools and zoom','Issues and pills','Statistics','Takeoff and landing','Flight map','Exports','Shortcuts'].map(function (t, i) { return '<button onclick="document.getElementById(\'qchs' + i + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' + t + '</button>'; }).join('') +
                 '</div>' +
                 '<div class="qc-help-grid">' +
 
@@ -754,7 +756,7 @@
                 '<div class="qc-help-card" id="qchs5">' +
                   '<h3>Issues and pills</h3>' +
                   '<ul>' +
-                    '<li><b>Summary pills:</b> Check, OK, gaps, and no data. Click one to list exactly those sensors and jump to their first issue.</li>' +
+                    '<li><b>Summary pills:</b> Check, No Gaps, gaps, and no data. No Gaps says only that the sensor recorded without gaps. Click one to list exactly those sensors and jump to their first issue.</li>' +
                     '<li><b>Chip strip:</b> Check chips lead, then gaps, no data, and early stop notes. Click any chip to jump the map and timeline there.</li>' +
                     '<li><b>+N more</b> expands in place, with the color coded flag counts in parentheses beside it.</li>' +
                   '</ul>' +
@@ -765,14 +767,14 @@
                   '<ul>' +
                     '<li><b>Max/Mean/Median</b> pops out under its button: takeoff, mid-flight, and landing max, mean, and median for any variable. View graph scrolls to its panel.</li>' +
                     '<li>The takeoff phase is the five minutes before takeoff, and landing covers the last 600 seconds of the flight.</li>' +
-                    '<li><b>Difference Between Sensors</b> opens the family difference graph: every in-group pair plots with its Max Diff listed. Cross group pairs sit on their own row.</li>' +
+                    '<li><b>Difference Between Sensors</b> opens the family difference graph: every in-group pair plots with its Max Diff listed. Cross group pairs sit on their own row, and any combination of pairs can be selected at once.</li>' +
                   '</ul>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs7">' +
                   '<h3>Takeoff and landing</h3>' +
                   '<ul>' +
-                    '<li>Takeoff and landing are detected automatically from blended GPS altitude (+ 100 m that holds and keeps climbing, cross-checked against airspeed), with pure GPS and airspeed as fallbacks.</li>' +
+                    '<li>Takeoff and landing are detected automatically from the blended INS-GPS altitude on the P-3s and the pure GPS altitude on the G-IV (a climb through field + 100 m that holds and keeps climbing, cross-checked against airspeed), with airspeed as the fallback.</li>' +
                     '<li><b>Manual pins:</b> the T/O and LND boxes under the top right buttons take HHMMSS times. Editing a box highlights Apply Changes, and applying recomputes everything with the entered times. Clear both boxes and apply to return to automatic detection.</li>' +
                     '<li>The takeoff and landing times sync with every export, so there won\'t be mismatches with user-inputted times.</li>' +
                     '<li>Everything recorded before five minutes ahead of takeoff is trimmed away (bad data most of the time).</li>' +
@@ -780,11 +782,11 @@
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs8">' +
-                  '<h3>Flight context</h3>' +
+                  '<h3>Flight map</h3>' +
                   '<ul>' +
-                    '<li><b>Flight Context</b> will open a sidebar with the 2D/3D tracker, and a live flight-conditions readout.</li>' +
+                    '<li><b>Flight Map</b> will open a sidebar with the 2D/3D tracker, and a live flight-conditions readout.</li>' +
                     '<li>The 2D map will, by default, follow the aircraft. If the user pans away, Recenter on Aircraft will prompt.</li>' +
-                    '<li>If you slide through the time from any graph, the flight context will follow the same playhead (provided that graph is not slid to before takeoff/after landing).</li>' +
+                    '<li>If you slide through the time from any graph, the flight map will follow the same playhead (provided that graph is not slid to before takeoff/after landing).</li>' +
                   '</ul>' +
                   '<p style="font-size:12px;color:var(--text-muted);margin:8px 0 8px">Wind barbs on the 2D map are colored by wind speed (knots), across a 0 to 160 kt ramp.</p>' +
                   '<div class="wb-legend">' +

@@ -1036,7 +1036,9 @@
         const ineNames = datasets.filter(d => !d.$qcIsRef && /^Lat\/Lon(I-GPS|I)\./.test(d.$qcName)).map(d => d.$qcName);
         const mapGroups = [];
         if (gpsNames.length > 1) mapGroups.push({ label: 'GPS', names: gpsNames });
-        if (ineNames.length > 1) mapGroups.push({ label: 'Blended Inertial', names: ineNames });
+        // the G-IV's Lat/LonI.* tracks are inertial-only, so the chip only claims "blended"
+        // when a Lat/LonI-GPS.* track is present (the P-3s)
+        if (ineNames.length > 1) mapGroups.push({ label: ineNames.some(n => n.includes('I-GPS')) ? 'Blended Inertial' : 'Inertial', names: ineNames });
         if (mapGroups.length) chart.$qcGroups = mapGroups;
         if (QC_HTML_LEGEND) {
             chart.$qcLegendBar = document.createElement('div');
@@ -1113,11 +1115,12 @@
         pairs.sort((p, q) => (p.cross ? 1 : 0) - (q.cross ? 1 : 0));   // within-group first
         const plotted = pairs.map(p => {
             const d = qcDiff(bySensor[p.a], bySensor[p.b]);
-            return { id: p.a + ' ≠ ' + p.b, series: d.series, max: d.max, cross: p.cross };
+            return { id: p.a + ' − ' + p.b, series: d.series, max: d.max, cross: p.cross };
         });
         const last = qcTimeLabels.length - 1, first = 0;
-        // one pair at a time: the first within-group pair starts checked, the rest unchecked.
-        // max diffs live in the list under the graph, so legend entries stay short.
+        // the first within-group pair starts checked, the rest unchecked; any combination of
+        // pairs (cross-group included) can be lit together. max diffs live in the list under
+        // the graph, so legend entries stay short.
         const datasets = plotted.map((d, k) => ({
             label: d.id, $qcCross: d.cross, $qcName: d.id,
             data: qcDecimate(d.series, first, last), $full: d.series, parsing: false, normalized: true,
@@ -1137,7 +1140,7 @@
 
     // two aligned rows for the diff modal legend: within-group pairs on top, cross-group pairs
     // (curiosity comparisons) on their own labeled row underneath, so wrapping never mixes them.
-    // solo semantics: checking an unchecked pair shows it alone, unchecking only unchecks itself.
+    // each pair toggles independently, so any combination can be on screen at once.
     function qcRenderDiffLegend(chart, holder) {
         holder.innerHTML = '';
         const yw = chart.scales && chart.scales.y && chart.scales.y.width;
@@ -1152,14 +1155,13 @@
                 if (!!d.$qcCross !== cross) return;
                 const on = chart.isDatasetVisible(k);
                 const it = document.createElement('button'); it.type = 'button'; it.className = 'qc-lg-item' + (on ? '' : ' off');
-                it.title = on ? 'Unselect ' + d.label : 'View ' + d.label + ' alone';
+                it.title = (on ? 'Unselect ' : 'Select ') + d.label;
                 const box = document.createElement('span'); box.className = 'qc-lg-box' + (on ? '' : ' off');
                 if (on) { box.style.background = String(d.borderColor); box.style.borderColor = String(d.borderColor); }
                 const txt = document.createElement('span'); txt.textContent = d.label;
                 it.appendChild(box); it.appendChild(txt);
                 it.addEventListener('click', () => {
-                    if (chart.isDatasetVisible(k)) chart.setDatasetVisibility(k, false);
-                    else ds.forEach((_, j) => chart.setDatasetVisibility(j, j === k));
+                    chart.setDatasetVisibility(k, !chart.isDatasetVisible(k));
                     chart.update('none');
                     qcRenderDiffLegend(chart, holder);
                 });
@@ -1178,8 +1180,8 @@
         let m = document.getElementById('qcDiffModal');
         if (m) return m;
         m = document.createElement('div'); m.id = 'qcDiffModal'; m.className = 'modal-overlay';
-        // the graph card, with the max diff list bottom left and the Flight Context BUTTON bottom
-        // right; the context panel itself opens as the right-side dock beside the card
+        // the graph card, with the max diff list bottom left and the Flight Map BUTTON bottom
+        // right; the map panel itself opens as the right-side dock beside the card
         m.style.gap = '14px';
         m.innerHTML =
             '<div class="modal-card" id="qcDiffMainCard" style="max-width:1500px;width:96%;max-height:92vh;overflow-y:auto">' +
@@ -1192,7 +1194,7 @@
               '</div>' +
             '</div>' +
             '<div class="modal-card qc-diff-context" id="qcDiffContext" style="display:none">' +
-              '<div class="qc-context-head">Flight Track <span>context</span></div>' +
+              '<div class="qc-context-head">Flight <span>map</span></div>' +
               '<div class="qc-map-slot" id="qcDiffMapSlot"></div>' +
               '<div class="qc-context-note">the map follows the graph playhead, so slide to the moment the difference occurs</div>' +
             '</div>';
@@ -1239,12 +1241,12 @@
         m.querySelector('#qcDiffModalBadges').innerHTML = (chart.$qcDiffPairs || []).filter(p => !p.cross)
             .map(p => '<span class="qc-badge">' + p.id + ' Max Diff: ' + (Number.isNaN(p.max) ? 'n/a' : p.max) + '</span>').join('');
         const hint = document.createElement('span'); hint.className = 'qc-legend-hint';
-        hint.textContent = 'Click a pair to view it alone, click again to unselect it';
+        hint.textContent = 'Click pairs to select or unselect them, any combination can be shown at once';
         const tools = document.createElement('div'); tools.className = 'qc-graph-tools-group';
         bar.appendChild(hint); bar.appendChild(tools);
-        // flight context toggle lives at the BOTTOM RIGHT of the card, next to the max diff list
+        // flight map toggle lives at the BOTTOM RIGHT of the card, next to the max diff list
         const ctxBtn = document.createElement('button'); ctxBtn.type = 'button'; ctxBtn.className = 'qc-ov-btn';
-        ctxBtn.textContent = 'Flight Context';
+        ctxBtn.textContent = 'Flight Map';
         ctxBtn.title = 'Show the flight track map beside this graph';
         ctxBtn.addEventListener('click', () => { qcToggleDiffContext(); ctxBtn.classList.toggle('active', document.getElementById('qcDiffContext').style.display !== 'none'); });
         const ctxSlot = m.querySelector('#qcDiffCtxBtnSlot'); if (ctxSlot) { ctxSlot.innerHTML = ''; ctxSlot.appendChild(ctxBtn); }
