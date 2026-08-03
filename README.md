@@ -1,5 +1,8 @@
 # AOC QC Tool
 
+[![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
+[![Live API](https://img.shields.io/badge/API-live-brightgreen)](https://joshmurdock.net/api/docs)
+
 This is a browser-based quality-assessment tool built for Aircraft Operations Center WP-3D and G-IV flight-level data. It will load any flight, compare the sensors against their counterparts and reference sensors, flag any data gaps and/or physically impossible values, and has the ability to export the reports that FD's / Engineers needs (ex. Error Summary, Flight Track, & more)
 
 This tool runs entirely in the browser, with the online capabilities always being optional (ex. loading a flight from the archive instead of a local files upload)
