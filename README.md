@@ -108,11 +108,3 @@ QC-specific files:
 | `data/airports.json` | large/medium airports worldwide (OurAirports, public domain), for ground-location lookup. |
 
 The remaining `js/` files are the reused visualizer subsystems (parser, map, archive loader, layout, theming). The visualizer's own page stays in the DOM underneath the QC app so its wiring keeps working; only the map panel, mission loader, and top-right controls are relocated into the QC layout.
-
----
-
-## Running & deploying
-
-- **No build step.** Open the tool link, or serve the directory statically (`python3 -m http.server`).
-- **Deployment:** GitHub Pages.
-- **No test suite.** Verify changes by opening the page and exercising the load → read → export flow.
