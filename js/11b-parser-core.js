@@ -26,8 +26,9 @@
         return match ? `${match[1]}-${match[2]}-${match[3]}` : 'Unknown';
     }
 
-    // Convert a NetCDF ArrayBuffer into the same tab-separated text the .txt parser consumes.
-    // Shared by the single-file .nc loader, the parse worker, and the multi-flight batch sat-cache.
+    // Convert a NetCDF ArrayBuffer into the tab-separated text parseFlightTextToRows consumes: tsv is
+    // the parser's internal format, so an uploaded .nc goes through here first.
+    // Shared by the .nc upload path and the parse worker.
     // onProgress (optional): called with { phase, ... } as decoding advances, so the loader overlay
     // can show which variable is being processed. no-op for the tests, batch, and main thread callers.
     function ncArrayBufferToTsv(data, onProgress) {

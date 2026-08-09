@@ -1,5 +1,5 @@
 /* QC Mode, flight-file parse worker.
-   Runs the pure parser core off the main thread so a large .nc/.txt load never freezes the page.
+   Runs the pure parser core off the main thread so a large .nc load never freezes the page.
    Receives { tsv } or { nc: ArrayBuffer } and posts back { rows, stats, qc }: the cleaned playback
    rows AND the QC-Mode raw dataset (every sample on a continuous 1-second axis). Posts { error } if
    the file can't be read. The ?v= cache-buster arrives via the worker URL's query string and is

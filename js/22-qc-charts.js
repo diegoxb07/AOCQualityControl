@@ -125,8 +125,7 @@
         const step = (e.shiftKey ? 10 : 1) * (e.key === 'ArrowLeft' ? -1 : 1);
         qcScrubIdx = qcClampScrub(qcScrubIdx + step);
         if (typeof isPlaying !== 'undefined' && isPlaying) {
-            const pb = document.getElementById('playPauseBtn');
-            if (pb && /pause/i.test(pb.innerText)) pb.click(); else isPlaying = false;
+            stopPlayback();
         }
         if (typeof qcDrivePlayer === 'function') qcDrivePlayer(false);
         qcSyncPlayhead(true);
@@ -319,8 +318,7 @@
                     chart.$qcScrubbing = true;
                     // pause playback right away, or the player keeps advancing under the drag
                     if (typeof isPlaying !== 'undefined' && isPlaying) {
-                        const pb = document.getElementById('playPauseBtn');
-                        if (pb && /pause/i.test(pb.innerText)) pb.click(); else isPlaying = false;
+                        stopPlayback();
                     }
                     qcScrubMove(chart, canvas, ev, false);
                 }
@@ -1663,8 +1661,7 @@
         const scrub = hard => {
             qcScrubIdx = qcClampScrub(Math.round(range.valueAsNumber));
             if (typeof isPlaying !== 'undefined' && isPlaying) {
-                const pb = document.getElementById('playPauseBtn');
-                if (pb && /pause/i.test(pb.innerText)) pb.click(); else isPlaying = false;
+                stopPlayback();
             }
             time.textContent = (qcTimeLabels && qcTimeLabels[qcScrubIdx]) || '';
             if (typeof qcDrivePlayer === 'function') qcDrivePlayer(hard);

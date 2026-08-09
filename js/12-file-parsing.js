@@ -1,10 +1,10 @@
-/* Mission Visualizer, file/video upload + flight-load pipeline
+/* Mission Visualizer, file upload + flight-load pipeline
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   The parsing itself lives in js/11b-parser-core.js (pure, shared with the parse worker, the
-   batch sat-cache, and the node tests). This file owns the DOM side: upload wiring, the worker
-   round-trip, the data report, and the post-parse UI/global setup. */
+   The parsing itself lives in js/11b-parser-core.js (pure, shared with the parse worker and the
+   node tests). This file owns the DOM side: upload wiring, the worker round-trip, the data
+   report, and the post-parse UI/global setup. */
 
     let lastParseStats = null;   // stats ledger from the most recent load (see parseFlightTextToRows)
 
@@ -23,23 +23,15 @@
     }
     function hideLoadingOverlay() { document.body.classList.remove('qc-skel-live'); const l = document.getElementById('loadingOverlay'); l.classList.add('hidden'); l.classList.remove('flex'); }
 
-    document.getElementById('videoInput').addEventListener('change', function(e) {
-        if (!e.target.files[0]) return;
-        markDropZoneLoaded('videoDropZone', 'videoDropLabel', e.target.files[0].name);
-        video.src = URL.createObjectURL(e.target.files[0]); document.getElementById('videoPlaceholder').style.display = 'none'; videoLoaded = true;
-        syncMediaGridLayout();
-        speeds = [1, 4, 8, 16]; currentSpeedIdx = 0; updateSpeedDisplay();
-        videoSyncMode.disabled = false; document.getElementById('videoStartInput').disabled = false;
-        if (allParsedData.length > 0) document.getElementById('videoStartInput').value = allParsedData[0].time;
-        video.addEventListener('loadedmetadata', () => { updateEndWindowFromVideo(true); }, { once: true });
-        video.addEventListener('seeking', syncTelemetryToVideoClock);
-        evaluateAutoSyncDefault();
-        video.addEventListener('loadeddata', () => { if (videoSyncMode.value === 'auto' && ocrAvailable && typeof performImmediateOcrLock === 'function') performImmediateOcrLock({ silent: true }); }, { once: true });
-        setTimeout(() => { if (videoSyncMode.value === 'auto' && ocrAvailable && !isPlaying && typeof performImmediateOcrLock === 'function') performImmediateOcrLock({ silent: true }); }, 1000);
-    });
-
     document.getElementById('fileInput').addEventListener('change', function(e) {
         if (!e.target.files[0]) return;
+        // .nc only. The accept attribute filters the browse dialog but not a drag-and-drop, so this
+        // is the check that actually holds, and it clears the input so re-picking the same file fires.
+        if (!/\.nc$/i.test(e.target.files[0].name)) {
+            showToast('Only .nc flight-level files can be loaded. "' + e.target.files[0].name + '" was not loaded.', 8000);
+            e.target.value = '';
+            return;
+        }
         markDropZoneLoaded('dataDropZone', 'dataDropLabel', e.target.files[0].name);
         showLoadingOverlay();
         setTimeout(() => {
@@ -52,43 +44,28 @@
                 flightMetaData.id = match[0].replace('.', '');
             } else { flightMetaData.id = file.name; flightMetaData.date = 'Unknown'; flightMetaData.aircraft = 'Unknown'; }
 
-            const isNc = fName.split('.').pop().toLowerCase() === 'nc';
-            isNcFile = isNc; if (videoLoaded) videoSyncMode.disabled = false;
+            isNcFile = true;
             const reader = new FileReader();
             reader.onload = (evt) => {
                 parseEntireFile(evt.target.result).then(() => {
-                    // A manual upload is not an archive mission, so the archive cascade goes back
-                    // to blank, and the flight joins the previously loaded list like any other.
-                    // Best effort, the list bookkeeping must never take down a load that succeeded.
-                    try { resetArchiveLoaderUI(); rememberUploadedFlight(fName); } catch (e) {}
+                    // the flight joins the loaded list so it reopens instantly. best effort, the
+                    // list bookkeeping must never take down a load that succeeded.
+                    try { rememberUploadedFlight(fName); } catch (e) {}
                 }).catch(err => {
                     hideLoadingOverlay();
                     showToast('Could not load ' + fName + ': ' + err.message, 10000);
                 });
             };
             reader.onerror = () => { hideLoadingOverlay(); showToast('Could not read ' + fName + ' from disk.', 8000); };
-            if (isNc) reader.readAsArrayBuffer(file); else reader.readAsText(file);
+            reader.readAsArrayBuffer(file);
         }, 50);
     });
 
-    // Unloads the MMR video and clears both upload drop zones. Switching flights from the archive
-    // or the preloaded list starts clean; a stale video belongs to the previous flight and its
-    // sync offset is meaningless against the new one.
+    // Clears the upload drop zone. Reopening a stored flight starts clean, so the zone never
+    // keeps naming the file from the previous flight.
     function clearLoadedMedia() {
         document.getElementById('fileInput').value = '';
-        resetDropZone('dataDropZone', 'dataDropLabel', 'Choose File/Drag & Drop');
-        if (!videoLoaded) return;
-        video.pause();
-        try { URL.revokeObjectURL(video.src); } catch (e) {}
-        video.removeAttribute('src'); video.load();
-        videoLoaded = false;
-        document.getElementById('videoPlaceholder').style.display = '';
-        document.getElementById('videoInput').value = '';
-        resetDropZone('videoDropZone', 'videoDropLabel', 'Choose File/Drag & Drop');
-        videoSyncMode.disabled = true;
-        const vsi = document.getElementById('videoStartInput'); vsi.value = '000000'; vsi.disabled = true;
-        speeds = [1, 2, 4, 8, 16, 32, 64, 128]; currentSpeedIdx = 0; updateSpeedDisplay();
-        syncMediaGridLayout();
+        resetDropZone('dataDropZone', 'dataDropLabel');
     }
 
     // The shared ?v= cache-buster, read off this page's own script tags so the worker URL stays in
@@ -186,14 +163,6 @@
     // preloader) and make it the loaded flight: resets, globals, and the post-parse UI setup.
     // Throws when the rows are empty.
     function applyParsedFlight(parsed) {
-        // Clear any storm best-track / archive-mission metadata from the previous flight, it's
-        // re-set after this returns by loadReconMission for an archive load.
-        stormTrackPoints = []; stormTrackMeta = null; reconArchiveMeta = null;
-        // Same reasoning for the shareable ?mission= URL params, an archive load re-sets them after this returns.
-        try { const u = new URL(window.location.href); ['mission', 't', 'view'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u); } catch (e) {}
-        const stormToggleLabel = document.getElementById('stormTrackToggleLabel'); if (stormToggleLabel) stormToggleLabel.style.display = 'none';
-        const srcLink = document.getElementById('reconSourceLink'); if (srcLink) srcLink.classList.add('hidden');
-
         allParsedData = parsed.rows; lastParseStats = parsed.stats;
         updateDataReport(parsed.stats);
         if (allParsedData.length === 0) {
@@ -214,30 +183,16 @@
 
         updateMissionHeader();
 
-        ['startTimeInput', 'endTimeInput', 'playPauseBtn', 'exportClipBtn'].forEach(id => document.getElementById(id).disabled = false);
+        ['startTimeInput', 'endTimeInput'].forEach(id => document.getElementById(id).disabled = false);
         document.getElementById('startTimeInput').value = allParsedData[0].time;
         document.getElementById('endTimeInput').value = allParsedData[allParsedData.length-1].time;
-
-        if (videoLoaded) {
-            document.getElementById('videoStartInput').value = allParsedData[0].time;
-            updateEndWindowFromVideo(false);
-        } else {
-            document.getElementById('videoStartInput').value = "000000";
-            document.getElementById('videoStartInput').disabled = true;
-            videoSyncMode.disabled = true;
-            applyFiltersAndInit(false);
-        }
-
-        evaluateAutoSyncDefault();
-        applySyncModeLock();
+        applyFiltersAndInit(false);
 
         // New flight: start zoomed in on the aircraft and following it (js/15-map-render.js).
         if (typeof engageFollowAircraft === 'function') engageFollowAircraft();
 
         if (filteredData.length > 0 && !isPlaying) {
-            isPlaying = true; playPauseBtn.innerText = "Pause"; playbackAccumulator = 0; lastTickTime = performance.now();
-            if (videoLoaded && speeds[currentSpeedIdx] <= 16) video.play().catch(e=>{});
-            masterSyncEngineTick();
+            startPlayback();
         }
 
         // Success: this runs only once processing is fully done, so morph the spinner to a checkmark

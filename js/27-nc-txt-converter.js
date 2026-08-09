@@ -289,28 +289,21 @@
         const total = Object.keys(src.raw).length;
         // this always reflects whatever flight is CURRENTLY loaded (qcConvSource reads the live
         // qcRawDataAll/qcRawData globals, overwritten by applyParsedFlight on every load), never a
-        // fixed file. The badge names the exact source FILE when the client knows it, revision
-        // letter included: file revisions are lettered (...H1A.nc, ...H1B.nc, ...) and the archive
-        // server always serves the latest letter -- the browser only ever sees the final download
-        // URL, so its basename IS the chosen revision. A manual upload's name comes from the
-        // drop-zone label. Fallback (e.g. the decimated API preview): just the data format.
+        // fixed file. The badge names the exact source FILE, revision letter included: file
+        // revisions are lettered (...H1A.nc, ...H1B.nc, ...), and the uploaded file's own name
+        // carries the revision. It comes from the drop-zone label; fallback is just the data format.
         let srcFile = '';
-        try {
-            if (typeof reconArchiveMeta !== 'undefined' && reconArchiveMeta && reconArchiveMeta.sourceUrl
-                && typeof isNcFile !== 'undefined' && isNcFile)   // decimated fallback is NOT the .nc; don't claim it
-                srcFile = decodeURIComponent(String(reconArchiveMeta.sourceUrl).split(/[?#]/)[0].split('/').pop() || '');
-        } catch (e) {}
-        if (!srcFile) {
+        {
             const dl = document.getElementById('dataDropLabel');
             const t = dl ? dl.textContent.trim() : '';
-            if (/\.(nc|txt)$/i.test(t)) srcFile = t;
+            if (/\.nc$/i.test(t)) srcFile = t;
         }
         const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const srcType = (typeof isNcFile !== 'undefined' && isNcFile) ? '.nc' : '.txt';
         const note = document.getElementById('qcConvNote');
         note.innerHTML = '<b>' + total + '</b> variables from <b>' + esc(id) + '</b>' +
             '<span class="qc-badge" title="' + (srcFile
-                ? 'The exact file this flight was loaded from. Revisions are lettered (A, B, C…) and the archive always serves the latest.'
+                ? 'The exact file this flight was loaded from. Revisions are lettered (A, B, C…), so the letter here is the revision you uploaded.'
                 : 'The format of the currently loaded flight data') + '">' +
             (srcFile ? esc(srcFile) : srcType + ' source') + '</span>';
         document.getElementById('qcConvSearch').value = '';
@@ -474,7 +467,7 @@
 
     // called from qcInitUI (js/23) once the QC app shell exists: append the converter opener and the
     // raw-.nc download link (relocated from the mission loader console) to the BOTTOM of the Export
-    // menu, under Share QC Link, past a separator. Both keep real button skins (.qc-ov-btn), not the
+    // menu, past a separator. It keeps a real button skin (.qc-ov-btn), not the
     // flat menu-item look. Not .qc-menu-item, so the menu's own close-on-click pass skips them --
     // each closes the menu itself. The link keeps its id, so its existing show/hide (archive
     // missions only, js/12b) and API-offline greying (js/02) still apply untouched. Safe to call
@@ -487,17 +480,10 @@
         const row = document.createElement('div'); row.className = 'qc-menu-btnrow';
         menu.appendChild(row);
         const btn = document.createElement('button');
-        // accent skin on both, so the pair reads blue like Share QC Link above them
+        // accent skin, so it reads blue against the plain menu items above it
         btn.id = 'qcConvBtn'; btn.type = 'button'; btn.className = 'qc-ov-btn qc-ov-btn-accent';
         btn.title = 'Convert this flight\'s data to a delimited .txt file (pick parameters, delimiter, and time window)';
         btn.textContent = 'NC → TXT (.txt)';
         btn.addEventListener('click', () => { menu.classList.add('hidden'); qcConvOpen(); });
         row.appendChild(btn);
-        const link = document.getElementById('reconSourceLink');
-        if (link) {
-            link.className = 'qc-ov-btn qc-ov-btn-accent' + (link.classList.contains('hidden') ? ' hidden' : '');
-            link.textContent = 'Download Original (.nc)';
-            link.addEventListener('click', () => menu.classList.add('hidden'));
-            row.appendChild(link);
-        }
     }

@@ -12,9 +12,6 @@
     let currentIdx = 0;
     let isPlaying = false;
     let isNcFile = false;
-    
-    let slideSyncTimer = null;
-    let isResizingMedia = false; 
 
     let mapFeatures = [];
     // Extra basemap detail for the QC flight-track map only (js/22 overlay, js/24 export, js/26 pdf),
@@ -27,20 +24,9 @@
     // Airfields for the 2D basemap: { code, name, lat, lon, big, mil }, filled by loadAirports()
     // (js/19-bootstrap.js) from data/airports.json. Empty until it lands, and stays empty if it fails.
     let airports = [];
-    let customMarkers = [];
     let flightMetaData = { id: 'Unknown', date: 'Unknown', aircraft: 'Unknown' };
 
-    // --- NOAA Recon Archive (noaa-recon-api: https://joshmurdock.net/api) -----------------------
-    // Year/storm/mission browser + best-track overlay, so a flight can be loaded straight from the
-    // archive instead of a manual file upload. See js/12b-recon-archive.js.
-    let reconArchiveMeta = null;      // { missionId, stormName, stormId, aircraft, tailNum, sourceUrl } of the loaded mission, or null
-    let stormTrackPoints = [];        // Best-track fixes for the WHOLE storm life: [{ms, lat, lon, windKt, pressureMb, category, status}]
-    let stormTrackMeta = null;        // { year, name, basin, atcfId } for the loaded best-track, or null
-    let showStormTrack = false;       // "Storm Track" toggle; off until the user turns it on
-    let hoveredStormIdx = -1;         // index into stormTrackPoints currently under the mouse (2D map hover), -1 = none
-    let currentPointAnalysisData = null; 
-    let tempBaseline = [];
-    
+
     let bgNeedsUpdate = true;
     let bgCanvas = document.createElement('canvas');
     let bgCtx = bgCanvas.getContext('2d');

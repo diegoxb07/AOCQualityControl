@@ -5,7 +5,6 @@
     let scene3D, camera3D, renderer3D, controls3D;
     let planeGroup3D, trackArrow3D, headingArrow3D;
     let threeMapGroup = new THREE.Group();
-    let threeMarkersGroup = new THREE.Group();
     let threeDInitialized = false;
 
     // Console redesign: neon data palette (equal-weight lines, no gradient fills).
@@ -34,13 +33,8 @@
         'pressure': { label: 'Static Press (mb)', color: '#bae6fd', yAxisID: 'y' }
     };
 
-    let customCharts = {}; 
-    let masterChartInstance = null;
     let animationFrameId = null;
-    let videoLoaded = false;
-    let videoStartSeconds = 0;
     let lastTickTime = 0;
-    let videoPlaybackAccumulator = 0;
 
     let mapScale = 1, mapOffsetX = 0, mapOffsetY = 0;
     let isDraggingMap = false, dragStartX = 0, dragStartY = 0;
@@ -51,6 +45,4 @@
     let plotMinLon, plotMaxLon, plotMinLat, plotMaxLat, deltaLon, deltaLat;
     let lonDomainCenter = 0;   // 0 for normal flights; the flight's circular-mean lon for dateline crossers (see wrapLon)
 
-    let isScrubbing = false, activeScrubChart = null, wasPlayingBeforeScrub = false;
-    let hasInitialSyncOccurred = false, scrubSyncTimeout = null, forceOcrSyncNextTick = false;
-    let isManualSyncRequest = false, scrubDebounceTimer = null;
+    let isScrubbing = false, wasPlayingBeforeScrub = false;

@@ -1,29 +1,22 @@
 # AOC QC Tool
 
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
-[![Live API](https://img.shields.io/badge/API-live-brightgreen)](https://joshmurdock.net/api/docs)
 
 This is a browser-based quality-assessment tool built for Aircraft Operations Center WP-3D and G-IV flight-level data. It will load any flight, compare the sensors against their counterparts and reference sensors, flag any data gaps and/or physically impossible values, and has the ability to export the reports that FD's / Engineers needs (ex. Error Summary, Flight Track, & more)
-
-This tool runs entirely in the browser, with the online capabilities always being optional (ex. loading a flight from the archive instead of a local files upload)
 
 - **Tool Link:** https://diegoxb07.github.io/AOCQualityControl/ (GitHub Pages)
 - **Github Repository:** https://github.com/diegoxb07/AOCQualityControl
 
-This tool reuses selected pieces of the AOC Mission Visualizer (the design, NetCDF parser, archive loader, and the 2D/3D map for context).
+This tool reuses selected pieces of the AOC Mission Visualizer (the design, NetCDF parser, and the 2D/3D map for context).
 
 
 ## 1. Loading a mission
 
-**Archive browser (needs API to be online).** Pick **Year → Storm → Flight**, then **⤓ Load Flight + Storm Track**. The search box takes a full mission id to load it directly, or a storm name alone to find that storm across every season. Every flight you load is saved on this device and reopens instantly from the **already loaded** list, newest first.
+**Upload a flight.** Drop a **`.nc`** flight-level file on the **Load a Flight** zone, or click it to browse.
 
-**Manual upload (works offline).** Drop a **`.nc`** file on the **"or upload:"** button. Keep in mind that every flight that you load is saved on this device and can reopen instantly from the **already loaded** list.
+**Loaded Flights.** Every flight you load is saved on this device and reopens from the **Loaded Flights** list instantly, newest first, including after a reload. The red cross on a row removes that flight; the list keeps the 100 most recent.
 
-> If the archive loader is greyed out with an **"API Offline"** banner, the API archive service is unreachable. Manually upload the nc file instead. The loader re-checks periodically and re-enables itself (refresh recommended).
-
-**⤓ Batch Load Flight Data** is a tool you can use to download flights in batch, (ex. whole seasons), so that when you need many flights readily available, it will be instant, and offline reopening (if browser closes, then it will get rid of the loaded flights)
-
-**Metrics Across Flights** finds which stored flight recorded the highest or lowest value of any metric, with a comparison graph (works offline).
+**Metrics Across Flights** finds which saved flight recorded the highest or lowest value of any metric, with a comparison graph.
 
 ---
 
@@ -77,12 +70,10 @@ Keyboard Shortcuts: **Space** play/pause, **← / →** step one second (**Shift
 | **Indiv. Sensor Stats CSV** | This is an in-depth export tool that lists out all pertinent sensors from this flight. Has one row per sensor (presence, gaps, missing seconds, early stop) plus each pair's max difference. |
 | **Indiv. Plane Stats CSV** | You can pick which of the cached flights go into each plane's `N42/N43/N49_Stats.csv`. This allows you to compare sensors across flights of the same plane. |
 | **Gap Report (.dat)** | Recorder gaps in the archive's `GapReport.dat` wording. |
-| **Interactive Report (.html)** | One easy-to-share file that includes every graph interactive, gap markers, and the flight track. Opens anywhere offline, no flight loading needed. |
+| **Interactive Report (.html)** | One easy-to-share file that includes every graph interactive, gap markers, and the flight track. Opens in any browser, with no flight loaded. |
 | **Error Summary (.pdf)** | Based on the `qc_Error_Summary` form, but partially prefilled by the tool and editable. This matches the script exactly. |
 | **Flight Track Map (.pdf)** | A landscape PDF map of the flight track, in the traditional FD style. |
-| **Share QC Link** | Reopens an archive mission at your playhead, tracker view, and sidebar state. Best used to share the entire tool. |
 | **NC → TXT (.txt)** | Converts the loaded flight to a delimited text file. Every variable in the file is listed (not just the graphed set), and the parameters, delimiter, and time window are all pickable. |
-| **Download Original (.nc)** | The mission's full-resolution source NetCDF. |
 
 The **Error Summary** modal prefills the flight id, takeoff/landing times, flight directory, ground locations (nearest airport within a few miles of the aircraft at takeoff/landing), and sensor designations (from what the reference variables rode). Any fields the tool can't derive are left blank rather than automated; required fields flag red while empty. You can click a designation row to graph its sensors beside the modal.
 
@@ -90,9 +81,9 @@ The **Error Summary** modal prefills the flight id, takeoff/landing times, fligh
 
 ## Code Architecture
 
-Classic scripts in `index.html`, one global scope, load order matters. No build step, no dependencies; all libraries, fonts, basemap, and the airport table ship in the repo, so manual uploads work with no internet.
+Classic scripts in `index.html`, one global scope, load order matters. No build step, no dependencies; all libraries, fonts, basemap, and the airport table ship in the repo.
 
-**Offline (`sw.js`).** A service worker precaches every same-origin asset (~5.5 MB: page, css/js, libs, fonts, basemap data) on the first visit and serves it cache-first from then on, so after one online load the page opens and replays flights with no network. `docs/CONNECTIVITY.md` has the full online/offline matrix. Cross-origin requests (recon-api, NASA GIBS, the GeoJSON fallback) pass straight through uncached, so the API health check still sees real failures and the "API Offline" banner keeps working. The deploy workflow stamps `CACHE_VERSION` in `sw.js` with the commit SHA, the same `sed` that stamps the `?v=` tokens, so every deploy installs a fresh cache (each file revalidated against the server, never trusted to the HTTP cache) and drops the previous one on activate; cached files are matched ignoring the query string. The first load after a deploy still renders the old build while the new cache installs in the background; the reload after that shows it. Two rules to keep it honest: **every added or renamed css/js/font/data file must also be added to `PRECACHE` in `sw.js`** (`cache.addAll` rejects wholesale on a single 404, and the app silently stays online-only), and cache names keep the `aoc-qc-` prefix because the `github.io` origin is shared with sibling project pages. The worker only registers on `github.io`; localhost and Codespaces previews stay service-worker-free and always serve the working tree.
+**Service worker (`sw.js`).** Precaches every asset (page, css/js, libs, fonts, basemap data) on the first visit and serves it cache-first from then on. The deploy workflow stamps `CACHE_VERSION` in `sw.js` with the commit SHA, the same `sed` that stamps the `?v=` tokens, so every deploy installs a fresh cache (each file revalidated against the server, never trusted to the HTTP cache) and drops the previous one on activate; cached files are matched ignoring the query string. The first load after a deploy still renders the old build while the new cache installs in the background; the reload after that shows it. Two rules to keep it honest: **every added or renamed css/js/font/data file must also be added to `PRECACHE` in `sw.js`** (`cache.addAll` rejects wholesale on a single 404, and the precache silently fails), and cache names keep the `aoc-qc-` prefix because the `github.io` origin is shared with sibling project pages. The worker only registers on `github.io`; localhost and Codespaces previews stay service-worker-free and always serve the working tree.
 
 QC-specific files:
 
@@ -107,4 +98,4 @@ QC-specific files:
 | `js/25-qc-error-summary.js` | the Error Summary PDF and its prefill logic. |
 | `data/airports.json` | large/medium airports worldwide (OurAirports, public domain), for ground-location lookup. |
 
-The remaining `js/` files are the reused visualizer subsystems (parser, map, archive loader, layout, theming). The visualizer's own page stays in the DOM underneath the QC app so its wiring keeps working; only the map panel, mission loader, and top-right controls are relocated into the QC layout.
+The remaining `js/` files are the reused visualizer subsystems (parser, 2D/3D map, playback engine, on-device mission store, layout, theming). The visualizer's shell stays in the DOM underneath the QC app so its wiring keeps working; the map panel, the flight loader, and the top-right controls are relocated into the QC layout.

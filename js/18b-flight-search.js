@@ -2,12 +2,11 @@
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Scans every loaded/preloaded flight (or a chosen subset) for the highest or lowest value of one
-   metric at any point, ranks them, and reports each flight's peak with its time, altitude, and
-   position plus an overlaid comparison graph. Rows come straight from the preloadedMissions store
-   (hydrating IndexedDB stubs on demand); the active-flight globals are never touched, so a search
-   leaves the open flight untouched. Groundwork for the planned QC mode, which will compare sensors
-   across flights the same way. */
+   Scans every loaded flight (or a chosen subset) for the highest or lowest value of one metric at
+   any point, ranks them, and reports each flight's peak with its time, altitude, and position plus
+   an overlaid comparison graph. Rows come straight from the on-device mission store
+   (js/12b-mission-store.js, hydrating IndexedDB stubs on demand); the active-flight globals are
+   never touched, so a search leaves the open flight untouched. */
 (function flightSearch() {
     // Per-flight line colors for the comparison graph (the rank-1 flight is drawn boldest).
     const FS_PALETTE = ['#38bdf8', '#f472b6', '#a3e635', '#fbbf24', '#c084fc', '#34d399', '#fb7185', '#60a5fa', '#f97316', '#2dd4bf'];
@@ -15,10 +14,9 @@
 
     let fsChartInstance = null;
     let fsFlights = [];        // metadata-only descriptors, rebuilt each time the modal opens
-    let cameFromSearch = false; // set while the preload modal is opened from here, to return on close
 
     const $ = (id) => document.getElementById(id);
-    const isImperial = () => { const el = $('toggleSI'); return !(el && el.checked); };
+    const isImperial = () => true;   // no unit toggle in this tool; values read imperial
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     function fsLabel(id, rec) {
@@ -142,14 +140,10 @@
     function populateFlightChecks() {
         const box = $('fsFlightChecks');
         if (!box) return;
-        // detach the persistent "load more flights" button before the innerhtml reset so its listener
-        // survives, then re-append it inside this container below the checkboxes.
-        const moreBtn = $('fsPreloadBtn');
-        if (moreBtn && moreBtn.parentElement) moreBtn.parentElement.removeChild(moreBtn);
         box.innerHTML = '';
         fsFlights = fsSearchableFlights();
         if (!fsFlights.length) {
-            box.innerHTML = '<div style="color:var(--text-faint);padding:4px 0;">No flights loaded yet. Load a mission or use Batch Load Flight Data, then search across them.</div>';
+            box.innerHTML = '<div style="color:var(--text-faint);padding:4px 0;">No flights loaded yet. Upload a flight, then search across them.</div>';
         } else {
             fsFlights.forEach((f) => {
                 const label = document.createElement('label');
@@ -167,7 +161,6 @@
                 box.appendChild(label);
             });
         }
-        if (moreBtn) { moreBtn.style.marginTop = '6px'; box.appendChild(moreBtn); }
     }
 
     function openModal() {
@@ -337,18 +330,4 @@
     const modal = $('flightSearchModal');
     if (modal) modal.addEventListener('mousedown', (e) => { if (e.target === modal) closeModal(); });
 
-    // "Load more flights" hands off to the Batch Load Flight Data modal (which also takes uploads), then
-    // reopens this modal when that one closes so the newly loaded flights show up in the checklist.
-    const preloadJump = $('fsPreloadBtn');
-    if (preloadJump) preloadJump.addEventListener('click', () => {
-        cameFromSearch = true;
-        closeModal();
-        const rp = document.getElementById('reconPreloadBtn');
-        if (rp && !rp.disabled) rp.click();                     // its handler populates + opens the modal
-        else { const pm = document.getElementById('preloadModal'); if (pm) pm.style.display = 'flex'; }
-    });
-    ['preloadCloseX', 'preloadCloseBtn'].forEach((id) => {
-        const b = document.getElementById(id);
-        if (b) b.addEventListener('click', () => { if (cameFromSearch) { cameFromSearch = false; openModal(); } });
-    });
 })();

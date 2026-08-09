@@ -109,31 +109,6 @@
         return !(bbox[0] + lonShift > v.maxLon + m || bbox[2] + lonShift < v.minLon - m || bbox[1] > v.maxLat + m || bbox[3] < v.minLat - m);
     }
 
-    function getHurricaneColorRGB(spd) {
-        if (spd === null || spd === undefined || spd < 0) spd = 0;
-        if (spd <= 63) return [0, 0, 0];
-        if (spd <= 82) return [1, 1, 0.8];
-        if (spd <= 95) return [1, 0.91, 0.46];
-        if (spd <= 112) return [1, 0.76, 0.25];
-        if (spd <= 136) return [1, 0.56, 0.13];
-        return [1, 0.38, 0.38];
-    }
-
-    function getBarbColorMode() {
-        return barbColorSelect.value === 'hurricane' ? 'hurricane' : 'wind';
-    }
-
-    function getPathColorRGB(d, idx) {
-        const mode = pathColorSelect.value;
-        if (mode === 'temp') {
-            let t = d.tempr; if (t === null || tempBaseline[idx] === null) return [1, 1, 1];
-            let delta = t - tempBaseline[idx]; let f = Math.min(Math.abs(delta) / 3.0, 1);
-            if (delta > 0) return [1, 1 - f, 1 - f]; else return [1 - f, 1 - f, 1];
-        }
-        if (getBarbColorMode() === 'hurricane') return getHurricaneColorRGB(d.windSpd);
-        return getSpdColorRGB(d.windSpd);
-    }
-
     function getSpdColorRGB(spd) {
         if (!spd || spd < 0) spd = 0; let r, g, b;
         if (spd < 50) { let f = spd / 50; r = 0; g = 255 * f; b = 255; } 
@@ -145,7 +120,7 @@
     }
     
     function getBarbColorRGB(spd) {
-        return getBarbColorMode() === 'hurricane' ? getHurricaneColorRGB(spd) : getSpdColorRGB(spd);
+        return getSpdColorRGB(spd);
     }
 
     function getBarbColor(spd) { const [r, g, b] = getBarbColorRGB(spd); return `rgb(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)})`; }
@@ -155,51 +130,6 @@
         // low zoom; zoomed in this converges to the 8px floor.
         const zoom = Math.max(mapScale, 0.35);
         return Math.min(16, Math.max(8, 30 / zoom));
-    }
-
-    // Best-track overlay for the storm the loaded mission belongs to (js/12b-recon-archive.js), spanning
-    // its whole life, not just the flight's window. Drawn UNDER the flight track/plane so the flight
-    // stays the visually dominant element; getX/getY project it exactly like everything else on this
-    // map (they're linear in lon/lat, not tied to the flight's own bounds).
-    function drawStormTrack2D() {
-        if (!showStormTrack || stormTrackPoints.length < 2) return;
-        ctx.save();
-        ctx.lineWidth = 2 / mapScale; ctx.globalAlpha = 0.95; ctx.setLineDash([6 / mapScale, 4 / mapScale]);
-        for (let i = 1; i < stormTrackPoints.length; i++) {
-            const a = stormTrackPoints[i - 1], b = stormTrackPoints[i];
-            ctx.beginPath(); ctx.strokeStyle = stormWindColor(b.windKt); ctx.moveTo(getX(a.lon), getY(a.lat)); ctx.lineTo(getX(b.lon), getY(b.lat)); ctx.stroke();
-        }
-        ctx.setLineDash([]); ctx.globalAlpha = 1.0;
-        // Each fix is a small tropical-cyclone map symbol: category-colored disc with the
-        // category written inside (TD/TS/1-5), spiral arms from TS strength up, drawn
-        // slightly translucent so the basemap stays readable underneath.
-        stormTrackPoints.forEach((p, i) => {
-            const hovered = i === hoveredStormIdx;
-            const col = stormWindColor(p.windKt), lbl = stormCatLabel(p.windKt);
-            ctx.save(); ctx.translate(getX(p.lon), getY(p.lat)); ctx.scale(1 / mapScale, 1 / mapScale);
-            ctx.globalAlpha = hovered ? 1.0 : 0.9;
-            if (!lbl) {   // unknown intensity: keep a plain small fix marker
-                ctx.beginPath(); ctx.arc(0, 0, hovered ? 6 : 4, 0, 2 * Math.PI); ctx.fillStyle = col; ctx.fill();
-                ctx.strokeStyle = hovered ? '#ffffff' : 'rgba(0,0,0,0.85)'; ctx.lineWidth = 1.2; ctx.stroke();
-                ctx.restore(); return;
-            }
-            const r = hovered ? 8 : 6;
-            if (p.windKt >= 34) {
-                ctx.strokeStyle = col; ctx.lineWidth = r * 0.5; ctx.lineCap = 'round';
-                ctx.beginPath(); ctx.moveTo(0, -r * 0.9); ctx.quadraticCurveTo(r * 1.9, -r * 1.35, r * 1.55, r * 0.45); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, r * 0.9); ctx.quadraticCurveTo(-r * 1.9, r * 1.35, -r * 1.55, -r * 0.45); ctx.stroke();
-            }
-            ctx.beginPath(); ctx.arc(0, 0, r, 0, 2 * Math.PI); ctx.fillStyle = col; ctx.fill();
-            ctx.strokeStyle = hovered ? '#ffffff' : 'rgba(0,0,0,0.85)'; ctx.lineWidth = hovered ? 2 : 1.2; ctx.stroke();
-            // the fix the status card currently refers to carries a white label; every other fix dark
-            const isCurrent = typeof currentStormFixIdx !== 'undefined' && i === currentStormFixIdx;
-            ctx.fillStyle = isCurrent ? '#ffffff' : '#111827';
-            ctx.font = '700 ' + (lbl.length > 1 ? r : r * 1.25) + 'px Inter, ui-sans-serif, sans-serif';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(lbl, 0, 0.5);
-            ctx.restore();
-        });
-        ctx.restore();
     }
 
     function getPathColorHex(d, idx) {
@@ -395,22 +325,18 @@
         // Base transform = devicePixelRatio, then the map pan/zoom. Everything below draws in logical px.
         ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.translate(mapOffsetX, mapOffsetY); ctx.scale(mapScale, mapScale);
 
-        drawStormTrack2D();
 
-        // flight track drawn as a uniform catmull-rom curve, one cubic bezier per 1 Hz segment,
-        // so the line stays smooth through turns. control points are computed in screen space; cp
-        // is a single reused object (setSeg
-        // mutates it) so a long flight doesn't allocate per segment per frame.
+        // flight track drawn straight between consecutive 1 Hz samples. no smoothing and no
+        // interpolation: every vertex on screen is a real position from the file, so the track is
+        // never showing points the tool invented. cp is a single reused object (setSeg mutates it)
+        // so a long flight doesn't allocate per segment per frame.
         const _n = filteredData.length;
         const _gx = j => getX(filteredData[j < 0 ? 0 : (j > _n - 1 ? _n - 1 : j)].lon);
         const _gy = j => getY(filteredData[j < 0 ? 0 : (j > _n - 1 ? _n - 1 : j)].lat);
-        const cp = { x1: 0, y1: 0, c1x: 0, c1y: 0, c2x: 0, c2y: 0, x2: 0, y2: 0 };
-        const setSeg = (i) => {   // fills cp for the curve filteredData[i-1] -> filteredData[i]
-            const p0x = _gx(i - 2), p0y = _gy(i - 2), p1x = _gx(i - 1), p1y = _gy(i - 1);
-            const p2x = _gx(i), p2y = _gy(i), p3x = _gx(i + 1), p3y = _gy(i + 1);
-            cp.x1 = p1x; cp.y1 = p1y; cp.x2 = p2x; cp.y2 = p2y;
-            cp.c1x = p1x + (p2x - p0x) / 6; cp.c1y = p1y + (p2y - p0y) / 6;
-            cp.c2x = p2x - (p3x - p1x) / 6; cp.c2y = p2y - (p3y - p1y) / 6;
+        const cp = { x1: 0, y1: 0, x2: 0, y2: 0 };
+        const setSeg = (i) => {   // fills cp for the segment filteredData[i-1] -> filteredData[i]
+            cp.x1 = _gx(i - 1); cp.y1 = _gy(i - 1);
+            cp.x2 = _gx(i);     cp.y2 = _gy(i);
         };
 
         // flown track: in QC Mode a single solid accent color so "already past this point" reads at a
@@ -425,11 +351,11 @@
             if (flx === null) { flx = cp.x1; fly = cp.y1; }
             if (Math.abs(cp.x2 - flx) < 1 && Math.abs(cp.y2 - fly) < 1 && i !== idx) continue;
             ctx.beginPath(); ctx.strokeStyle = window.QC_MODE ? '#5b9dff' : getPathColorHex(filteredData[i], i);
-            ctx.moveTo(flx, fly); ctx.bezierCurveTo(cp.c1x, cp.c1y, cp.c2x, cp.c2y, cp.x2, cp.y2); ctx.stroke();
+            ctx.moveTo(flx, fly); ctx.lineTo(cp.x2, cp.y2); ctx.stroke();
             flx = cp.x2; fly = cp.y2;
         }
 
-        // Future (not-yet-flown) track, faint grey, same smooth curve. Normally one continuous path, but
+        // Future (not-yet-flown) track, faint grey, same straight segments. Normally one continuous path, but
         // zoomed in far that single path spans a device-pixel extent the rasterizer drops whole (the same
         // failure the polygon clip fixes), so past the clip threshold stroke it per on-screen segment.
         ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5/mapScale; ctx.globalAlpha = 0.3;
@@ -438,14 +364,14 @@
         if (clipHi) {
             for (let i = idx + 1; i < filteredData.length; i++) {
                 setSeg(i);
-                if (onScreen(cp.x2, cp.y2) || onScreen(cp.x1, cp.y1)) { ctx.beginPath(); ctx.moveTo(cp.x1, cp.y1); ctx.bezierCurveTo(cp.c1x, cp.c1y, cp.c2x, cp.c2y, cp.x2, cp.y2); ctx.stroke(); }
+                if (onScreen(cp.x2, cp.y2) || onScreen(cp.x1, cp.y1)) { ctx.beginPath(); ctx.moveTo(cp.x1, cp.y1); ctx.lineTo(cp.x2, cp.y2); ctx.stroke(); }
             }
         } else {
             ctx.beginPath(); let started = false;
             for (let i = idx + 1; i < filteredData.length; i++) {
                 setSeg(i);
                 if (!started) { ctx.moveTo(cp.x1, cp.y1); started = true; }
-                ctx.bezierCurveTo(cp.c1x, cp.c1y, cp.c2x, cp.c2y, cp.x2, cp.y2);
+                ctx.lineTo(cp.x2, cp.y2);
             }
             if (started) ctx.stroke();
         }
@@ -483,9 +409,7 @@
         if (dPlane) {
             const d = dPlane; ctx.save(); ctx.translate(getX(d.lon), getY(d.lat)); ctx.scale(1/mapScale, 1/mapScale);
             const zoomFactor = Math.max(1, Math.pow(mapScale, 0.6));
-            if (document.getElementById('simpleTrackerIcon').checked) {
-                ctx.beginPath(); ctx.arc(0, 0, 3 * zoomFactor, 0, 2 * Math.PI); ctx.fillStyle = '#e2e4e8'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5 * zoomFactor; ctx.stroke();
-            } else {
+            {
                 const planeScale = 0.15 * zoomFactor; let t_th = d.th ?? 0; let t_track = d.gTrack ?? 0;
                 // ground-track (blue) and true-heading (yellow) arrows ahead of the plane, the
                 // same pair the 3D tracker flies: translucent so the dynamic wind barb stays
@@ -517,12 +441,6 @@
             }
         }
 
-        customMarkers.forEach(marker => {
-            if (marker.idx <= idx && filteredData[marker.idx]) {
-                const mx = getX(filteredData[marker.idx].lon); const my = getY(filteredData[marker.idx].lat);
-                ctx.save(); ctx.translate(mx, my); ctx.scale(1/mapScale, 1/mapScale); ctx.beginPath(); ctx.arc(0, 0, 8, 0, 2 * Math.PI); ctx.fillStyle = marker.color; ctx.fill(); ctx.strokeStyle = '#000000'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-            }
-        });
 
         ctx.restore();
     }

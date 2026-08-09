@@ -28,9 +28,8 @@ const PRECACHE = [
 
     'js/00b-qc-catalog.js',
     'js/01-state.js',
-    'js/02-recon-api.js',
     'js/03-metrics.js',
-    'js/06-ocr.js',
+    'js/06-drop-zone.js',
     'js/07-ui-controls.js',
     'js/07b-plane-models.js',
     'js/07c-terrain.js',
@@ -38,15 +37,13 @@ const PRECACHE = [
     'js/11-layout.js',
     'js/11b-parser-core.js',
     'js/12-file-parsing.js',
-    'js/12b-recon-archive.js',
-    'js/13-charts-master.js',
+    'js/12b-mission-store.js',
     'js/14-filters-sync.js',
     'js/15-map-render.js',
     'js/17-charts.js',
     'js/18-engine.js',
     'js/18b-flight-search.js',
     'js/19-bootstrap.js',
-    'js/20-ui-polish.js',
     'js/21-qc-engine.js',
     'js/22-qc-charts.js',
     'js/23-qc-report.js',
@@ -115,9 +112,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     if (e.request.method !== 'GET') return;
 
-    // Cross-origin goes straight to the network, never cached here: the recon-api health check
-    // (docs/CONNECTIVITY.md) must see real failures to flip the UI offline, and GIBS/GitHub
-    // fallbacks manage their own freshness.
+    // The app is fully same-origin, so anything cross-origin is not ours: pass it straight to
+    // the network and never cache it here.
     const url = new URL(e.request.url);
     if (url.origin !== self.location.origin) return;
 

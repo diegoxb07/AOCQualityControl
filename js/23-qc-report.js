@@ -41,7 +41,7 @@
             // cached by an older build before QC data was stored on device. say so, and how to fix
             // it, instead of leaving the pre-load "waiting for a flight" text that reads as a hang.
             if (typeof allParsedData !== 'undefined' && allParsedData && allParsedData.length)
-                qcRenderError('This flight loaded but has no QC data. Re-preload it (Load Flight Data) to rebuild it.');
+                qcRenderError('This flight loaded but has no QC data. Upload the file again to rebuild it.');
             else qcRenderEmpty();
             return;
         }
@@ -276,8 +276,8 @@
     function qcBuildFlightContext() {
         const panel = document.getElementById('qcReportPanel'); if (!panel) return;
         const md = (typeof flightMetaData !== 'undefined' && flightMetaData) ? flightMetaData : {};
-        const storm = (typeof stormTrackMeta !== 'undefined' && stormTrackMeta && stormTrackMeta.name) ? stormTrackMeta.name
-                    : ((typeof reconArchiveMeta !== 'undefined' && reconArchiveMeta && reconArchiveMeta.stormName) ? reconArchiveMeta.stormName : '');
+        // storm name, from the "(NAME)" the mission id carries when the file names one
+        const storm = ((String(md.id || '').match(/\(([^)]+)\)/) || [])[1] || '').replace(/^(unknown|training|research)$/i, '');
         const sub = [md.aircraft, storm ? ('Storm ' + storm) : '', md.date].filter(v => v && v !== 'Unknown').map(qcFcEsc).join('  ·  ');
         const rows = [['Time in flight', 'tif'], ['Phase', 'phase'], ['GPS altitude', 'alt'], ['Heading / track', 'hdg'],
                       ['True airspeed', 'tas'], ['Wind', 'wind'], ['Air temp', 'temp'], ['Position', 'pos']];
@@ -402,8 +402,7 @@
         // exactly there and the player shows the boundary frame through qcPlayheadToRow
         qcScrubIdx = (typeof qcClampScrub === 'function') ? qcClampScrub(ai) : Math.max(0, Math.min(qcAxisRef.length - 1, ai));
         if (typeof isPlaying !== 'undefined' && isPlaying) {
-            const pb = document.getElementById('playPauseBtn');
-            if (pb && /pause/i.test(pb.innerText)) pb.click(); else isPlaying = false;
+            stopPlayback();
         }
         qcDrivePlayer(true);
         if (typeof qcSyncPlayhead === 'function') qcSyncPlayhead(true);
@@ -442,7 +441,7 @@
     // same phrasing prefixed with the sensor name, so the report is never an empty shell.
     function qcExportGapReport() {
         if (!qcResult) return;
-        const src = (typeof reconArchiveMeta !== 'undefined' && reconArchiveMeta && reconArchiveMeta.sourceUrl) || ((flightMetaData.id || 'flight') + '.nc');
+        const src = (flightMetaData.id || 'flight') + '.nc';
         const lines = [src];
         (qcResult.recordingGaps || []).forEach(g => lines.push('Data gap from ' + qcSecToLabel(g.from) + ' - ' + qcSecToLabel(g.to)));
         const seen = new Set();
@@ -620,8 +619,6 @@
                     '<button class="qc-menu-item" id="qcExportHtmlBtn" title="Download an interactive report as one self-contained HTML file">Interactive Report (.html)</button>' +
                     '<button class="qc-menu-item" id="qcExportReportBtn" title="This flight\'s per-sensor QC stats">Indiv. Sensor Stats CSV</button>' +
                     '<button class="qc-menu-item" id="qcExportStoreBtn" title="Pick which stored flights go into each plane\'s Stats file">Indiv. Plane Stats CSV</button>' +
-                    '<div class="qc-menu-sep"></div>' +
-                    '<button class="qc-menu-item qc-menu-share" id="qcShareLinkBtn" title="Copy a shareable link to this view">Share QC Link</button>' +
                   '</div>' +
                 '</div>' +
               '</div>' +
@@ -708,11 +705,8 @@
                 '<div class="qc-help-card" id="qchs0">' +
                   '<h3>Load a mission</h3>' +
                   '<ul>' +
-                    '<li><b>Archive (API online):</b> search by id, storm, or date, or pick Year, Storm, Flight, then Load Flight + Storm Track.</li>' +
-                    '<li><b>Can\'t find the mission you\'re looking for?</b> Check that the flight has been put onto the SEB Archive. A new mission can take up to a day to populate. You can always manually upload it in the meantime.</li>' +
-                    '<li><b>Manual upload:</b> drop a .txt or .nc on the upload zone. Works offline.</li>' +
-                    '<li><b>Already loaded:</b> every flight is stored on this device and reopens instantly, and the red cross removes one. The store keeps the 100 most recent.</li>' +
-                    '<li><b>Batch Load Flight Data:</b> download whole seasons for instant, offline reopening.</li>' +
+                    '<li><b>Load a Flight:</b> drop a .nc flight-level file on the upload zone, or click it to browse. The whole tool runs on this computer, so nothing is sent anywhere and it works with no internet.</li>' +
+                    '<li><b>Loaded Flights:</b> every flight you load is kept on this computer and reopens with no re-parse, and the red cross removes one. The store keeps the 100 most recent.</li>' +
                     '<li><b>Metrics Across Flights:</b> finds which stored flight recorded the highest or lowest value of any metric, with a comparison graph. Works offline.</li>' +
                   '</ul>' +
                 '</div>' +
@@ -813,9 +807,7 @@
                     '<li><b>Interactive Report (.html):</b> one self-contained file with every graph interactive, the gap markers, the track, and the summary. Send it to anyone, it opens with no flight load.</li>' +
                     '<li><b>Indiv. Sensor Stats CSV:</b> one row per sensor (presence, gaps, missing seconds, early stop) plus each pair max difference.</li>' +
                     '<li><b>Indiv. Plane Stats CSV:</b> pick which stored flights go into each plane .csv. Each value is the flight-average difference between a sensor pair (first sensor minus second, over takeoff to landing), and a value near zero means the two sensors agree. Columns are labeled and match the legacy script values.</li>' +
-                    '<li><b>Share QC Link:</b> reopens an archive mission at your playhead, view, and sidebar state.</li>' +
                     '<li><b>NC → TXT (.txt):</b> converts the loaded flight to a delimited text file. Every variable in the file is listed (not just the graphed set), and the parameters, delimiter, and time window are all pickable.</li>' +
-                    '<li><b>Download Original (.nc):</b> the mission\'s full-resolution source NetCDF (archive missions, API online).</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -917,13 +909,9 @@
         qcRelocate('missionLoadConsole', 'qcLoaderSlot');
         qcRelocate('mapPanel', 'qcMapSlot');
         qcRelocate('topRightControls', 'qcHeadControls');
-        // flight library row: the loaded-mission picker and the batch flight-data loader, stacked
-        // in the right column above the manual takeoff/landing pins
-        const lib = document.createElement('div'); lib.className = 'qc-flight-lib'; lib.id = 'qcFlightLib';
-        document.getElementById('qcHeadControls').appendChild(lib);
-        qcRelocate('loadedPickerWrap', 'qcFlightLib');
-        qcRelocate('preloadBtnWrap', 'qcFlightLib');
-        // manual takeoff/landing pins, below the flight library. apply reruns the report with the
+        // the loaded-flights picker is NOT relocated: it stays inside #missionLoadConsole, under its
+        // own label and status line, so the whole load story reads in one place.
+        // manual takeoff/landing pins. apply reruns the report with the
         // pinned seconds; the Auto/Manual dropdown switches between detection and the pinned times.
         const ovr = document.createElement('div');
         ovr.className = 'qc-phase-override';
@@ -970,27 +958,6 @@
         document.getElementById('qcErrorSummaryBtn').addEventListener('click', () => { if (typeof qcShowErrorSummary === 'function') qcShowErrorSummary(); });
         document.getElementById('qcTrackPdfBtn').addEventListener('click', () => { if (typeof qcShowTrackPdf === 'function') qcShowTrackPdf(); });
         document.getElementById('qcExportStoreBtn').addEventListener('click', qcShowStatsPicker);
-        // share qc link: copies a url that reopens this archive mission in the qc tool at the
-        // current playhead, tracker view, and sidebar state. feedback shows in place on the
-        // export button; uploaded files have no mission id to share.
-        document.getElementById('qcShareLinkBtn').addEventListener('click', async () => {
-            const ex = document.getElementById('qcExportMenuBtn');
-            const say = msg => { if (!ex) return; ex.textContent = msg; setTimeout(() => { ex.textContent = 'Export ▾'; }, 2200); };
-            if (typeof reconArchiveMeta === 'undefined' || !reconArchiveMeta || !qcResult) { say('Archive missions only'); return; }
-            let url = '';
-            try {
-                const u = new URL(window.location.href);
-                ['mission', 't', 'view', 'side'].forEach(k => u.searchParams.delete(k));
-                u.searchParams.set('mission', reconArchiveMeta.missionId);
-                if (qcScrubIdx != null && typeof qcAxisRef !== 'undefined' && qcAxisRef && qcAxisRef[qcScrubIdx] != null)
-                    u.searchParams.set('t', qcSecToLabel(qcAxisRef[qcScrubIdx]).replace(/:/g, ''));
-                if (typeof trackerModeSelect !== 'undefined') u.searchParams.set('view', trackerModeSelect.value);
-                if (app.classList.contains('qc-side-open')) u.searchParams.set('side', '1');
-                url = u.toString();
-            } catch (e) { return; }
-            try { await navigator.clipboard.writeText(url); say('Link copied'); }
-            catch (e) { try { history.replaceState(null, '', url); } catch (e2) {} say('Link in address bar'); }
-        });
         document.getElementById('qcCmdViewGraph').addEventListener('click', () => qcScrollToVar(document.getElementById('qcCmdVar').value));
         document.getElementById('qcPhaseStatsBtn').addEventListener('click', qcToggleCmdPanel);
         document.getElementById('qcCmdClose').addEventListener('click', () => {
@@ -1024,23 +991,9 @@
         exMenu.querySelectorAll('.qc-menu-item').forEach(b => b.addEventListener('click', () => exMenu.classList.add('hidden')));
         document.addEventListener('click', e => { if (!exMenu.classList.contains('hidden') && !exMenu.contains(e.target) && e.target !== exBtn) exMenu.classList.add('hidden'); });
 
-        // every play start is seeded FROM the playhead through the contract: a playhead parked
-        // before takeoff starts playback at row 0 (takeoff), never "x hours in". capture phase, so
-        // this runs before the visualizer's own play handler reads currentIdx.
-        const realPb = document.getElementById('playPauseBtn');
-        if (realPb) realPb.addEventListener('click', () => {
-            if (typeof isPlaying !== 'undefined' && !isPlaying && filteredData && filteredData.length) {
-                currentIdx = qcPlayheadToRow();   // a pre-takeoff playhead starts playback at takeoff (row 0)
-            }
-        }, true);
-
-        // play/pause borrows the visualizer engine via its real button; there is no timeslider
-        // (the graphs and the arrow keys do the sliding)
-        document.getElementById('qcPlayBtn').addEventListener('click', () => {
-            const pb = document.getElementById('playPauseBtn'); if (!pb || pb.disabled) return;
-            pb.click();
-            document.getElementById('qcPlayBtn').textContent = /pause/i.test(pb.innerText) ? 'Pause' : 'Play';
-        });
+        // play/pause: the QC button is the only playback control; the engine seeds the start
+        // row from the playhead itself (js/18-engine.js startPlayback).
+        document.getElementById('qcPlayBtn').addEventListener('click', togglePlayback);
         // playback speed rides the visualizer's speed engine; one button cycles through its steps
         document.getElementById('qcSpeedBtn').addEventListener('click', () => {
             if (typeof speeds === 'undefined' || typeof currentSpeedIdx === 'undefined') return;
@@ -1159,8 +1112,7 @@
                     }
                     if (typeof qcSyncPlayhead === 'function') qcSyncPlayhead();
                     qcSyncTimeLabel();
-                    const pb = document.getElementById('playPauseBtn'), qb = document.getElementById('qcPlayBtn');
-                    if (pb && qb) qb.textContent = /pause/i.test(pb.innerText) ? 'Pause' : 'Play';
+                    if (typeof syncPlayButton === 'function') syncPlayButton();
                 } catch (e) {}
                 return r;
             };
