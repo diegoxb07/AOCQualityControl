@@ -69,9 +69,6 @@ button { transition: background-color 0.15s, border-color 0.15s, color 0.15s, op
 .hover\:bg-elevated:hover { background-color: var(--border); }
 .bg-accent { background-color: var(--accent); }
 .hover\:bg-accent:hover { background-color: var(--accent); filter: brightness(1.12); }
-.bg-accent-soft { background-color: var(--accent-soft); }
-.bg-danger { background-color: var(--danger); }
-.bg-danger-soft { background-color: color-mix(in oklab, var(--danger) 16%, var(--panel)); }
 .hover\:bg-danger:hover { background-color: var(--danger); filter: brightness(1.12); }
 
 .text-ink { color: var(--text); }
@@ -79,14 +76,11 @@ button { transition: background-color 0.15s, border-color 0.15s, color 0.15s, op
 .text-faint { color: var(--text-faint); }
 .text-accent { color: var(--accent); }
 .text-accent-ink { color: var(--accent-ink); }
-.text-danger { color: var(--danger); }
 .hover\:text-accent:hover { color: var(--accent); }
 .hover\:text-ink:hover { color: var(--text); }
 
 .border-hairline { border-color: var(--border); }
-.border-hairline-strong { border-color: var(--border-strong); }
 .border-accent { border-color: var(--accent); }
-.border-danger { border-color: var(--danger); }
 .hover\:border-hairline-strong:hover { border-color: var(--border-strong); }
 .hover\:border-accent:hover { border-color: var(--accent); }
 .focus\:border-accent:focus { border-color: var(--accent); }
@@ -95,7 +89,6 @@ button { transition: background-color 0.15s, border-color 0.15s, color 0.15s, op
    that makes a spinner visibly spin. keep the top transparent here. */
 .border-t-transparent { border-top-color: transparent; }
 .accent-accent { accent-color: var(--accent); }
-.accent-muted { accent-color: var(--text-muted); }
 .group:hover .group-hover\:text-accent { color: var(--accent); }
 .group:hover .group-hover\:text-ink { color: var(--text); }
 
@@ -128,7 +121,6 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
 /* Nudge only the "use manual upload instead ->" text left of its flow spot; a relative offset
    moves the text alone, so the "or upload" zone beside it stays put. Offline-relocated only. */
 #dataDropZone.data-drop-emph span { font-size: 12px; }
-#dataDropZone.data-drop-emph #dataDropLabel { max-width: 200px; }
 
 /* previously-loaded-missions popover: one row per flight, a name button that opens it plus a red
    × that removes it. mirrors the sat picker's fixed/z-index/panel look so both dropdowns match. */
@@ -211,8 +203,6 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
    (the full playback bar is hidden by the JS then). the strip is full-width, so its slider is wide
    and therefore less sensitive than a tiny one. right padding clears the absolute collapse button. */
 .mini-playback-bar { display: none; align-items: center; gap: 8px; padding: 5px 240px 5px 118px; flex-wrap: nowrap; }
-.clip-remove-graph { color: var(--danger); font-weight: 700; transition: color 0.12s; }
-.clip-remove-graph:hover { color: color-mix(in oklab, var(--danger) 78%, #fff); }
 
 #mapPanel { height: var(--media-h); overflow: hidden; }
 /* keyline drawn as inset shadow, NOT border: a border would shrink the canvas display box 2px
@@ -246,10 +236,6 @@ canvas#mapCanvas:active { cursor: grabbing; }
 #recordProgress { display: none; position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 9998; align-items: center; gap: 10px; background: color-mix(in oklab, var(--panel) 95%, transparent); border: 1px solid var(--danger); color: var(--text); padding: 8px 14px; border-radius: 3px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); }
 @keyframes recPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes menuIn { from { opacity: 0; transform: translateY(-4px); } }
-.dropdown-item { font-size: 13px; color: var(--text-muted); padding: 8px 12px; cursor: pointer; border-radius: 3px; text-transform: none; font-weight: 500; display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; transition: background-color 0.1s, color 0.1s; }
-.dropdown-item:hover { background-color: var(--border); color: var(--text); }
-.dropdown-item.active { background-color: var(--accent-soft); color: var(--accent); font-weight: 700; }
-.dropdown-item.active::after { content: '✓'; font-size: 12px; }
 
 /* Modals / toast */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: color-mix(in oklab, var(--bg) 75%, transparent); z-index: 5000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
@@ -266,7 +252,6 @@ canvas#mapCanvas:active { cursor: grabbing; }
 .help-body b, .help-body strong { color: var(--text); font-weight: 600; }
 .help-body a { color: var(--accent); text-decoration: underline; }
 .help-body kbd { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--text); white-space: nowrap; }
-.help-lead { color: var(--text) !important; font-size: 13px; }
 /* help redesign: chip toc + card grid instead of one long column of text */
 .qc-help-toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
 .qc-help-toc button { background: var(--panel-strip); border: 1px solid var(--border); color: var(--text-muted); font-size: 10.5px; font-weight: 600; border-radius: 999px; padding: 3px 10px; cursor: pointer; transition: color .12s, border-color .12s; }
@@ -283,10 +268,6 @@ canvas#mapCanvas:active { cursor: grabbing; }
 
 /* clip record start and end frame previews, driven by js/19-bootstrap.js. */
 .clip-preview-card { background: color-mix(in oklab, var(--bg) 45%, transparent); border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; min-width: 0; }
-.clip-preview-head { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 5px; }
-.clip-preview-time { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-weight: 700; color: var(--accent); text-transform: none; letter-spacing: 0; }
-.clip-preview-frames { display: flex; gap: 6px; }
-.clip-preview-frames > .clip-preview-track, .clip-preview-frames > .clip-preview-video { flex: 1 1 0; min-width: 0; width: 100%; height: 88px; border-radius: 4px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--border); display: block; object-fit: contain; }
 
 .toast-notification { position: fixed; top: 20px; right: 20px; background-color: color-mix(in oklab, var(--panel) 96%, transparent); border: 1px solid var(--border); border-left: 4px solid var(--accent); color: var(--text); padding: 16px 20px; border-radius: 4px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); z-index: 9999; font-size: 13px; max-width: 350px; opacity: 0; transform: translateX(50px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
 .toast-notification.show { opacity: 1; transform: translateX(0); pointer-events: auto; }
@@ -298,8 +279,7 @@ canvas#mapCanvas:active { cursor: grabbing; }
 /* Filters: compact columns. The PFD sub-option (Press->GPS Alt) lives directly under Cockpit PFD
    in its own reserved slot with an elbow connector, so toggling PFD reveals it in place instead of
    reflowing the other filters. */
-#filtersGrid { display: flex !important; gap: 20px !important; align-items: flex-start; }   /* reserved space kept when the PFD sub-option is off */
-.filter-note { margin-left: 17px; margin-top: -2px; font-size: 8.5px; font-weight: 600; font-style: italic; letter-spacing: 0.3px; color: var(--text-faint); text-transform: uppercase; user-select: none; }
+#filtersGrid { display: flex !important; gap: 20px !important; align-items: flex-start; }
 /* Pitch/roll HUD and the info stack scale with --hud-scale (set by the media resize handle in
    js/11-layout.js), staying in step with the metric HUD/PFD. Each scales from its anchored corner. */
 /* In 3D fullscreen the pitch/roll HUD moves to the top-right and the info stack to the top-left. */
@@ -527,8 +507,6 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-menu-item:hover { background: color-mix(in oklab, var(--accent) 14%, transparent); }
 /* the share link is not a file export, so a divider sets it apart and accent text marks it as an action */
 .qc-menu-sep { height: 1px; background: var(--border); margin: 4px 6px; }
-.qc-menu-share { color: var(--accent); font-weight: 500; }
-.qc-menu-share:hover { background: color-mix(in oklab, var(--accent) 20%, transparent); }
 .qc-app-body { flex: 1; display: flex; min-height: 0; }
 
 /* context sidebar (map + report): hidden by default, expanded via the flight 2d/3d button */
@@ -592,7 +570,6 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-es-row .qc-es-sel { flex: none; width: 158px; }
 .qc-es-wide { width: 100%; }
 .qc-ov-input[readonly] { opacity: 0.72; cursor: default; }
-.qc-es-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2px 18px; }
 .qc-es-notes { width: 100%; min-height: 150px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--text); outline: none; font-family: inherit; resize: vertical; }
 .qc-es-exp-row { display: grid; grid-template-columns: 1fr 80px 80px 80px; gap: 8px; align-items: center; font-size: 12px; color: var(--text-muted); padding: 2px 0; }
 .qc-es-exp-head b { font-size: 10.5px; color: var(--text); font-weight: 700; }
@@ -628,7 +605,6 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .wb-legend { margin: 0 0 4px; }
 .wb-legend-title { font-size: 12px; font-weight: 600; color: var(--text); margin: 0 0 5px; }
 .wb-bar { display: flex; height: 16px; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
-.wb-seg { display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; font-weight: 700; }
 /* axis labels sit at their true position on the 0 to 160 kt span, so the ticks land on the color
    boundaries above them rather than being spread evenly. */
 .wb-axis { position: relative; height: 13px; margin-top: 3px; }
@@ -704,7 +680,6 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-map-slot #resetMapZoomBtn { font-size: 8.5px; padding: 1px 5px; }
 .qc-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--panel-strip); border: 1px solid var(--border); color: var(--text-muted); font-size: 9.5px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 .qc-canvas-wrap { position: relative; height: 300px; }
-.qc-canvas-diff { height: 180px; margin-top: 6px; }
 /* per-graph fullscreen (the toolbar's full button) */
 .qc-canvas-wrap:fullscreen { background: var(--bg); padding: 26px; }
 /* brief highlight when Phase Stats navigates to a graph */
@@ -736,8 +711,6 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-fam-bottom { display: flex; align-items: center; gap: 14px; }
 /* the always-on std dev readout rides the far right of the bottom strip */
 .qc-band-slot { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; margin-left: auto; padding-right: 8px; }
-.qc-diff-title { font-weight: 700; font-size: 12.5px; color: var(--text); margin-right: 4px; }
-.qc-diff-sep { display: none; }
 /* warn-tinted badge (ref switched sources mid-flight) */
 /* ref source-change flag: white to match the ref variable's own line color (ink on light theme) */
 .qc-badge-warn { color: #ffffff; border-color: color-mix(in oklab, #ffffff 28%, var(--border)); }
@@ -770,7 +743,6 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-lg-chip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .qc-lg-chip.active { color: var(--accent); border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--panel-strip)); }
 .qc-lg-chip:disabled { opacity: 0.45; cursor: not-allowed; }
-.qc-lg-sep { width: 1px; height: 14px; background: var(--border); flex: none; }
 /* one cluster per sensor group: the chip with its own variables right beside it. group chips
    always read accent, hovered or not, so a second unselected group never fades from the user's
    attention */
@@ -859,7 +831,6 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-tool svg { width: 13px; height: 13px; flex: none; }
 .qc-tool:hover { color: var(--text); border-color: var(--border-strong); }
 .qc-tool.active { color: var(--accent); border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--panel-strip)); }
-.qc-tool.qc-tool-hot { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 @media (max-width: 900px) {
     .qc-app-body { flex-direction: column; }
     .qc-side { width: 100%; flex: none; border-left: none; border-top: 1px solid var(--border); max-height: 60vh; }

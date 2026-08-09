@@ -108,7 +108,7 @@
                  scale. Styles live in css/app.css (.qc-load*). -->
             <div id="missionLoadConsole" class="qc-load">
                 <div class="qc-load-col qc-load-col-file">
-                    <span id="loadFlightDataLabel" class="qc-load-lbl">Load a Flight</span>
+                    <span class="qc-load-lbl">Load a Flight</span>
                     <span class="qc-load-note">Accepts only <b>.nc</b> files from SEB Archive</span>
                     <div id="dataDropZone" class="qc-load-drop" title="Drop a .nc flight-level file, or click to browse">
                         <input type="file" id="fileInput" accept=".nc" />
@@ -120,7 +120,7 @@
                     <span class="qc-load-lbl">Loaded Flights</span>
                     <!-- doubles as the store's status line (js/12b-mission-store.js setMissionStoreStatus) -->
                     <span id="missionLoadStatus" class="qc-load-note">Reopen a flight you have already loaded.</span>
-                    <div id="loadedPickerWrap" class="relative">
+                    <div class="relative">
                         <button id="loadedPickerBtn" type="button" disabled class="qc-load-pick" title="Reopen a flight already loaded on this computer">
                             <span id="loadedPickerLabel" class="qc-load-pick-txt">No flights loaded yet</span>
                             <span class="qc-load-pick-caret" aria-hidden="true">&#9660;</span>
@@ -137,7 +137,7 @@
 
             <!-- Loaded-flight status strip + parser ledger, full width. -->
             <div>
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2" id="missionStatusStrip">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
                     <div class="status-chip"><span class="chip-k">Flight Data Window</span><span class="chip-v" id="hdrRange">Waiting</span></div>
                     <div class="status-chip"><span class="chip-k">Flight ID</span><span class="chip-v" id="hdrFlightId">-</span></div>
                     <div class="status-chip"><span class="chip-k">Aircraft</span><span class="chip-v" id="hdrAircraft">-</span></div>
@@ -169,7 +169,7 @@
             <span class="media-idle-title">Waiting for Flight Data</span>
             <span class="media-idle-sub">Drop a .nc flight-level file, or reopen one you already loaded</span>
         </div>
-        <div class="media-container" id="mapContainer">
+        <div class="media-container">
             <canvas id="mapCanvas"></canvas>
             <div id="threeDContainer"></div>
             <!-- Appears only after the user pans/zooms away from the followed aircraft; clicking

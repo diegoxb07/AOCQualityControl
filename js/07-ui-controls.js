@@ -147,14 +147,6 @@
     function scene3DBgColor() {
         return (document.documentElement.dataset.theme === 'light') ? 0xdfe6ec : 0x171122;
     }
-    // Re-colors the 3D basemap for the current theme. The terrain's water/land colours and the border
-    // line colours are baked at build time, so a theme change needs a rebuild; the scene background is
-    // live and set here either way, since it also applies with no flight loaded.
-    function applyTheme3D() {
-        if (typeof scene3D === 'undefined' || !scene3D) return;
-        scene3D.background = new THREE.Color(scene3DBgColor());
-        if (threeDInitialized && filteredData.length > 0) build3DScene();
-    }
 
     function init3D() {
         if (threeDInitialized) return;

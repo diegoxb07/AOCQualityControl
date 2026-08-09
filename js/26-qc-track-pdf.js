@@ -18,20 +18,6 @@
         return (la && lo) ? { lat: la, lon: lo } : null;
     }
 
-    // where to drop a country label so it lands on the visible part: the mean of the feature's
-    // vertices inside the view; if the view sits wholly inside the country, its center; else none
-    function qcGeoLabelInView(f, mnLo, mxLo, mnLa, mxLa) {
-        const g = f.geometry; if (!g) return null;
-        let sx = 0, sy = 0, k = 0;
-        const scan = ring => { for (let i = 0; i < ring.length; i++) { const lo = ring[i][0], la = ring[i][1]; if (lo >= mnLo && lo <= mxLo && la >= mnLa && la <= mxLa) { sx += lo; sy += la; k++; } } };
-        if (g.type === 'Polygon') g.coordinates.forEach(scan);
-        else if (g.type === 'MultiPolygon') g.coordinates.forEach(poly => poly.forEach(scan));
-        else return null;
-        if (k > 0) return { lon: sx / k, lat: sy / k };
-        const bb = f.properties && f.properties.bbox;
-        if (bb && bb[0] <= mnLo && bb[2] >= mxLo && bb[1] <= mnLa && bb[3] >= mxLa) return { lon: (mnLo + mxLo) / 2, lat: (mnLa + mxLa) / 2 };
-        return null;
-    }
 
     let qcTrackModal = null;
     function qcShowTrackPdf() {

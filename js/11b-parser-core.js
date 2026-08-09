@@ -14,17 +14,7 @@
         return parseInt(cleanStr.slice(0,2))*3600 + parseInt(cleanStr.slice(2,4))*60 + parseInt(cleanStr.slice(4,6));
     }
 
-    function toHHMMSS(secs) {
-        let secNum = parseInt(secs, 10);
-        let h = Math.floor(secNum / 3600), m = Math.floor((secNum % 3600) / 60), s = secNum % 60;
-        return String(h).padStart(2,'0') + String(m).padStart(2,'0') + String(s).padStart(2,'0');
-    }
 
-    // AOC flight files are named YYYYMMDD<plane>..., pull the UTC date the same way the loader does.
-    function flightDateFromFilename(fName) {
-        const match = fName.match(/^(\d{4})(\d{2})(\d{2})([a-zA-Z])(.*)\./i);
-        return match ? `${match[1]}-${match[2]}-${match[3]}` : 'Unknown';
-    }
 
     // Convert a NetCDF ArrayBuffer into the tab-separated text parseFlightTextToRows consumes: tsv is
     // the parser's internal format, so an uploaded .nc goes through here first.
