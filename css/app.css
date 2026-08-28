@@ -470,6 +470,11 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-head-controls #resetAppBtn, .qc-head-controls #fullscreenBtn { padding: 5px 10px; font-size: 11px; }
 /* strip the player chrome from the reused map: attitude readout, info badges, and the storm toggle. */
 
+/* offline version download, in the brand column directly under the title: button then its caveat */
+.qc-offline-copy { display: flex; align-items: center; gap: 8px; padding: 7px 0 0 0; }
+.qc-offline-copy:empty { display: none; }
+.qc-offline-copy .qc-ov-btn { text-decoration: none; flex: none; }
+.qc-offline-note { font-size: 10px; color: var(--text-muted); line-height: 1.25; max-width: 150px; }
 .qc-actionbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--panel) 60%, var(--bg)); }
 .qc-ov-title { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 12.5px; color: var(--accent); white-space: nowrap; }
 .qc-summary { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }

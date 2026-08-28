@@ -39,6 +39,20 @@ jobs:
         # fresh, server-revalidated precache and drops the old one; the new build appears on the
         # second page load after a push (the first load installs it in the background).
         run: sed -i "s/?v=[0-9A-Za-z._-]\{1,\}/?v=${GITHUB_SHA}/g" index.html sw.js
+      - name: Build the standalone offline copy
+        # One self-contained .html with every asset inlined, published beside the site so the
+        # Export menu's "Offline Copy" button has something to serve. Runs AFTER the cache-bust
+        # rewrite so the embedded copy carries the same stamps as the deployed site. The build
+        # fails loudly if the app gained an asset reference it does not embed, rather than
+        # shipping an offline copy with a silently dead feature.
+        run: |
+          python3 tools/build-standalone.py
+          # only the stable name ships; dist/ also holds a dated copy and a zip for hand-out,
+          # and publishing those would triple the payload for no gain
+          mv dist/AOC-QC-Tool.html AOC-QC-Tool.html
+          rm -rf dist
+          # stamp the saved filename with the build date, so an old copy is obvious on disk
+          sed -i "s/download=\"AOC-QC-Tool\.html\"/download=\"AOC-QC-Tool-$(date -u +%Y%m%d).html\"/" js/23-qc-report.js
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

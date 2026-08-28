@@ -594,6 +594,8 @@
                     '<span class="qc-brand-txt">QC Tool<small>Aircraft Operations Center · Science Branch</small></span>' +
                   '</div>' +
                 '</div>' +
+                // offline version download, filled in by the wiring below; removed in the offline version
+                '<div class="qc-offline-copy" id="qcOfflineStrip"></div>' +
                 '<div class="qc-brand-actions" id="qcBrandActions"></div>' +
               '</div>' +
               '<div class="qc-loader-slot" id="qcLoaderSlot"></div>' +
@@ -950,6 +952,21 @@
         // bottom of the Export menu. Must run before the export-menu wiring below, while the menu
         // exists but its outside-click close handler hasn't been bound yet.
         if (typeof qcInitNcTxtConverter === 'function') qcInitNcTxtConverter();
+
+        // Offline version: the whole tool as one self-contained file (tools/build-standalone.py),
+        // published beside the site by the deploy. Keep one on a laptop and the tool still opens
+        // when Pages is down. It is a snapshot, so the caveat rides next to the button rather than
+        // letting anyone assume a saved copy keeps pace with the site. Absent inside the offline
+        // version itself, which is the download and cannot serve another.
+        const offStrip = document.getElementById('qcOfflineStrip');
+        if (offStrip && !window.AOC_EMBED) {
+            offStrip.innerHTML =
+                '<a id="qcOfflineCopyBtn" class="qc-ov-btn" href="AOC-QC-Tool.html" download="AOC-QC-Tool.html"' +
+                  ' title="Download the whole tool as one file that opens offline, no server needed">Offline Version (.html)</a>' +
+                '<span class="qc-offline-note">Does not update automatically. Re-download if any new changes.</span>';
+        } else if (offStrip) {
+            offStrip.remove();
+        }
 
         // wire actions
         document.getElementById('qcExportReportBtn').addEventListener('click', qcExportReportCSV);
