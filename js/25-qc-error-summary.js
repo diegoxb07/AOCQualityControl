@@ -6,7 +6,8 @@
    coordinates on letter pages, the same title rule, sensor table, directory line, corrections,
    wrapped notes with its page breaks, expendables table, and the flight director block. The
    modal prefills what the tool knows (flight id, takeoff/landing times, sensor designations
-   from what the refs actually rode); everything stays editable, like the script's form. */
+   from what the refs actually rode, plus the standing notes for the airframe); everything stays
+   editable, like the script's form. */
 
     // ---- tiny pdf writer: base-14 fonts (Courier + Helvetica), text, lines, polylines, fills,
     // dots, clipping, portrait or landscape pages, multi page --------------------------------------
@@ -85,6 +86,40 @@
         ['Dynamic Sideslip Pressure Probe', ['PQBETA.1', 'PQBETA.2', 'N/A']]
     ];
     const QC_ES_EXPENDABLES = ['Dropsondes', 'Test sondes', 'AXBTs', 'AXCPs', 'AXCTDs', 'UAS'];
+
+    // standing notes: the two statements that ride every error summary, then a per airframe block.
+    // these are boilerplate the branch puts on every form, not values inferred from the data, so
+    // unlike a sensor designation they are safe to prefill.
+    const QC_ES_NOTES_COMMON = [
+        'There were no edits made in the measured parameters used to calculate meteorological and navigational parameters.',
+        '',
+        'Takeoff/Landing data: Data during landing and takeoff are potentially suspect. It is recommended that ground data not be used for scientific analysis.'
+    ];
+    const QC_ES_NOTES_BY_AIRFRAME = {
+        HI: ['TTM.3, TDM.3, TRadU.1, Pitch.3, PitchRate.3, Roll.3, and RollRate.3 inop',
+             'SFMR not currently installed'],
+        N:  ['Wind data suspect',
+             'Humidity data suspect']
+    };
+    function qcEsDefaultNotes(letter) {
+        const extra = QC_ES_NOTES_BY_AIRFRAME[qcAirframeKey(letter)] || [];
+        return QC_ES_NOTES_COMMON.concat(extra.length ? [''] : [], extra).join('\n');
+    }
+
+    // the bare mission id: storm parenthetical dropped, then the file revision suffix a .nc upload
+    // carries (20260721H1_A, 20260721H1A) trimmed back to YYYYMMDD<letter><flight>. anything that
+    // does not look like a mission id passes through untouched rather than being mangled.
+    function qcEsBareId(raw) {
+        const s = String(raw || '').replace(/\s*\([^)]*\)/g, '').trim();
+        const m = /^(\d{8}[A-Za-z]\d+)/.exec(s);
+        return m ? m[1] : s;
+    }
+    // airframe letter for a bare id, falling back to the loaded flight when the field says nothing
+    function qcEsLetter(bareId) {
+        const c = String(bareId || '').charAt(8).toUpperCase();
+        if (c === 'H' || c === 'I' || c === 'N') return c;
+        return typeof qcAircraftLetter === 'function' ? qcAircraftLetter() : 'H';
+    }
 
     // the airport table is the ourairports public domain list, every large and medium airport
     // worldwide (data/airports.json, rows [ident, code, lat, lon, name, big, mil]), loaded once the
@@ -181,7 +216,7 @@
     }
 
     // ---- the modal: the script's form, prefilled ------------------------------------------------
-    let qcEsModal = null;
+    let qcEsModal = null, qcEsLastDefaultNotes = '';
     function qcShowErrorSummary() {
         if (!qcResult) return;
         if (!qcEsModal) {
@@ -258,13 +293,22 @@
             ['qcEsToTime', 'qcEsLandTime'].forEach(id => document.getElementById(id).addEventListener('change', applyTimes));
             document.getElementById('qcEsGenerate').addEventListener('click', qcEsGenerate);
         }
-        // prefill from the current flight: the bare id only, no storm or training parenthetical
-        document.getElementById('qcEsFlightId').value = String((flightMetaData && flightMetaData.id) || '').replace(/\s*\([^)]*\)/g, '').trim();
+        // prefill from the current flight: the bare id only, no revision suffix and no parenthetical
+        const bare = qcEsBareId((flightMetaData && flightMetaData.id) || '');
+        document.getElementById('qcEsFlightId').value = bare;
         try {
             const fd = JSON.parse(localStorage.getItem('qcEsDirector') || '{}');
             if (fd.name) document.getElementById('qcEsDirector').value = fd.name;
             if (fd.email) document.getElementById('qcEsEmail').value = fd.email;
         } catch (e) {}
+        // the standing notes go in only while the box is untouched: still empty, or still exactly
+        // what was last dropped in. anything the user typed survives, but loading a different
+        // airframe refreshes boilerplate nobody has edited.
+        const notesEl = document.getElementById('qcEsNotes');
+        if (!notesEl.value.trim() || notesEl.value === qcEsLastDefaultNotes) {
+            qcEsLastDefaultNotes = qcEsDefaultNotes(qcEsLetter(bare));
+            notesEl.value = qcEsLastDefaultNotes;
+        }
         qcEsSyncSensors();
         qcEsSyncTimes();
         qcEsSyncLocations();
@@ -276,7 +320,7 @@
     // flight directory: acdata/YEAR/MET/MISSIONID, both already known from the id
     function qcEsSyncDir() {
         const el = document.getElementById('qcEsDir'); if (!el) return;
-        const id = String(document.getElementById('qcEsFlightId').value || '').replace(/\s*\([^)]*\)/g, '').trim();
+        const id = qcEsBareId(document.getElementById('qcEsFlightId').value);
         const year = id.length >= 4 ? id.slice(0, 4) : 'YYYY';
         el.value = 'acdata/' + year + '/MET/' + (id || 'MISSIONID');
     }
@@ -350,8 +394,9 @@
     // ---- the pdf itself: the script's create_pdf, coordinate for coordinate ---------------------
     function qcEsGenerate() {
         const val = id => document.getElementById(id).value;
-        // the id stays bare everywhere (title, directory line, file name), parentheticals dropped
-        const flightId = val('qcEsFlightId').replace(/\s*\([^)]*\)/g, '').trim();
+        // the id stays bare everywhere (title, directory line, file name): no parenthetical, no
+        // file revision suffix
+        const flightId = qcEsBareId(val('qcEsFlightId'));
         const idEl = document.getElementById('qcEsFlightId');
         idEl.classList.toggle('qc-bad', !flightId);
         if (!flightId) return;   // the script's required field, shown in place instead of a popup
@@ -359,26 +404,26 @@
 
         const IN = 72, doc = qcPdfDoc(), H = doc.H;
         doc.page();
-        const up = flightId.toUpperCase();
-        const title = up.includes('N') ? 'N49RF ERROR SUMMARY' : up.includes('I') ? 'N43RF ERROR SUMMARY' : up.includes('H') ? 'N42RF ERROR SUMMARY' : 'AOC ERROR SUMMARY';
+        const letter = qcEsLetter(flightId);
+        const title = letter === 'N' ? 'N49RF ERROR SUMMARY' : letter === 'I' ? 'N43RF ERROR SUMMARY' : letter === 'H' ? 'N42RF ERROR SUMMARY' : 'AOC ERROR SUMMARY';
         doc.text(1 * IN, H - 1 * IN, title, 12);
         doc.text(7 * IN, H - 1 * IN, flightId, 12);
 
         doc.text(1.1 * IN, H - 1.5 * IN, 'Sensor or System', 10);
         doc.text(4.6 * IN, H - 1.5 * IN, 'Number or Name', 10);
         doc.line(1 * IN, H - 1.6 * IN, 7.5 * IN, H - 1.6 * IN);
-        doc.line(4.5 * IN, H - 1.3 * IN, 4.5 * IN, H - 4.4 * IN);
+        doc.line(4.5 * IN, H - 1.3 * IN, 4.5 * IN, H - 3.95 * IN);
 
         let y = H - 1.8 * IN;
         QC_ES_SENSORS.forEach(([label], i) => {
             doc.text(1.1 * IN, y, label, 10);
             doc.text(4.6 * IN, y, val('qcEsSensor' + i), 10);
-            y -= 0.25 * IN;
+            y -= 0.2 * IN;
         });
         const year = flightId.length >= 4 ? flightId.slice(0, 4) : 'YYYY';
         doc.text(1.1 * IN, y, 'Flight Directory', 10);
         doc.text(4.6 * IN, y, 'acdata/' + year + '/MET/' + flightId, 10);
-        y -= 0.4 * IN;
+        y -= 0.25 * IN;
 
         doc.text(1.1 * IN, y, 'Ground Location:', 10);
         doc.text(3.6 * IN, y, 'Takeoff ' + val('qcEsToLoc') + ' (' + val('qcEsToTime') + 'Z)', 10);
@@ -393,19 +438,27 @@
             y -= 0.2 * IN;
         });
 
-        // notes: courier 10 on 14pt leading, wrapped at the script's 6.5in, same page-break rule
+        // notes: courier 10 on 12pt leading, wrapped at the script's 6.5in, same page-break rule.
+        // the row pitches above and below are set so a form carrying the standing notes still
+        // lands on one page, the way the branch's own error summaries do.
         y -= 0.3 * IN;
         doc.text(1 * IN, y, 'Notes:', 10, true);
         const noteLines = qcEsWrapNotes(val('qcEsNotes').trim());
-        const noteH = noteLines.length * 14;
+        const noteH = noteLines.length * 12;
         if (y < noteH + 1 * IN) {
             doc.page();
             y = H - 1 * IN;
             doc.text(1 * IN, y, 'Notes:', 10, true);
         }
         let ny = y - 11;   // first baseline inside the paragraph box, top aligned like reportlab
-        noteLines.forEach(ln => { if (ln) doc.text(1 * IN, ny, ln, 10); ny -= 14; });
-        y -= (noteH + 0.4 * IN);
+        // a set longer than one page has to break inside itself: moving the block whole only buys
+        // one page, and every line past the bottom margin would be drawn off the sheet and lost
+        noteLines.forEach(ln => {
+            if (ny < 1 * IN) { doc.page(); ny = H - 1 * IN; }
+            if (ln) doc.text(1 * IN, ny, ln, 10);
+            ny -= 12;
+        });
+        y = ny + 12 - 0.25 * IN;   // 0.25in under the last line drawn, whichever page it landed on
 
         if (y < 3 * IN) { doc.page(); y = H - 1 * IN; }
         doc.text(1.1 * IN, y, 'Expendable Type', 10);
@@ -413,17 +466,18 @@
         doc.text(5.1 * IN, y, '# good', 10);
         doc.text(6.6 * IN, y, '# transmitted', 10);
         doc.line(1 * IN, y - 0.1 * IN, 7.5 * IN, y - 0.1 * IN);
-        y -= 0.3 * IN;
+        y -= 0.25 * IN;
         QC_ES_EXPENDABLES.forEach((t, i) => {
             doc.text(1.1 * IN, y, t, 10);
             doc.text(3.6 * IN, y, val('qcEsExp' + i + '_0'), 10);
             doc.text(5.1 * IN, y, val('qcEsExp' + i + '_1'), 10);
             doc.text(6.6 * IN, y, val('qcEsExp' + i + '_2'), 10);
-            y -= 0.25 * IN;
+            y -= 0.2 * IN;
         });
 
-        y -= 0.5 * IN;
-        if (y < 1.5 * IN) { doc.page(); y = H - 1 * IN; }
+        // the block is two lines, so it only needs to clear the bottom margin by that much
+        y -= 0.25 * IN;
+        if (y < 1.3 * IN) { doc.page(); y = H - 1 * IN; }
         doc.text(1 * IN, y, 'Flight Director: ' + val('qcEsDirector'), 12);
         doc.text(1 * IN, y - 0.3 * IN, 'Email: ' + val('qcEsEmail'), 12);
 
