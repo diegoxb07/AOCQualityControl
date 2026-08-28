@@ -232,7 +232,7 @@ def build():
   // build stamp, bottom right, so an old copy is identifiable without opening anything else
   window.addEventListener('load', function () {
     var s = document.createElement('div');
-    s.textContent = 'Offline version \u00b7 built ' + window.AOC_BUILD.date + ' \u00b7 ' + window.AOC_BUILD.sha;
+    s.textContent = 'Local version \u00b7 Build date: ' + window.AOC_BUILD.date;
     s.setAttribute('style', 'position:fixed;right:8px;bottom:6px;z-index:2147483647;pointer-events:none;'
       + 'font:400 10px/1.4 "IBM Plex Mono",monospace;color:rgba(140,150,165,0.55);letter-spacing:0.02em;');
     document.body.appendChild(s);
