@@ -963,7 +963,7 @@
             offStrip.innerHTML =
                 '<a id="qcOfflineCopyBtn" class="qc-ov-btn" href="AOC-QC-Tool.html" download="AOC-QC-Tool.html"' +
                   ' title="Download the whole tool as one file that opens offline, no server needed">Offline Version (.html)</a>' +
-                '<span class="qc-offline-note">Does not update automatically. Re-download if any new changes.</span>';
+                '<span class="qc-offline-note">Does not update automatically. Re-download from this button if any new updates are made.</span>';
         } else if (offStrip) {
             offStrip.remove();
         }
