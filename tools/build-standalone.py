@@ -9,7 +9,7 @@ double-clicking, with every capability of the live site: .nc upload, QC engine, 
 Error Summary, Track PDF, Gap Report, NC-to-TXT, and the interactive HTML export.
 
 The one rule this script follows: it does NOT modify anything the site serves. Every difference
-between the site and the standalone copy is produced here, in the generated file. The app's own
+between the site and the offline version is produced here, in the generated file. The app's own
 js/*.js are inlined byte for byte, so the live version cannot regress because of anything below.
 
 A page opened from disk has an opaque origin, which costs three things the app relies on:
@@ -25,15 +25,19 @@ A page opened from disk has an opaque origin, which costs three things the app r
 So the generated file carries a prelude that shims fetch, Worker, and HTMLImageElement.src against
 an embedded asset payload. The app source calls them exactly as it always has and never knows.
 
-Drift guard: the script scans the app source for asset references and fails if it finds one it did
-not embed. A new fetch() added later therefore breaks THIS build loudly rather than silently
-shipping a standalone copy with a dead feature.
+Drift guard: the script scans the app source, the parse worker, and the stylesheets for asset
+references and WARNS about any it did not embed, so a newly added fetch() or @font-face is visible
+at build time. It warns rather than failing because this runs inside the Pages deploy, where a
+non-zero exit would take the live site's deploy down. It is a best-effort net, not a proof: a path
+assembled at runtime ('data/' + name) is invisible to any static scan, so a structural change still
+deserves opening the built file once.
 """
 
 import base64
 import datetime
 import os
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -64,8 +68,6 @@ FONTS = [
 # the parse worker's importScripts targets, concatenated ahead of it into one blob-able bundle
 WORKER = 'js/parse-worker.js'
 WORKER_IMPORTS = ['lib/netcdfjs.min.js', 'js/00b-qc-catalog.js', 'js/11b-parser-core.js']
-
-MIME = {'.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml'}
 
 
 def read_text(rel):
@@ -111,28 +113,66 @@ def parse_index_scripts(html):
     return css, js
 
 
-def check_no_unembedded_assets(js_files, embedded):
-    """Fail loudly if the app references an asset this build did not embed. Without this a new
-    fetch() would ship a standalone copy that silently loses whatever it feeds."""
-    pattern = re.compile(r"""["'](?:\./)?((?:data|assets|fonts|lib)/[A-Za-z0-9._-]+)["']""")
+def strip_js_comments(src):
+    """Drop // and /* */ comments while leaving string and template literals intact, so a path
+    written in a comment is not mistaken for a load. Regex literals are not tokenised, so a regex
+    containing a quote can still confuse it; that is why the caller only warns."""
+    out, i, n = [], 0, len(src)
+    while i < n:
+        c = src[i]
+        if c in '"\'`':
+            out.append(c); i += 1
+            while i < n:
+                if src[i] == '\\':
+                    out.append(src[i:i + 2]); i += 2; continue
+                out.append(src[i])
+                if src[i] == c:
+                    i += 1; break
+                i += 1
+            continue
+        if c == '/' and i + 1 < n:
+            if src[i + 1] == '/':
+                while i < n and src[i] != '\n':
+                    i += 1
+                continue
+            if src[i + 1] == '*':
+                i += 2
+                while i + 1 < n and not (src[i] == '*' and src[i + 1] == '/'):
+                    i += 1
+                i += 2
+                continue
+        out.append(c); i += 1
+    return ''.join(out)
+
+
+# a quoted or backticked repo path, and a css url(); '../' is normalised away so fonts.css matches
+REF_JS = re.compile(r"""["'`](?:\./)?((?:data|assets|fonts|lib|css|js)/[A-Za-z0-9._-]+)["'`]""")
+REF_CSS = re.compile(r"""url\(\s*['"]?(?:\.\./)?((?:data|assets|fonts)/[A-Za-z0-9._-]+)""")
+
+
+def warn_unembedded_assets(sources, embedded):
+    """Report asset references this build did not embed, so a newly added fetch() or @font-face
+    is visible instead of silently shipping a standalone version with a dead feature.
+
+    This WARNS and keeps going on purpose. The build runs inside the Pages deploy, so exiting
+    non-zero here would take the live site's deploy down over a cosmetic drift, which is a worse
+    failure than an offline version missing one asset. It is a best-effort net, not a proof:
+    a path built by concatenation ('data/' + name) cannot be seen by any static scan."""
     missing = {}
-    for rel in js_files:
-        src = read_text(rel)
-        for line in src.split('\n'):
-            stripped = line.strip()
-            if stripped.startswith('//') or stripped.startswith('*'):
-                continue     # a comment naming a path is not a load
-            for hit in pattern.findall(line):
-                if hit not in embedded:
-                    missing.setdefault(hit, set()).add(rel)
+    for rel in sources:
+        text = read_text(rel)
+        hits = (REF_CSS.findall(text) if rel.endswith('.css')
+                else REF_JS.findall(strip_js_comments(text)))
+        for hit in hits:
+            if hit not in embedded:
+                missing.setdefault(hit, set()).add(rel)
     if missing:
-        print('ERROR: asset(s) referenced by the app but not embedded in the standalone build:',
-              file=sys.stderr)
+        print('WARNING: asset(s) referenced by the app but not embedded in this build:', file=sys.stderr)
         for path, files in sorted(missing.items()):
             print('  %-45s referenced by %s' % (path, ', '.join(sorted(files))), file=sys.stderr)
-        print('\nAdd them to TEXT_ASSETS / BIN_ASSETS / FONTS in tools/build-standalone.py.',
-              file=sys.stderr)
-        sys.exit(1)
+        print('  The offline version will be missing them. Add to TEXT_ASSETS / BIN_ASSETS / FONTS\n'
+              '  in tools/build-standalone.py.', file=sys.stderr)
+    return missing
 
 
 def build():
@@ -163,10 +203,12 @@ def build():
     text_payload['js/parse-worker.bundle.js'] = bundle
 
     embedded = set(text_payload) | set(bin_payload)
-    # the worker imports are reachable through the bundle, and the page loads every lib as an
-    # inline <script>, so neither needs its own payload entry to satisfy the drift guard
+    # the worker imports are reachable through the bundle, and the page loads every lib and app
+    # script as an inline <script>, so none of those needs its own payload entry to count as present
     embedded |= set(WORKER_IMPORTS) | set(js_files) | set(css_files) | {WORKER}
-    check_no_unembedded_assets(app_js, embedded)
+    # every source that can name an asset: the page's own scripts, the worker (which index.html
+    # never lists), and the stylesheets (fonts.css names each woff2 in a url())
+    warn_unembedded_assets(app_js + [WORKER] + css_files, embedded)
 
     payload = ['window.AOC_EMBED={text:{']
     payload.append(','.join('%s:%s' % (js_string(k), js_string(v)) for k, v in text_payload.items()))
@@ -185,10 +227,10 @@ def build():
   function key(u) {
     u = String(u).split('?')[0].split('#')[0].replace(/^\.\//, '');
     if (T[u] !== undefined || B[u] !== undefined) return u;
-    var k;
-    for (k in T) if (u.length >= k.length && u.slice(-k.length) === k) return k;
-    for (k in B) if (u.length >= k.length && u.slice(-k.length) === k) return k;
-    return u;
+    var best = '', k;
+    for (k in T) if (k.length > best.length && u.length >= k.length && u.slice(-k.length) === k) best = k;
+    for (k in B) if (k.length > best.length && u.length >= k.length && u.slice(-k.length) === k) best = k;
+    return best || u;
   }
   function bytes(s) {
     var bin = atob(s), a = new Uint8Array(bin.length);
@@ -294,8 +336,7 @@ def build():
 
     # a stable copy for the site's download button to point at
     stable = os.path.join(DIST, 'AOC-QC-Tool.html')
-    with open(stable, 'w', encoding='utf-8') as f:
-        f.write(out)
+    shutil.copyfile(html_path, stable)
 
     mb = lambda p: os.path.getsize(p) / 1e6
     print('built %s' % os.path.relpath(html_path, ROOT))

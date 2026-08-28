@@ -2,12 +2,15 @@
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Reproduces the ES script's reportlab layout exactly: Courier text at the script's own inch
-   coordinates on letter pages, the same title rule, sensor table, directory line, corrections,
-   wrapped notes with its page breaks, expendables table, and the flight director block. The
-   modal prefills what the tool knows (flight id, takeoff/landing times, sensor designations
-   from what the refs actually rode, plus the standing notes for the airframe); everything stays
-   editable, like the script's form. */
+   Follows the ES script's reportlab layout: Courier text at inch coordinates on letter pages,
+   the same title rule, sensor table, directory line, corrections, wrapped notes, expendables
+   table, and flight director block, in that order. The row pitches and section gaps are NOT the
+   script's own numbers: they were tightened (sensor and expendable rows to 0.2in, notes to 12pt
+   leading, gaps to 0.25in) so a form carrying the standing notes still lands on one page, which
+   the script's looser spacing no longer allowed. Change them together, and check the page count
+   with the notes box full. The modal prefills what the tool knows (flight id, takeoff/landing
+   times, sensor designations from what the refs actually rode, plus the standing notes for the
+   airframe); everything stays editable, like the script's form. */
 
     // ---- tiny pdf writer: base-14 fonts (Courier + Helvetica), text, lines, polylines, fills,
     // dots, clipping, portrait or landscape pages, multi page --------------------------------------
