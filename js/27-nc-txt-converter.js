@@ -6,7 +6,7 @@
    raw data to a delimited text file. Unlike the QC graphs (a curated set of "needed" variables),
    this lists EVERY variable in the file so the user can pick exactly what to include.
 
-   Data source: qcRawDataAll (js/01 state, set in js/12 applyParsedFlight) — the every-variable raw
+   Data source: qcRawDataAll (js/01 state, set in js/12 applyParsedFlight), the every-variable raw
    parse. Preloaded/cached flights carry it too (persisted to IndexedDB, restored on open by
    js/12b openPreloadedMission), so this only falls back to the catalog-only qcRawData for an older
    cache saved before that existed. Both share the same shape: { timeAxis, raw:{name:Float32Array},
@@ -21,7 +21,7 @@
 
     // Named presets: a curated set that starts PRE-CHECKED while every other variable stays listed but
     // unchecked (so the whole file is still one click away). Nothing here is hardcoded into the general
-    // list — "All variables" always enumerates whatever the loaded file actually contains, so a new
+    // list: "All variables" always enumerates whatever the loaded file actually contains, so a new
     // plane's new variables show up automatically. Presets are just saved name lists: matching is
     // case-insensitive, and a preset name missing from the file simply matches nothing, so a renamed or
     // dropped variable never breaks the preset. To edit a preset, paste names separated by any whitespace.
@@ -121,7 +121,7 @@
         return Math.max(0, Math.min(src.timeAxis.length - 1, i));
     }
 
-    // ---- build the output text -----------------------------------------------------------------
+    // build the output text
     function qcConvBuildText(src, vars, opts) {
         const delim = opts.delimiter, missing = opts.missing, timeFmt = opts.timeFmt;
         const startIdx = opts.startIdx, endIdx = opts.endIdx;
@@ -141,7 +141,7 @@
         return lines.join('\n') + '\n';
     }
 
-    // ---- UI ------------------------------------------------------------------------------------
+    // UI
     // search text AND the "Show unselected" toggle both narrow what's visible; a row must pass both.
     function qcConvApplyVisibility() {
         const list = document.getElementById('qcConvList');
@@ -223,8 +223,8 @@
         list.appendChild(frag);
     }
 
-    // ---- mass select: click-and-drag paints a run of checkboxes to one state, shift+click selects
-    // a range. With ~150-500 variables in the list, checking them one at a time doesn't scale. -------
+    // mass select: click-and-drag paints a run of checkboxes to one state, shift+click selects
+    // a range. With ~150-500 variables in the list, checking them one at a time doesn't scale.
     function qcConvVisibleRows() {
         return Array.prototype.filter.call(document.querySelectorAll('#qcConvList .qc-conv-item'), r => r.style.display !== 'none');
     }
@@ -439,7 +439,7 @@
         // click: that click activates the label and flips the checkbox straight BACK, which made a
         // clean click look like the row refused to toggle (pointer-events:none on the box stops
         // direct hits, not label forwarding). The toggle already happened in qcConvDragStart, so
-        // cancel every click in the list -- except one targeting the checkbox itself, which only
+        // cancel every click in the list, except one targeting the checkbox itself, which only
         // keyboard activation (Tab + Space) can produce here; canceling that would roll it back.
         document.getElementById('qcConvList').addEventListener('click', e => {
             const t = e.target;
@@ -450,7 +450,7 @@
             .forEach(el => el.addEventListener('input', qcConvUpdateEstimate));
         // Select all / none act on the currently-shown rows (search AND "Show unselected" both narrow
         // that), so you can filter then bulk-pick. With "Show unselected" off, "Select none" on the
-        // shown (== selected) rows empties the view too -- that follows directly from the toggle's
+        // shown (== selected) rows empties the view too, which follows directly from the toggle's
         // own definition, not a bug.
         const setShown = checked => {
             document.querySelectorAll('#qcConvList .qc-conv-item').forEach(row => {

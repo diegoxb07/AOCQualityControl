@@ -51,7 +51,7 @@ body {
 ::selection { background: var(--accent-soft); color: var(--text); }
 :focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 
-.font-mono, [class*="font-mono"], #timelineTimeDisplay { font-family: 'IBM Plex Mono', ui-monospace, monospace !important; }
+.font-mono, [class*="font-mono"] { font-family: 'IBM Plex Mono', ui-monospace, monospace !important; }
 .uppercase.tracking-wider { letter-spacing: 0.12em; }
 
 button:disabled, select:disabled, input:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -61,7 +61,6 @@ button { transition: background-color 0.15s, border-color 0.15s, color 0.15s, op
    slate-blue-amber-red-* usages, so the whole app follows [data-theme] with no
    colors baked at build time. Used both directly in index.html and via classList
    add/toggle in js/*.js (see tailwind.config.js safelist). */
-.bg-app { background-color: var(--bg); }
 .bg-panel { background-color: var(--panel); }
 .bg-panel-strip { background-color: var(--panel-strip); }
 .bg-elevated { background-color: var(--border); }
@@ -89,8 +88,6 @@ button { transition: background-color 0.15s, border-color 0.15s, color 0.15s, op
    that makes a spinner visibly spin. keep the top transparent here. */
 .border-t-transparent { border-top-color: transparent; }
 .accent-accent { accent-color: var(--accent); }
-.group:hover .group-hover\:text-accent { color: var(--accent); }
-.group:hover .group-hover\:text-ink { color: var(--text); }
 
 /* Selects get a custom chevron since the native arrow is removed */
 select {
@@ -107,20 +104,13 @@ select:not(:disabled):hover { border-color: var(--border-strong); }
 select:not(:disabled):focus { border-color: var(--accent); }
 
 /* Sharp edges: flat 3px radius on all controls. */
-button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):not([type="checkbox"]) { border-radius: 3px; }
+button, select, input:not([type="range"]):not([type="file"]):not([type="checkbox"]) { border-radius: 3px; }
 #dataDropZone { border-radius: 3px; }
 .status-chip { border-radius: 4px; }
 
 /* Both media-panel subheaders: Manrope, title-case (not uppercase), slightly larger + brighter.
    text-transform/letter-spacing override the parent's uppercase styling. */
 .panel-subhead { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif !important; font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em; text-transform: none; color: var(--text); }
-
-/* when the recon api is offline, manual upload is the only way in, so enlarge the upload button
-   to make it obvious. toggled by updateReconApiUiState in js/02-recon-api.js. */
-#dataDropZone.data-drop-emph { padding: 7px 12px; gap: 6px; }
-/* Nudge only the "use manual upload instead ->" text left of its flow spot; a relative offset
-   moves the text alone, so the "or upload" zone beside it stays put. Offline-relocated only. */
-#dataDropZone.data-drop-emph span { font-size: 12px; }
 
 /* previously-loaded-missions popover: one row per flight, a name button that opens it plus a red
    × that removes it. mirrors the sat picker's fixed/z-index/panel look so both dropdowns match. */
@@ -137,25 +127,12 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
 
 /* Fullscreen behavior (functional, do not simplify) */
 :fullscreen { background-color: var(--bg); overflow-y: auto; padding: 24px; padding-bottom: 140px; }
-/* Real page fullscreen (the ⛶ Fullscreen button fullscreens <html>, not one panel): the fixed
-   reset/theme/help cluster (#topRightControls, top-right, z-9999) would sit on top of the sticky
-   media bar once it sticks to the top. Stick the bar below the cluster's height instead, so the
-   buttons keep their own clear space above the players. 88px clears the cluster: the button row
-   (top-4 = 16px in) plus the theme switch (26px) beneath it. */
-:root:fullscreen .sticky-media-bar { top: 88px; }
-/* Fullscreen a single graph, like the media panels: fill the viewport (the JS also hides the top-right
-   sticky cluster). Toggle off with the ⛶ button again or Esc. */
-.chart-fs { position: fixed; inset: 0; z-index: 4000; margin: 0; border: none; border-radius: 0; background: var(--bg); padding: 18px 18px 24px; }
 #mapPanel:is(:fullscreen, .fake-fs) { padding: 0; border: none; border-radius: 0; background-color: var(--bg); display: flex; flex-direction: column; }
 #mapPanel:is(:fullscreen, .fake-fs) { height: 100vh !important; }
-#mapPanel:is(:fullscreen, .fake-fs) .panel-title { padding: 16px; background-color: color-mix(in oklab, var(--panel) 90%, transparent); margin-bottom: 0; position: absolute; width: 100%; z-index: 100; top: 0; border-bottom: 1px solid var(--border); }
 #mapPanel:is(:fullscreen, .fake-fs) .media-container { height: 100vh; border-radius: 0; flex-grow: 1; }
-/* In fullscreen, put the storm card on the left. */
+/* In fullscreen the header needs its own inset, or it sits flush against the screen edge. */
 #mapPanel:is(:fullscreen, .fake-fs) #mapHeader { padding: 16px 22px 0 22px; }
 #mapPanel:is(:fullscreen, .fake-fs) .map-controls { padding-right: 50px; }
-#mapPanel:is(:fullscreen, .fake-fs) #fullscreenMapBtn { position: absolute; top: 16px; right: 22px; z-index: 200; }
-/* The MMR header is a plain flex row (no .panel-title class), without this it sits flush
-   against the screen edge when the panel fills the screen, looking clipped. */
 /* "Fake" panel fullscreen: the panel ⛶ buttons pin the panel over the viewport (page-level
    fullscreen is the only real fullscreen), so panel <-> page switches never need an
    exit-fullscreen step. z-index stays below the sticky bottom bar (2000) so the playback
@@ -191,19 +168,6 @@ button:not(.collapse-lip), select, input:not([type="range"]):not([type="file"]):
 .status-chip.lit { background: var(--accent-soft); border: 1px solid var(--accent); }
 .status-chip.lit .chip-v.on { color: var(--text); font-weight: 700; }
 
-/* Hover feedback on the primary interactive zones (flat border-color shifts, no glow) */
-#playPauseBtn:not(:disabled):hover, #replayBtn:not(:disabled):hover { border-color: var(--border-strong); }
-/* collapser: on the drag grip's line at the bottom right (grip stays centered), so it adds no extra
-   row. z-index above the resize handle so its clicks collapse instead of starting a drag. */
-.media-collapse-btn { position: absolute; bottom: 6px; right: 58px; z-index: 1001; border-color: color-mix(in oklab, var(--accent) 55%, var(--border)); color: var(--accent); font-weight: 700; }
-/* collapsed strip sticks under the fixed top-right cluster, so move the show/collapse button to the
-   left there (nothing is fixed on the left) where it stays clickable; the mini bar pads left to clear it. */
-.sticky-media-bar.collapsed .media-collapse-btn { right: auto; left: 10px; bottom: 8px; }
-/* mini playback bar: only in the collapsed media strip, so scrubbing/marking survive the collapse
-   (the full playback bar is hidden by the JS then). the strip is full-width, so its slider is wide
-   and therefore less sensitive than a tiny one. right padding clears the absolute collapse button. */
-.mini-playback-bar { display: none; align-items: center; gap: 8px; padding: 5px 240px 5px 118px; flex-wrap: nowrap; }
-
 #mapPanel { height: var(--media-h); overflow: hidden; }
 /* keyline drawn as inset shadow, NOT border: a border would shrink the canvas display box 2px
    below the cssW/cssH coordinate space and subtly misalign canvas hit-testing */
@@ -214,8 +178,6 @@ canvas#mapCanvas:active { cursor: grabbing; }
 #threeDContainer { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; background-color: var(--bg); cursor: grab; z-index: 2; }
 
 /* Idle placeholders (hidden wholesale once data loads, via style.display on the placeholder div) */
-.radar-blip { position: absolute; top: 34%; left: 62%; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: blipPulse 3.4s ease-out infinite; }
-@keyframes blipPulse { 0%, 12% { opacity: 1; } 60%, 100% { opacity: 0.12; } }
 .media-idle-title { display: block; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--text-muted); }
 .media-idle-sub { display: block; font-size: 12px; font-weight: 400; color: var(--text-faint); margin-top: 6px; max-width: 380px; }
 
@@ -226,16 +188,6 @@ canvas#mapCanvas:active { cursor: grabbing; }
 #loadingSpinner.done #loadingCheck { opacity: 1; transition: opacity 0.2s ease; }
 #loadingSpinner.done #loadingCheck path { animation: loadCheckDraw 0.42s ease 0.05s forwards; }
 @keyframes loadCheckDraw { to { stroke-dashoffset: 0; } }
-
-/* In-map overlays: HUD, PFD, pills, badges - flat hairline borders, no accent-tinted glow */
-
-/* Auto-Sync indicator, anchored in the MMR video panel, non-blocking */
-@keyframes syncSpin { to { transform: rotate(360deg); } }
-
-/* Recording progress pill - the recording/error reserved hue (--danger), not the accent */
-#recordProgress { display: none; position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 9998; align-items: center; gap: 10px; background: color-mix(in oklab, var(--panel) 95%, transparent); border: 1px solid var(--danger); color: var(--text); padding: 8px 14px; border-radius: 3px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); }
-@keyframes recPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-@keyframes menuIn { from { opacity: 0; transform: translateY(-4px); } }
 
 /* Modals / toast */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: color-mix(in oklab, var(--bg) 75%, transparent); z-index: 5000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
@@ -263,37 +215,16 @@ canvas#mapCanvas:active { cursor: grabbing; }
 .qc-help-card ul { margin: 0; padding-left: 16px; }
 .qc-help-card li { font-size: 12px; }
 .qc-help-fig { display: block; margin: 4px auto 8px; max-width: 100%; }
-.qc-help-fig text { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; fill: var(--text-muted); }
+.qc-help-fig text { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 9px; fill: var(--text-muted); }
 @media (max-width: 760px) { .qc-help-grid { grid-template-columns: 1fr; } }
-
-/* clip record start and end frame previews, driven by js/19-bootstrap.js. */
-.clip-preview-card { background: color-mix(in oklab, var(--bg) 45%, transparent); border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; min-width: 0; }
 
 .toast-notification { position: fixed; top: 20px; right: 20px; background-color: color-mix(in oklab, var(--panel) 96%, transparent); border: 1px solid var(--border); border-left: 4px solid var(--accent); color: var(--text); padding: 16px 20px; border-radius: 4px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); z-index: 9999; font-size: 13px; max-width: 350px; opacity: 0; transform: translateX(50px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
 .toast-notification.show { opacity: 1; transform: translateX(0); pointer-events: auto; }
-#timelineTimeDisplay { font-size: 0.9rem; font-variant-numeric: tabular-nums; }
-/* Filters live on the far right of the top row (order:1), packed 2x2 so the bar height is unchanged.
-   Separator drawn as a pseudo-element spanning only the content box, the inherited border-left
-   would also span the 4px vertical padding and protrude past the checkbox grid. */
-#cmdFiltersGroup { order: 1; margin-left: auto; margin-right: 8px; padding: 4px 0 4px 10px; border-left: none !important; position: relative; }
-/* Filters: compact columns. The PFD sub-option (Press->GPS Alt) lives directly under Cockpit PFD
-   in its own reserved slot with an elbow connector, so toggling PFD reveals it in place instead of
-   reflowing the other filters. */
-#filtersGrid { display: flex !important; gap: 20px !important; align-items: flex-start; }
-/* Pitch/roll HUD and the info stack scale with --hud-scale (set by the media resize handle in
-   js/11-layout.js), staying in step with the metric HUD/PFD. Each scales from its anchored corner. */
-/* In 3D fullscreen the pitch/roll HUD moves to the top-right and the info stack to the top-left. */
-/* Hide the pitch/roll box until it actually has telemetry, otherwise it's an odd empty bordered
-   square floating in the 3D view before a flight is loaded. */
-
 /* Range inputs */
 input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; background: var(--panel-strip); height: 8px; border-radius: 4px; outline: none; border: 1px solid var(--border); }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; transition: 0.2s; border: 2px solid var(--bg); }
 input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--bg); }
-/* Elapsed-portion fill, flat single-hue; --fill is painted by js/20-ui-polish.js. */
-#timelineSlider { background: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--fill, 0%), var(--panel-strip) var(--fill, 0%)); }
-
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
     /* loading spinners are essential progress feedback, so keep them spinning even with reduced motion */
@@ -306,19 +237,6 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 *::-webkit-scrollbar-track { background: var(--bg); }
 *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; border: 2px solid var(--bg); }
 *::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
-
-/* Primary Play button: the app's one signature accent, sized up slightly from the other
-   playback controls. Selector matches the compact bottom-bar sizing rule's specificity and is
-   placed later, so it wins. */
-.sticky-bottom-bar .cmd-group button#playPauseBtn {
-    height: 34px !important;
-    font-size: 13px !important;
-    padding-left: 1.35rem !important;
-    padding-right: 1.35rem !important;
-    background: var(--accent) !important;
-    color: var(--accent-ink) !important;
-    border: none !important;
-}
 
 /* Recenter-on-aircraft button: raised a little off the bottom edge so it clears the timeline. */
 #recenterPlaneBtn { bottom: 36px !important; }
@@ -362,8 +280,10 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 }
 :root[data-theme="light"] { --good: oklch(50% 0.15 153); --warn: oklch(56% 0.12 74); --crit: oklch(52% 0.17 25); }
 
-/* status labels: quiet, flat, typographic. IBM Plex Mono small caps on a faint tint, no icons */
-.qc-pill { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+/* status labels: quiet, flat, typographic. small caps on a faint tint, no icons. the interface
+   face, not the mono one: these are labels, not columns of digits. 9.5px holds the optical size
+   mono had at 9px, and tabular figures keep the counts from jittering as they change. */
+.qc-pill { display: inline-block; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 9.5px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .qc-pill-ok { color: var(--good); background: color-mix(in oklab, var(--good) 12%, transparent); }
 .qc-pill-nodata { color: var(--text-faint); background: color-mix(in oklab, var(--text-faint) 12%, transparent); }
 .qc-pill-gap { color: var(--warn); background: color-mix(in oklab, var(--warn) 14%, transparent); }
@@ -371,17 +291,26 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 /* summary pills are clickable (they open the sensor-list modal) */
 .qc-pill-click { cursor: pointer; transition: filter .12s; }
 .qc-pill-click:hover { filter: brightness(1.25); }
+/* the summary row's pills carry a whole phrase, not a two-word tag: all caps makes every
+   letter cap-height and the row reads tall, so these keep their sentence case (and tighter
+   tracking to match). the per-sensor row pills are uppercase in their own text, so they are
+   unaffected by this. .qcx-pills is where the html export (js/24) re-hosts the same markup,
+   and it inlines this stylesheet, so both have to be named or the export reads differently. */
+.qc-summary .qc-pill, .qcx-pills .qc-pill { text-transform: none; letter-spacing: .02em; }
+/* the rule is a hint, not a second emphasis on top of the pill's own color: hairline weight,
+   and drawn from the pill's own text color so each kind keeps its hue while sitting back */
+.qc-pill-state { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 0.5px; text-decoration-color: color-mix(in oklab, currentColor 40%, transparent); }
 /* status-modal rows carry name + detail only (no leading pill column) */
 /* name column never shrinks: a long check reason must not crush the sensor name */
 #qcStatusModalBody .qc-row { grid-template-columns: auto 1fr; }
 #qcStatusModalBody .qc-row-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: right; }
 
 /* flight-level recording-gap strip at the top of the report */
-.qc-recording { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin-bottom: 8px; border: 1px solid color-mix(in oklab, var(--warn) 35%, var(--border)); border-radius: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text-muted); }
+.qc-recording { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin-bottom: 8px; border: 1px solid color-mix(in oklab, var(--warn) 35%, var(--border)); border-radius: 8px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 /* per-chart issue strip: always visible, no interaction required to see what is wrong */
 .qc-issues { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
-.qc-issue { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; padding: 1px 7px; border-radius: 3px; white-space: nowrap; color: var(--text-muted); background: var(--panel-strip); }
+.qc-issue { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 3px; white-space: nowrap; color: var(--text-muted); background: var(--panel-strip); }
 .qc-issue-gap { color: var(--warn); background: color-mix(in oklab, var(--warn) 13%, transparent); }
 .qc-issue-nodata { color: var(--text-faint); background: color-mix(in oklab, var(--text-faint) 11%, transparent); }
 .qc-issue-note { color: var(--text-faint); background: var(--panel-strip); }
@@ -460,8 +389,9 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-loader-slot #missionLoadConsole { max-width: 100%; }
 /* hug the top-right corner of the header */
 .qc-head-controls { flex: none; margin-left: auto; align-self: flex-start; margin-top: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-/* manual takeoff/landing pins: their own row a good bit under the top right buttons */
-.qc-phase-override { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+/* manual takeoff/landing pins: their own row a good bit under the top right buttons. the margin
+   is on top of .qc-head-controls' own 8px column gap, not instead of it. */
+.qc-phase-override { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 16px; }
 .qc-ov-input.qc-bad { border-color: var(--danger); }
 /* the relocated top-right controls sit inline in the header, not fixed. the help button stays:
    qcInitUI repoints it at the qc help modal (the visualizer manual is not this app) */
@@ -473,13 +403,13 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 /* offline version download, in the brand column directly under the title: button then its caveat */
 .qc-offline-copy { display: flex; align-items: center; gap: 8px; padding: 7px 0 0 0; }
 .qc-offline-copy:empty { display: none; }
-.qc-offline-copy .qc-ov-btn { text-decoration: none; flex: none; }
-.qc-offline-note { font-size: 10px; color: var(--text-muted); line-height: 1.25; max-width: 150px; }
+.qc-offline-copy .qc-ov-btn { text-decoration: none; flex: none; font-size: 10px; padding: 3px 8px; }
+.qc-offline-note { font-size: 9px; color: var(--text-muted); line-height: 1.25; max-width: 150px; }
 .qc-actionbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--panel) 60%, var(--bg)); }
 .qc-ov-title { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 12.5px; color: var(--accent); white-space: nowrap; }
 .qc-summary { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
 .qc-ov-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.qc-ov-field { font-size: 11px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; display: inline-flex; align-items: center; gap: 4px; }
+.qc-ov-field { font-size: 11px; color: var(--text-muted); font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 4px; }
 .qc-ov-input { width: 56px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 3px 6px; }
 /* color is in the transition list so un-skeletonizing (js/23 qcToggleReportControls) fades the
    label back in WITH the background: without it, the Export button's ID-level black text snapped
@@ -533,10 +463,10 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 /* phase-statistics command dock (bottom-right, on demand) */
 .qc-cmd { position: fixed; right: 14px; bottom: 14px; z-index: 4100; width: 340px; max-width: calc(100vw - 28px); background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 10px 34px rgba(0,0,0,.34); padding: 10px 12px; }
 .qc-cmd.hidden { display: none; }
-.qc-cmd-head { display: flex; align-items: center; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+.qc-cmd-head { display: flex; align-items: center; justify-content: space-between; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: 12.5px; color: var(--accent); margin-bottom: 8px; }
 .qc-cmd-x { background: none; border: none; color: var(--text-muted); font-weight: 700; cursor: pointer; font-size: 13px; }
 .qc-cmd-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 11px; color: var(--text-muted); }
-.qc-cmd-win { font-size: 10px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; margin-bottom: 8px; line-height: 1.4; }
+.qc-cmd-win { font-size: 10.5px; color: var(--text-faint); font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; margin-bottom: 8px; line-height: 1.4; }
 .qc-cmd-table { width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; }
 .qc-cmd-table th { text-align: right; color: var(--text-faint); font-weight: 600; font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; padding: 2px 6px; border-bottom: 1px solid var(--border); }
 .qc-cmd-table th:first-child, .qc-cmd-table td:first-child { text-align: left; }
@@ -545,11 +475,11 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-cmd-table td:first-child { color: var(--accent); font-weight: 700; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; border-left: 3px solid var(--accent); padding-left: 8px; }
 
 /* tooltip over shaded gap regions on the graphs (same wording as the gap report) */
-.qc-gap-tip { position: fixed; z-index: 10095; pointer-events: none; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text); background: var(--panel); border: 1px solid color-mix(in oklab, var(--warn) 50%, var(--border)); border-radius: 6px; padding: 4px 9px; box-shadow: 0 4px 14px rgba(0,0,0,.3); white-space: nowrap; }
+.qc-gap-tip { position: fixed; z-index: 10095; pointer-events: none; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text); background: var(--panel); border: 1px solid color-mix(in oklab, var(--warn) 50%, var(--border)); border-radius: 6px; padding: 4px 9px; box-shadow: 0 4px 14px rgba(0,0,0,.3); white-space: nowrap; }
 .qc-gap-tip.hidden { display: none; }
 .qc-empty { color: var(--text-muted); font-size: 13px; padding: 24px; }
 .qc-picker-note { font-size: 11.5px; line-height: 1.55; color: var(--text-muted); }
-.qc-picker-group { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--accent); margin: 10px 0 4px; }
+.qc-picker-group { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 11.5px; font-weight: 700; color: var(--accent); margin: 10px 0 4px; }
 .qc-picker-row { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--text); padding: 3px 2px; cursor: pointer; }
 .qc-picker-row input { accent-color: var(--accent); }
 .qc-picker-row.qc-picker-stale { color: var(--text-faint); cursor: default; }
@@ -568,7 +498,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 @media (max-width: 1240px) { .qc-es-wrap { flex-direction: column; align-items: stretch; max-height: 92vh; overflow-y: auto; } .qc-es-graphbox { width: auto; } .qc-es-card { max-height: none; overflow-y: visible; } }
 .qc-es-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 30px; align-items: start; }
 @media (max-width: 860px) { .qc-es-cols { grid-template-columns: 1fr; } }
-.qc-es-sec { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--accent); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .05em; }
+.qc-es-sec { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); margin: 12px 0 4px; }
 .qc-es-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: 12px; color: var(--text-muted); }
 .qc-es-row > span { flex: none; min-width: 118px; }
 .qc-es-row .qc-ov-input { flex: 1; width: auto; min-width: 0; }
@@ -628,7 +558,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 /* in fullscreen the graph itself grows to fill the tall panel instead of staying a short wide
    strip: the canvas wrap flexes to take all the leftover height (head, legend, and bottom strip
    keep their natural size). Chart.js is responsive + maintainAspectRatio:false, so the canvas
-   follows its wrap and the plot just gets taller — same x/y scales, ticks, zoom, and functions. */
+   follows its wrap and the plot just gets taller: same x/y scales, ticks, zoom, and functions. */
 .qc-chart-panel:fullscreen .qc-canvas-wrap { flex: 1 1 auto; height: auto; min-height: 340px; }
 
 /* ---- skeleton loaders: pre-flight placeholders -------------------------------------------------
@@ -643,7 +573,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    waiting on the user never reads as something in progress */
 body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qcSkelPulse 1.6s ease-in-out infinite; }
 /* sits above the skeleton shapes (not animated itself) so a pre-flight panel doesn't read as an
-   actively-loading spinner stuck forever -- it's idle, waiting on a flight to be picked/uploaded */
+   actively-loading spinner stuck forever: it's idle, waiting on a flight to be picked/uploaded */
 .qc-skel-label { color: var(--text-muted); font-size: 12px; font-weight: 600; padding: 2px 2px 12px; }
 /* toolbar buttons + the graph search input: same box as the real control, so nothing shifts when
    it loads, just the text hidden and the skin swapped to the pulsing gray fill. !important because
@@ -660,7 +590,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
    matches the "Load a Mission" loader label (Manrope bold, uppercase, tracked); white on the dark
    theme, flipped to ink on light where white would vanish (same pattern as .qc-badge-warn). */
 .qc-skel-canvas-wrap { position: relative; }
-.qc-skel-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 18px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: clamp(20px, 3vw, 32px); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in oklab, #ffffff 68%, transparent); pointer-events: none; }
+.qc-skel-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 56px 18px 0; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: clamp(20px, 3vw, 32px); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in oklab, #ffffff 68%, transparent); pointer-events: none; }
 :root[data-theme="light"] .qc-skel-wait { color: color-mix(in oklab, #0f172a 68%, transparent); }
 .qc-skel-famhead { width: 40%; min-width: 90px; height: 13px; margin: 10px 0 6px; }
 .qc-skel-row { display: flex; align-items: center; gap: 10px; padding: 5px 10px; }
@@ -670,7 +600,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 
 .qc-chart-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; padding-right: 72px; }
 .qc-chart-title { font-weight: 700; font-size: 13px; color: var(--text); }
-.qc-chart-meta { font-size: 10px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; flex: 1; display: inline-flex; align-items: center; flex-wrap: wrap; min-width: 0; }
+.qc-chart-meta { font-size: 10.5px; color: var(--text-faint); font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; flex: 1; display: inline-flex; align-items: center; flex-wrap: wrap; min-width: 0; }
 /* switched-sources flag: its own full-width row, one line that fits as many switches as the
    width allows (the fit pass folds the rest into +N more); expanding wraps the full list */
 .qc-chart-meta .qc-badge-warn { flex-basis: 100%; margin-left: 0; margin-top: 6px; max-width: 100%; overflow: hidden; white-space: nowrap; }
@@ -678,9 +608,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-ref-ovf { display: none; }
 .qc-switch-badge.qc-switch-open .qc-ref-ovf { display: inline; }
 /* the unit reads as a proper label, not a stray letter next to the title */
-.qc-unit { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--accent); background: color-mix(in oklab, var(--accent) 10%, transparent); border-radius: 3px; padding: 1px 7px; }
-/* the mission search reads as usable, not as disabled hint text */
-#missionSearchInput::placeholder { color: var(--text); opacity: .75; }
+.qc-unit { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; font-weight: 600; color: var(--accent); background: color-mix(in oklab, var(--accent) 10%, transparent); border-radius: 3px; padding: 1px 7px; }
 /* the reused map's reset zoom button, sized down for the compact qc slot */
 .qc-map-slot #resetMapZoomBtn { font-size: 8.5px; padding: 1px 5px; }
 .qc-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--panel-strip); border: 1px solid var(--border); color: var(--text-muted); font-size: 9.5px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
@@ -702,7 +630,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
    labeled row, so wrapping never mixes the two kinds */
 .qc-diff-legend { flex-direction: column; align-items: stretch; gap: 4px; }
 .qc-lg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
-.qc-lg-rowlabel { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.qc-lg-rowlabel { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
 /* legend definition of the gap marker: same triangle the plot draws, defined once */
 .qc-lg-gapnote { display: inline-flex; align-items: center; gap: 5px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 .qc-lg-caret { display: inline-block; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--warn); }
@@ -744,7 +672,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-lg-unavail .qc-lg-box { background: #000; border-color: #000; }
 :root[data-theme="light"] .qc-lg-unavail .qc-lg-box { background: #0f172a; border-color: #0f172a; }
 .qc-lg-unavail-tag { font-size: 8px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-faint); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; margin-left: 2px; }
-.qc-lg-chip { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-strip); color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
+.qc-lg-chip { font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; font-weight: 600; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-strip); color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
 .qc-lg-chip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .qc-lg-chip.active { color: var(--accent); border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--panel-strip)); }
 .qc-lg-chip:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -777,8 +705,8 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-ref-boxed { border: 1px solid color-mix(in oklab, var(--border) 75%, transparent); border-radius: 999px; padding: 1px 9px 1px 5px; background: color-mix(in oklab, var(--panel-strip) 60%, transparent); }
 /* graph search: far left of the status bar, next to the mission id */
 .qc-graph-search { position: relative; flex: none; }
-.qc-graph-search input { width: 340px; background: var(--panel-strip); border: 1px solid color-mix(in oklab, var(--accent) 55%, transparent); border-radius: 7px; padding: 6px 12px; font-size: 12px; color: var(--text); outline: none; transition: border-color .12s, box-shadow .12s; }
-.qc-graph-search input:focus { border-color: var(--accent); box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 40%, transparent); }
+.qc-graph-search input { width: 340px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-size: 12px; color: var(--text); outline: none; transition: border-color .12s, box-shadow .12s; }
+.qc-graph-search input:focus { border-color: var(--border-strong); }
 .qc-graph-search input::placeholder { color: var(--text-muted); }
 .qc-graph-search .qc-menu { left: 0; right: auto; min-width: 280px; max-height: 260px; overflow-y: auto; }
 .qc-search-sub { color: var(--text-faint); font-size: 10px; font-weight: 400; }
@@ -788,27 +716,27 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 #qcExportMenuBtn:hover { background: color-mix(in oklab, var(--warn) 82%, #000); border-color: color-mix(in oklab, var(--warn) 82%, #000); color: #000; }
 :root[data-theme="light"] #qcExportMenuBtn, :root[data-theme="light"] #qcExportMenuBtn:hover { color: #ffffff; }
 /* whole family absent: a plain empty frame that says so */
-.qc-nodata-box { display: flex; align-items: center; justify-content: center; height: 140px; border: 1px dashed var(--border); border-radius: 8px; margin: 6px 0 2px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 700; letter-spacing: 0.3em; }
+.qc-nodata-box { display: flex; align-items: center; justify-content: center; height: 140px; border: 1px dashed var(--border); border-radius: 8px; margin: 6px 0 2px; color: var(--text-faint); font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 24px; font-weight: 700; letter-spacing: 0.3em; }
 /* a graph with no data in any variable lists each sensor as UNAVAILABLE, like a partial graph's legend */
 .qc-nodata-box.qc-nodata-unavail { flex-direction: column; gap: 12px; height: auto; min-height: 100px; padding: 18px 12px; }
 .qc-nodata-lead { font-size: 20px; }
 .qc-nodata-chips { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; letter-spacing: normal; font-size: 10px; }
 /* per-kind flag breakdown, parenthesized, inline right after the +N more toggle, each kind
    colored like its chips */
-.qc-issue-totals { align-self: center; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; color: var(--text-muted); }
+.qc-issue-totals { align-self: center; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .qc-tot-check { color: var(--crit); }
 .qc-tot-gap { color: var(--warn); }
 .qc-tot-nodata { color: var(--text-faint); }
 .qc-tot-note { color: var(--text-muted); }
 /* the red Check state: implausible values, prioritized over gaps */
-.qc-pill-check { color: var(--crit); background: color-mix(in oklab, var(--crit) 13%, transparent); font-weight: 700; }
+.qc-pill-check { color: var(--crit); background: color-mix(in oklab, var(--crit) 13%, transparent); font-weight: 600; }
 .qc-issue-check { color: var(--crit); background: color-mix(in oklab, var(--crit) 12%, transparent); font-weight: 600; }
 /* fullscreen + png float on the graph's own top right corner */
 .qc-graph-corner { position: absolute; top: 6px; right: 8px; z-index: 6; display: flex; gap: 4px; }
 .qc-graph-corner .qc-fs-btn svg { width: 13px; height: 13px; display: block; }
 /* reset zoom floats near the bottom right of a zoomed graph, recenter-prompt style; hidden
    otherwise. lifted above the x axis labels so it covers no ticks */
-.qc-reset-float { display: none; position: absolute; right: 40px; bottom: 34px; z-index: 6; padding: 3px 11px; background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); white-space: nowrap; }
+.qc-reset-float { display: none; position: absolute; right: 40px; bottom: 34px; z-index: 6; padding: 3px 11px; background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 6px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); white-space: nowrap; }
 .qc-reset-float.show { display: inline-flex; }
 /* the button and its + graph prompt fuse into ONE big button: a single accent border wraps
    both, the inner button loses its own box, and the bottom edge sits below the + graph line */
@@ -817,7 +745,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-diff-btncol .qc-ov-btn { border: none; background: transparent; border-radius: 0; padding-bottom: 2px; }
 .qc-diff-btncol .qc-diff-create { padding-top: 0; padding-bottom: 4px; }
 /* no border of its own: the shared border on .qc-diff-btncol is the ONE outline for the pair */
-.qc-diff-create { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 1px 8px; background: none; border: none; border-radius: 6px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; cursor: pointer; transition: color .12s; }
+.qc-diff-create { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 1px 8px; background: none; border: none; border-radius: 6px; color: var(--text-muted); font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 9.5px; font-weight: 600; cursor: pointer; transition: color .12s; }
 .qc-diff-create:hover { color: var(--accent); }
 .qc-diff-create .qc-diff-plus { font-size: 12px; line-height: 1; color: var(--accent); }
 /* report a problem form */
@@ -832,7 +760,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-chart-tools { display: flex; gap: 4px; padding: 3px 4px; background: var(--panel-strip); border: 1px solid var(--border-strong); border-radius: 7px; }
 .qc-fs-btn { padding: 4px 8px; font-size: 13px; line-height: 1.35; background: var(--panel-strip); border: 1px solid var(--border-strong); border-radius: 7px; color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s; }
 .qc-fs-btn:hover { color: var(--text); border-color: var(--accent); }
-.qc-tool { display: inline-flex; align-items: center; gap: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; padding: 3px 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel-strip); color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
+.qc-tool { display: inline-flex; align-items: center; gap: 5px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 600; padding: 3px 9px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel-strip); color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
 .qc-tool svg { width: 13px; height: 13px; flex: none; }
 .qc-tool:hover { color: var(--text); border-color: var(--border-strong); }
 .qc-tool.active { color: var(--accent); border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--panel-strip)); }
@@ -856,7 +784,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 
 .qc-conv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
 /* flex, not grid, specifically so the Start/End pair can sit tighter together than the gap in front
-   of the Reset button -- a shared grid gap can't do two different spacings at once. */
+   of the Reset button, since a shared grid gap can't do two different spacings at once. */
 .qc-conv-toprow { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
 .qc-conv-timegroup { display: flex; gap: 10px; }
 .qc-conv-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }

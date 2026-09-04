@@ -119,22 +119,13 @@
         return [r/255, g/255, b/255];
     }
     
-    function getBarbColorRGB(spd) {
-        return getSpdColorRGB(spd);
-    }
-
-    function getBarbColor(spd) { const [r, g, b] = getBarbColorRGB(spd); return `rgb(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)})`; }
+    function getBarbColor(spd) { const [r, g, b] = getSpdColorRGB(spd); return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`; }
 
     function getBarbSpacingPx() {
         // Screen-px gap between barbs along the track. The zoomed-out cap sets density at
         // low zoom; zoomed in this converges to the 8px floor.
         const zoom = Math.max(mapScale, 0.35);
         return Math.min(16, Math.max(8, 30 / zoom));
-    }
-
-    function getPathColorHex(d, idx) {
-        const [r, g, b] = getPathColorRGB(d, idx);
-        return `rgb(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)})`;
     }
 
     function drawWindBarbFrame(x, y, dir, spd, scale, isDynamic = false) {
@@ -148,10 +139,6 @@
             while (k >= 10) { ctx.beginPath(); ctx.moveTo(hx,0); ctx.lineTo(hx-xa,ya); ctx.stroke(); hx-=3 * featherSpread; k-=10; }
             if (k >= 5) { ctx.beginPath(); ctx.moveTo(hx,0); ctx.lineTo(hx-xa/2,ya/2); ctx.stroke(); }
         };
-        const isBlackBarb = strokeColor === 'rgb(0, 0, 0)';
-        if (isBlackBarb) {
-            ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; drawShapes();
-        }
         if (isDynamic) { ctx.strokeStyle = '#000000'; ctx.fillStyle = '#000000'; ctx.lineWidth = 2.0; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; drawShapes(); }
         ctx.strokeStyle = strokeColor; ctx.fillStyle = strokeColor; ctx.lineWidth = 1.0; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; drawShapes();
         ctx.restore();
@@ -339,9 +326,8 @@
             cp.x2 = _gx(i);     cp.y2 = _gy(i);
         };
 
-        // flown track: in QC Mode a single solid accent color so "already past this point" reads at a
-        // glance against the faint-grey not-yet-flown track (the visualizer's metric gradient instead
-        // blends into the plane). elsewhere keep the metric-colored path.
+        // flown track: one solid accent color, so "already past this point" reads at a glance
+        // against the faint-grey not-yet-flown track. a metric gradient would blend into the plane.
         // sub-pixel segments are merged, not dropped: skipping each tiny segment on its own erased
         // whole slow-flown stretches (the track looked like it vanished behind the plane)
         ctx.lineWidth = 2.5/mapScale; ctx.globalAlpha = window.QC_MODE ? 0.95 : 0.8;
@@ -350,7 +336,7 @@
             setSeg(i);
             if (flx === null) { flx = cp.x1; fly = cp.y1; }
             if (Math.abs(cp.x2 - flx) < 1 && Math.abs(cp.y2 - fly) < 1 && i !== idx) continue;
-            ctx.beginPath(); ctx.strokeStyle = window.QC_MODE ? '#5b9dff' : getPathColorHex(filteredData[i], i);
+            ctx.beginPath(); ctx.strokeStyle = QC_TRACK_COLOR;
             ctx.moveTo(flx, fly); ctx.lineTo(cp.x2, cp.y2); ctx.stroke();
             flx = cp.x2; fly = cp.y2;
         }

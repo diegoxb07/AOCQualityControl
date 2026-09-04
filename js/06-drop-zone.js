@@ -16,7 +16,7 @@
         label.removeAttribute('title');
     }
 
-    // --- Mark a drop zone as "file loaded": solid edge + the filename, truncated if long ---
+    // Mark a drop zone as "file loaded": solid edge + the filename, truncated if long
     function markDropZoneLoaded(zoneId, labelId, filename) {
         const zone = document.getElementById(zoneId);
         const label = document.getElementById(labelId);

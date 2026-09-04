@@ -61,9 +61,6 @@ const PRECACHE = [
     'fonts/Inter-600.woff2',
     'fonts/Inter-700.woff2',
     'fonts/Manrope-400.woff2',
-    'fonts/RobotoMono-400.woff2',
-    'fonts/RobotoMono-500.woff2',
-    'fonts/RobotoMono-700.woff2',
 
     'assets/noaa-bird.svg',
     'assets/noaa-emblem-64.png',
@@ -80,7 +77,7 @@ const PRECACHE = [
 self.addEventListener('install', (e) => {
     // 'no-cache' forces every precache fetch to revalidate with the server (ETag -> 304 when
     // unchanged, so installs stay cheap). Without it, addAll's default-mode fetches are answered
-    // by the browser HTTP cache, and GitHub Pages serves everything with max-age=600 -- a deploy
+    // by the browser HTTP cache, and GitHub Pages serves everything with max-age=600: a deploy
     // installed inside that window would fill the NEW cache with the PREVIOUS deploy's bytes
     // (whole or torn), and cache-first serving would pin users there until the deploy after next.
     //

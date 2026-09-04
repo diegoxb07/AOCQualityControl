@@ -63,7 +63,6 @@ FONTS = [
     'fonts/Manrope-400.woff2',
     'fonts/IBMPlexMono-400.woff2', 'fonts/IBMPlexMono-500.woff2', 'fonts/IBMPlexMono-600.woff2',
     'fonts/Inter-400.woff2', 'fonts/Inter-500.woff2', 'fonts/Inter-600.woff2', 'fonts/Inter-700.woff2',
-    'fonts/RobotoMono-400.woff2', 'fonts/RobotoMono-500.woff2', 'fonts/RobotoMono-700.woff2',
 ]
 # the parse worker's importScripts targets, concatenated ahead of it into one blob-able bundle
 WORKER = 'js/parse-worker.js'

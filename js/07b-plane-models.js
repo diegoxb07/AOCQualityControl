@@ -26,7 +26,6 @@
         return (/noaa43/i.test(s) || /\d{8}I\d/i.test(s)) ? 'N43RF' : 'N42RF';
     }
 
-    // ---------------------------------------------------------------------------------------
     // Geometry helpers
 
     // Skin a list of same-length 3D point loops into one closed surface with end caps.
@@ -177,7 +176,6 @@
         return grp;
     }
 
-    // ---------------------------------------------------------------------------------------
     // Livery textures (canvas painted, so the whole app stays asset-free)
 
     function makePlaneTexture(cv) {
@@ -503,7 +501,6 @@
         });
     }
 
-    // ---------------------------------------------------------------------------------------
     // WP-3D Orion (NOAA42/NOAA43): four turboprops, black nose radome, chin + belly radomes,
     // tall fin with dorsal fillet, and the tail Doppler radar boom.
     function buildP3Model(reg) {
@@ -693,7 +690,6 @@
         return makePlaneTexture(cv);
     }
 
-    // ---------------------------------------------------------------------------------------
     // Gulfstream IV-SP (NOAA49): swept wings with winglets, twin aft nacelles, T-tail, and the
     // tail Doppler radar tube out the tail cone.
     function buildGIVModel(reg) {
@@ -819,8 +815,6 @@
         grp.scale.set(0.92, 0.92, 0.81);
         return grp;
     }
-
-    // ---------------------------------------------------------------------------------------
 
     function disposePlaneObject3D(root) {
         root.traverse(o => {

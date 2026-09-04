@@ -101,10 +101,10 @@
         if (spd) spd.textContent = '';
     }
 
-    // onProgress (optional) receives the same {phase,index,total,...} the loading overlay uses; callers
-    // that draw their own bar (the preload modal) pass one, everyone else defaults to updateParseProgress.
+    // onProgress (optional) receives the same {phase,index,total,...} the loading overlay uses, for a
+    // caller drawing its own bar; without one it defaults to updateParseProgress.
     // wantAll (optional): also produce result.qcAll, an every-variable raw parse for the NC-to-TXT
-    // converter. Only the interactive single-flight load passes it; batch preloads skip the cost.
+    // converter, which costs a third pass over the file.
     function parseFlightSource(source, onProgress, wantAll) {
         const report = onProgress || updateParseProgress;
         const onMainThread = () => {
@@ -169,8 +169,6 @@
             throw new Error('no usable rows (' + summarizeParseStats(parsed.stats) + ')');
         }
 
-        availableMetrics.clear();
-        allParsedData.forEach(row => { Object.keys(METRIC_DEFS).forEach(k => { if (row[k] !== null && row[k] !== undefined && !isNaN(row[k])) availableMetrics.add(k); }); });
 
         // QC Mode: hand the raw dataset (continuous 1-second axis, every catalog var) to the QC
         // engine/report/charts. Best-effort so any QC failure never disturbs the player.

@@ -12,8 +12,8 @@
    times, sensor designations from what the refs actually rode, plus the standing notes for the
    airframe); everything stays editable, like the script's form. */
 
-    // ---- tiny pdf writer: base-14 fonts (Courier + Helvetica), text, lines, polylines, fills,
-    // dots, clipping, portrait or landscape pages, multi page --------------------------------------
+    // tiny pdf writer: base-14 fonts (Courier + Helvetica), text, lines, polylines, fills,
+    // dots, clipping, portrait or landscape pages, multi page
     function qcPdfDoc() {
         const pages = []; let cur = null;
         const esc = s => String(s == null ? '' : s).replace(/[\\()]/g, m => '\\' + m).replace(/[^\x20-\x7e]/g, ' ');
@@ -218,7 +218,7 @@
         });
     }
 
-    // ---- the modal: the script's form, prefilled ------------------------------------------------
+    // the modal: the script's form, prefilled
     let qcEsModal = null, qcEsLastDefaultNotes = '';
     function qcShowErrorSummary() {
         if (!qcResult) return;
@@ -239,24 +239,24 @@
                   '<h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">Error Summary (.pdf)</h2>' +
                   '<div class="qc-es-cols">' +
                   '<div class="qc-es-col">' +
-                    '<div class="qc-es-sec">Flight information</div>' +
+                    '<div class="qc-es-sec">Flight Information</div>' +
                     '<label class="qc-es-row"><span>Flight ID</span><input id="qcEsFlightId" class="qc-ov-input qc-es-wide qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Flight Director</span><input id="qcEsDirector" class="qc-ov-input qc-es-wide qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Email</span><input id="qcEsEmail" class="qc-ov-input qc-es-wide qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Flight Directory</span><input id="qcEsDir" class="qc-ov-input qc-es-wide" readonly tabindex="-1" title="Derived from the flight id"></label>' +
-                    '<div class="qc-es-sec">Takeoff / landing</div>' +
+                    '<div class="qc-es-sec">Takeoff / Landing</div>' +
                     '<label class="qc-es-row"><span>Takeoff Location</span><input id="qcEsToLoc" class="qc-ov-input qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Takeoff Time (Z)</span><input id="qcEsToTime" class="qc-ov-input qc-es-req" maxlength="6" placeholder="HHMMSS"></label>' +
                     '<label class="qc-es-row"><span>Landing Location</span><input id="qcEsLandLoc" class="qc-ov-input qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Landing Time (Z)</span><input id="qcEsLandTime" class="qc-ov-input qc-es-req" maxlength="6" placeholder="HHMMSS"></label>' +
-                    '<div class="qc-es-sec">Dynamic corrections</div>' +
+                    '<div class="qc-es-sec">Dynamic Corrections</div>' +
                     '<label class="qc-es-row"><span>AttackAngleIntercept</span><input id="qcEsAtkInt" class="qc-ov-input"></label>' +
                     '<label class="qc-es-row"><span>AttackAngleSlope</span><input id="qcEsAtkSlp" class="qc-ov-input"></label>' +
                     '<label class="qc-es-row"><span>SlipAngleIntercept</span><input id="qcEsSlipInt" class="qc-ov-input"></label>' +
                     '<label class="qc-es-row"><span>SlipAngleSlope</span><input id="qcEsSlipSlp" class="qc-ov-input"></label>' +
                   '</div>' +
                   '<div class="qc-es-col">' +
-                    '<div class="qc-es-sec">Sensor designations</div>' +
+                    '<div class="qc-es-sec">Sensor Designations</div>' +
                     sensorRows +
                     '<div class="qc-es-sec">Expendables</div>' +
                     '<div class="qc-es-exp-row qc-es-exp-head"><span></span><b># deployed</b><b># good</b><b># transmitted</b></div>' +
@@ -341,8 +341,8 @@
         document.getElementById('qcEsLandTime').value = qcSecToLabel(qcResult.phases.landingSec).replace(/:/g, '');
     }
 
-    // ---- mini graph beside the form: the row's candidate sensors, with the family ref dashed
-    // on top, so a designation can be judged and set by eye when no ref names it ----------------
+    // mini graph beside the form: the row's candidate sensors, with the family ref dashed
+    // on top, so a designation can be judged and set by eye when no ref names it
     let qcEsGraphChart = null;
     function qcEsHideGraph() {
         const box = document.getElementById('qcEsGraphBox');
@@ -394,7 +394,7 @@
         });
     }
 
-    // ---- the pdf itself: the script's create_pdf, coordinate for coordinate ---------------------
+    // the pdf itself: the script's create_pdf, coordinate for coordinate
     function qcEsGenerate() {
         const val = id => document.getElementById(id).value;
         // the id stays bare everywhere (title, directory line, file name): no parenthetical, no

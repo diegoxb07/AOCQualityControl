@@ -7,7 +7,7 @@ module.exports = {
   // Classes toggled from JS (classList.add/toggle), listed explicitly so a scanner
   // miss can never drop one from the compiled CSS. Color classes below are the small,
   // hand-written theme-aware utilities defined in css/app.css (bound to CSS variables so
-  // they follow [data-theme]), NOT Tailwind color utilities - Tailwind just needs to not
+  // they follow [data-theme]), NOT Tailwind color utilities; Tailwind just needs to not
   // purge them since they're built via classList.add/toggle rather than literal markup.
   safelist: [
     'hidden', 'flex', 'block', 'grayscale', 'grayscale-0', 'saturate-0',

@@ -19,8 +19,8 @@ self.onmessage = (e) => {
         try {
             result.qc = parseFlightRawQC(tsv);
             // wantAll: a THIRD pass keeping EVERY column (catalog superset), for the NC-to-TXT
-            // converter. Only the interactive single-flight load asks for it, so batch preloads pay
-            // nothing. Memory-only on the page (never stored), so no IndexedDB bloat.
+            // converter, so it is asked for only when something needs it. Memory-only on the page
+            // (never stored), so no IndexedDB bloat.
             if (e.data.wantAll) { try { result.qcAll = parseFlightRawQC(tsv, '*'); } catch (allErr) { result.qcAll = null; } }
             const transfers = [];
             const collect = (qc) => {

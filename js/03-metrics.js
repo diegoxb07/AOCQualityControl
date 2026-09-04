@@ -7,7 +7,7 @@
     let threeMapGroup = new THREE.Group();
     let threeDInitialized = false;
 
-    // Console redesign: neon data palette (equal-weight lines, no gradient fills).
+    // Neon data palette: equal-weight lines, no gradient fills.
     const METRIC_DEFS = {
         'pAlt': { label: 'Press Altitude (m)', color: '#c2beb5', yAxisID: 'y' },
         'gpsAlt': { label: 'GPS Altitude (m)', color: '#9aa1ad', yAxisID: 'y' },
@@ -33,6 +33,11 @@
         'pressure': { label: 'Static Press (mb)', color: '#bae6fd', yAxisID: 'y' }
     };
 
+    // The flight track's one color, in the 2D map (js/15) and the 3D tracker (js/07). A QC read of
+    // the path asks where the aircraft has been, so the track is a single solid line rather than a
+    // metric gradient that would blend into the plane and the basemap.
+    const QC_TRACK_COLOR = '#5b9dff';
+
     let animationFrameId = null;
     let lastTickTime = 0;
 
@@ -45,4 +50,3 @@
     let plotMinLon, plotMaxLon, plotMinLat, plotMaxLat, deltaLon, deltaLat;
     let lonDomainCenter = 0;   // 0 for normal flights; the flight's circular-mean lon for dateline crossers (see wrapLon)
 
-    let isScrubbing = false, wasPlayingBeforeScrub = false;

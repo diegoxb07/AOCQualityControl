@@ -2,7 +2,7 @@
    Part of index.html, split into modules so a failure in one file does not break the others.
    Loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
-    // --- Fullscreen-Friendly Drag & Drop Logic ---
+    // Fullscreen-Friendly Drag & Drop Logic
     ['dataDropZone'].forEach(zoneId => {
         const zone = document.getElementById(zoneId);
         if (!zone) return;
@@ -158,8 +158,7 @@
         camera3D = new THREE.PerspectiveCamera(45, aspect, 0.001, 50000);
         camera3D.position.set(CAM3D_HOME.x, CAM3D_HOME.y, CAM3D_HOME.z);   // starts zoomed into the aircraft, no scroll-in needed
         renderer3D = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, logarithmicDepthBuffer: true });
-        // Render at the display's true pixel density (capped at 2x) so the 3D view is crisp on retina
-        // screens and, since Record Clip composites this canvas, so recorded 3D footage is sharp too.
+        // Render at the display's true pixel density (capped at 2x), so the 3D view is crisp on retina screens.
         renderer3D.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
         renderer3D.setSize(w, h); threeDContainer.insertBefore(renderer3D.domElement, threeDContainer.firstChild);
         controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement); controls3D.enableDamping = true;
@@ -509,16 +508,15 @@
             // one vertex per 1 Hz sample, joined straight. no smoothing and no interpolation: the
             // track shows exactly the positions in the file, so a QC read of the flight path is
             // never looking at points the tool invented.
-            const pathPts = []; const colors = [];
+            const pathPts = [];
             const n = filteredData.length;
             for (let i = 0; i < n; i++) {
                 const d = filteredData[i];
                 pathPts.push(get3DCoord(d.lon, d.lat, track3DAltMeters(d)));
-                const c = getPathColorRGB(d, i);
-                colors.push(c[0], c[1], c[2]);
             }
-            const pathGeom = new THREE.BufferGeometry().setFromPoints(pathPts); pathGeom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-            const trackMat = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 3 }); const coloredTrack3D = new THREE.Line(pathGeom, trackMat); threeMapGroup.add(coloredTrack3D);
+            const pathGeom = new THREE.BufferGeometry().setFromPoints(pathPts);
+            const trackMat = new THREE.LineBasicMaterial({ color: QC_TRACK_COLOR, linewidth: 3 });
+            threeMapGroup.add(new THREE.Line(pathGeom, trackMat));
         }
     }
 

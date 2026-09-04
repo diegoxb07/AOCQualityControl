@@ -25,7 +25,7 @@
 
     // geography clipped to the flight's region (with margin), rounded to 3 decimals, as a typed
     // bundle so the exported map can fill land, tint lakes, stroke borders, and label regions exactly
-    // like the app — all embedded, so the file stays self-contained and works offline.
+    // like the app, all embedded, so the file stays self-contained and works offline.
     function qcExportGeo(latArr, lonArr) {
         const empty = { land: [], states: [], lakes: [], labels: [] };
         if (typeof mapFeatures === 'undefined' || !mapFeatures || !mapFeatures.length) return empty;

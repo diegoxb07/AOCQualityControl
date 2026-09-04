@@ -8,7 +8,6 @@
     // the QC engine; the every-variable set (qcRawDataAll) feeds the NC-to-TXT converter (js/27) and is
     // present only for the currently open, interactively-loaded flight (never persisted).
     let qcRawDataAll = null;
-    let availableMetrics = new Set();
     let currentIdx = 0;
     let isPlaying = false;
     let isNcFile = false;
@@ -17,7 +16,7 @@
     // Extra basemap detail for the QC flight-track map only (js/22 overlay, js/24 export, js/26 pdf),
     // kept OUT of mapFeatures so the visualizer's 2D/3D map and terrain land-mask are untouched.
     // qcLakes: lake polygons (ne_50m_lakes). qcRegionLabels: { name, lon, lat, n } one entry per
-    // labelable landmass — the US state name, else the country/territory name — built in js/19 from
+    // labelable landmass (the US state name, else the country/territory name), built in js/19 from
     // the loaded country + state features, filtered/capped at draw time. Both empty until they land.
     let qcLakes = [];
     let qcRegionLabels = [];

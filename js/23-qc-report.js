@@ -37,7 +37,7 @@
     function onFlightLoadedForQC() {
         if (!qcRawData) {
             qcResult = null;
-            // a flight DID load (rows exist) but carries no QC dataset — almost always a mission
+            // a flight DID load (rows exist) but carries no QC dataset, almost always a mission
             // cached by an older build before QC data was stored on device. say so, and how to fix
             // it, instead of leaving the pre-load "waiting for a flight" text that reads as a hang.
             if (typeof allParsedData !== 'undefined' && allParsedData && allParsedData.length)
@@ -94,7 +94,7 @@
     }
 
     // the inputs always show the times actually in force, detected or pinned; auto vs manual is
-    // internal state now (no user-facing indicator), and Apply drops its unsaved-change highlight
+    // internal state with no user-facing indicator, and Apply drops its unsaved-change highlight
     function qcSyncPhaseInputs() {
         const toEl = document.getElementById('qcToInput'), ldEl = document.getElementById('qcLandInput');
         const applyEl = document.getElementById('qcPhaseApply');
@@ -121,7 +121,7 @@
         qcRenderEmpty(); qcRefreshTimeline();
     }
 
-    // ---- QC app is the primary, always-on view (not a dismissible overlay) -----------------------
+    // QC app is the primary, always-on view (not a dismissible overlay)
     // the report controls only exist once there is a flight: pre-flight there is nothing to
     // search, view on the map, summarize, or export. They stay VISIBLE but skeletonized (a flat
     // gray placeholder, inert) rather than vanishing, so the toolbar keeps its shape and nothing
@@ -136,13 +136,13 @@
         if (gs) { gs.classList.toggle('qc-skel-btn', !show); gs.disabled = !show; }
     }
 
-    // ---- skeleton placeholders: pre-flight, these stand in for the mission title/pills and the
+    // skeleton placeholders: pre-flight, these stand in for the mission title/pills and the
     // chart/report panels, mimicking their eventual shape (see css/app.css qc-skel-*). Both panels
     // get fully overwritten by qcRenderReport/qcRenderCharts once a flight loads, so there is never
     // a mix of skeleton and real rows to reconcile.
     function qcSkelChartsHTML() {
         // overlay: the big waiting text centers over the FIRST skeleton graph. It is a SIBLING of
-        // the pulsing block (absolutely positioned over it), never a child -- a child would inherit
+        // the pulsing block (absolutely positioned over it), never a child: a child would inherit
         // the parent's opacity pulse and read as actively loading instead of idle-waiting.
         const card = overlay => '<div class="qc-chart-panel qc-skel-card">' +
             '<span class="qc-skel-block qc-skel-ctitle"></span>' +
@@ -195,12 +195,15 @@
         if (nm) nm.textContent = (flightMetaData.id || 'flight') + '  ·  ' + qcAircraftLabel(qcResult.aircraft);
         const sp = document.getElementById('qcSummaryPills');
         if (sp) {
-            const noun = n => n === 1 ? ' sensor' : ' sensors';
-            // the red Check pill leads and only appears when the detector fired: it outranks gaps
-            sp.innerHTML = (s.check ? qcPill('check', s.check + noun(s.check) + ' to Check') : '') +
-                qcPill('ok', s.ok + noun(s.ok) + ' with no gaps') +
-                qcPill('gap', s.gap + noun(s.gap) + ' with gap' + (s.gap === 1 ? '' : 's')) +
-                qcPill('nodata', s.nodata + noun(s.nodata) + ' no data');
+            const noun = n => n === 1 ? ' sensor ' : ' sensors ';
+            // the state is underlined so the eye lands on it rather than on the count
+            const state = t => '<span class="qc-pill-state">' + t + '</span>';
+            // gaps lead: they are the finding the report exists for. the red anomalous pill
+            // follows and appears only when the detector fired, then the clean and absent counts.
+            sp.innerHTML = qcPill('gap', s.gap + noun(s.gap) + state('with gap' + (s.gap === 1 ? '' : 's'))) +
+                (s.check ? qcPill('check', s.check + noun(s.check) + state('anomalous')) : '') +
+                qcPill('ok', s.ok + noun(s.ok) + state('with no gaps')) +
+                qcPill('nodata', s.nodata + noun(s.nodata) + state('no data'));
             // each pill opens a modal listing exactly which sensors are behind that count
             sp.querySelectorAll('.qc-pill').forEach(p => { p.classList.add('qc-pill-click'); p.title = 'List these sensors'; p.addEventListener('click', () => qcShowStatusModal(p.dataset.kind)); });
         }
@@ -210,7 +213,7 @@
         try { qcBuildFlightContext(); } catch (e) { console.warn('QC flight context failed:', e); }
         // builds the sidebar's per-sensor report list. Safe to run even while the sidebar is
         // hidden (plain innerHTML, no canvas/layout dependency like the map/player below), so this
-        // runs eagerly here rather than waiting on qcSideToggle -- the report is ready the moment
+        // runs eagerly here rather than waiting on qcSideToggle, so the report is ready the moment
         // the flight loads, matching qcMissionName/qcSummaryPills right above it.
         try { qcBuildReportTable(); } catch (e) { console.warn('QC report table failed:', e); }
         try { qcRenderCharts(document.getElementById('qcChartsPanel'), qcResult); }
@@ -270,7 +273,7 @@
 
     // THE playhead-to-player contract: the one function allowed to translate the playhead (axis
     // seconds since recording start) into a player row (rows exist takeoff..landing only). a
-    // ---- Flight context readout: the live flight conditions at the playhead, in the sidebar. The
+    // Flight context readout: the live flight conditions at the playhead, in the sidebar. The
     // sidebar map hides its own HUD, so this is the sidebar's only current-values readout.
     function qcFcEsc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
     function qcBuildFlightContext() {
@@ -372,7 +375,7 @@
         document.getElementById('qcStatusModalTitle').textContent =
             kind === 'gap' ? rows.length + ' ' + noun + ' with in-flight gap' + (rows.length === 1 ? '' : 's')
             : kind === 'nodata' ? rows.length + ' ' + noun + ' with no data'
-            : kind === 'check' ? rows.length + ' ' + noun + ' to Check'
+            : kind === 'check' ? rows.length + ' ' + noun + ' anomalous'
             : rows.length + ' ' + noun + ' with no gaps';
         const body = document.getElementById('qcStatusModalBody');
         body.innerHTML = rows.map(r => {
@@ -390,9 +393,7 @@
         modal.style.display = 'flex';
     }
 
-    // ---- flag -> context jump -------------------------------------------------------------------
-    // set the playhead to the cleaned row nearest a given absolute second, then drive the same update
-    // path the timeline uses so tracker, PFD/HUD, MMR, and charts all move to that moment.
+    // flag -> context jump
     // move the playhead to an absolute second. sets the single source of truth (qcScrubIdx),
     // pauses playback, drives the follower map once, and redraws the graphs. nothing else.
     function qcJumpToSecond(sec) {
@@ -408,7 +409,7 @@
         if (typeof qcSyncPlayhead === 'function') qcSyncPlayhead(true);
     }
 
-    // ---- CSV: current-flight per-sensor report --------------------------------------------------
+    // CSV: current-flight per-sensor report
     function qcExportReportCSV() {
         if (!qcResult) return;
         const rows = [['mission', 'aircraft', 'family', 'sensor', 'is_ref', 'presence', 'samples_s', 'gaps', 'missing_s', 'early_stop_s', 'max_diff']];
@@ -467,7 +468,7 @@
         setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }
 
-    // ---- cross-flight difference-stats store (IndexedDB) ----------------------------------------
+    // cross-flight difference-stats store (IndexedDB)
     // one row per flight: mission id + every family's mean difference, keyed by airframe. replaces
     // the script's N42/N43/N49_Stats.txt append-only files, queryable in-app and exportable as CSV.
     const QC_DB = 'aocQC', QC_STORE = 'qcFlights';
@@ -562,7 +563,7 @@
         qcStatsPicker.style.display = 'flex';
     }
 
-    // ---- QC clock (graphs and arrow keys do the sliding; there is no timeslider) ----------------
+    // QC clock (graphs and arrow keys do the sliding; there is no timeslider)
     function qcRefreshTimeline() { qcSyncTimeLabel(); }
     function qcSyncTimeLabel() {
         qcUpdateFlightContext();   // the sidebar's live flight-conditions readout follows the playhead too
@@ -576,7 +577,7 @@
         lbl.textContent = row ? (row.time.slice(0, 2) + ':' + row.time.slice(2, 4) + ':' + row.time.slice(4) + ' UTC') : '--:--:--';
     }
 
-    // ---- UI construction: the QC app is the whole page ------------------------------------------
+    // UI construction: the QC app is the whole page
     function qcInitUI() {
         if (qcOverlayBuilt) return; qcOverlayBuilt = true;
 
@@ -752,7 +753,7 @@
                 '<div class="qc-help-card" id="qchs5">' +
                   '<h3>Issues and pills</h3>' +
                   '<ul>' +
-                    '<li><b>Summary pills:</b> Check, No Gaps, gaps, and no data. No Gaps says only that the sensor recorded without gaps. Click one to list exactly those sensors and jump to their first issue.</li>' +
+                    '<li><b>Summary pills:</b> gaps, anomalous, No Gaps, and no data. No Gaps says only that the sensor recorded without gaps. Click one to list exactly those sensors and jump to their first issue.</li>' +
                     '<li><b>Chip strip:</b> Check chips lead, then gaps, no data, and early stop notes. Click any chip to jump the map and timeline there.</li>' +
                     '<li><b>+N more</b> expands in place, with the color coded flag counts in parentheses beside it.</li>' +
                   '</ul>' +
@@ -905,7 +906,7 @@
         document.body.appendChild(app);
 
         // relocate the reused visualizer subsystems into the QC app (moving a node keeps its wiring):
-        //  - the mission loader console (archive search + upload + previously-loaded)
+        //  - the mission loader console (upload + loaded-flights picker)
         //  - the 2D/3D map tracker panel (spatial context for the data)
         //  - the top-right controls (theme / help / fullscreen)
         qcRelocate('missionLoadConsole', 'qcLoaderSlot');
@@ -1060,7 +1061,7 @@
         if (src && dst && src.parentNode !== dst) dst.appendChild(src);
     }
 
-    // ---- phase-statistics command dock ----------------------------------------------------------
+    // phase-statistics command dock
     function qcToggleCmdPanel() {
         const p = document.getElementById('qcCmdPanel');
         const show = p.classList.contains('hidden');

@@ -45,9 +45,6 @@
         return out;
     }
 
-    // re-slice every dataset of a chart to the visible window at display resolution, and adapt the
-    // line style to the zoom: zoomed in far enough to resolve individual seconds, the samples get
-    // visible point markers and a slightly heavier line, so oscillations read as data not fuzz.
     // uniform sampler for the deviation band pair: both edges must land on the SAME x points or
     // the fill between them tears; min/max bucket picking (qcDecimate) chooses different indices
     function qcDecimateUniform(full, start, end) {
@@ -59,6 +56,9 @@
         return out;
     }
 
+    // re-slice every dataset of a chart to the visible window at display resolution, and adapt the
+    // line style to the zoom: zoomed in far enough to resolve individual seconds, the samples get
+    // visible point markers and a slightly heavier line, so oscillations read as data not fuzz.
     function qcRefreshResolution(chart) {
         const x = chart.scales && chart.scales.x; if (!x || !qcAxisRef) return;
         const last = qcAxisRef.length - 1;
@@ -185,7 +185,7 @@
             // theirs since they are rare and urgent
             const drawCarets = (ranges, fill, word) => {
                 ctx.fillStyle = fill;
-                ctx.font = "8px 'IBM Plex Mono', monospace"; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+                ctx.font = "600 8.5px 'Manrope', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
                 let lastWordX = -Infinity;
                 ranges.forEach(g => {
                     const x0 = Math.max(xa.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), area.right);
@@ -209,7 +209,7 @@
             // takeoff to landing window so the empty frame cannot be mistaken for a render bug
             if (chart.$qcAllEmpty) {
                 ctx.fillStyle = light ? 'rgba(71, 85, 105, 0.7)' : 'rgba(148, 163, 184, 0.7)';
-                ctx.font = "700 26px 'IBM Plex Mono', monospace"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.font = "700 26px 'Manrope', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 let cx = (area.left + area.right) / 2;
                 if (qcPhaseMarks) {
                     const x0 = xa.getPixelForValue(qcPhaseMarks.toIdx), x1 = xa.getPixelForValue(qcPhaseMarks.landIdx);
@@ -223,13 +223,13 @@
                 const faint = document.documentElement.dataset.theme === 'light' ? 'rgba(71,85,105,0.45)' : 'rgba(148,163,184,0.4)';
                 ctx.strokeStyle = faint; ctx.fillStyle = faint;
                 ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
-                ctx.font = "8.5px 'IBM Plex Mono', monospace"; ctx.textBaseline = 'top';
+                ctx.font = "600 9px 'Manrope', sans-serif"; ctx.textBaseline = 'top';
                 [[qcPhaseMarks.toIdx, 'takeoff'], [qcPhaseMarks.landIdx, 'landing']].forEach(mk => {
                     const x = xa.getPixelForValue(mk[0]);
                     if (x < area.left || x > area.right) return;
                     ctx.beginPath(); ctx.moveTo(x, area.top); ctx.lineTo(x, area.bottom); ctx.stroke();
                     // takeoff sits just right of its line; landing is right-aligned just LEFT of its
-                    // line so the text clears the dotted line (purely cosmetic — line and time unchanged)
+                    // line so the text clears the dotted line (purely cosmetic: line and time unchanged)
                     if (mk[1] === 'landing') {
                         ctx.textAlign = 'right';
                         ctx.fillText(mk[1], Math.max(x - 3, area.left + 42), area.top + 2);
@@ -324,8 +324,10 @@
                 }
             }
         });
-        canvas.addEventListener('mouseup', ev => { if (chart.$qcScrubbing) { chart.$qcScrubbing = false; qcScrubMove(chart, canvas, ev, true); } });
-        canvas.addEventListener('mouseout', ev => { if (chart.$qcScrubbing) { chart.$qcScrubbing = false; qcScrubMove(chart, canvas, ev, true); } });
+        // releasing the button and dragging off the canvas both end the slide the same way
+        const endScrub = ev => { if (chart.$qcScrubbing) { chart.$qcScrubbing = false; qcScrubMove(chart, canvas, ev, true); } };
+        canvas.addEventListener('mouseup', endScrub);
+        canvas.addEventListener('mouseout', endScrub);
         canvas.addEventListener('mouseenter', () => { qcActiveChart = chart; });
         canvas.addEventListener('dblclick', () => { qcResetChart(chart); });
         canvas.addEventListener('mousemove', ev => {
@@ -399,7 +401,7 @@
         });
     }
 
-    // ---- zoom history: every pan/zoom gesture pushes the prior window, ctrl+z walks back --------
+    // zoom history: every pan/zoom gesture pushes the prior window, ctrl+z walks back
     function qcPushZoomState(chart) {
         const now = Date.now();
         // wheel zooming fires a burst of events; merge anything within half a second into one step
@@ -648,8 +650,8 @@
         return out;
     }
 
-    // ---- html legend bar: group chips, per-variable checkboxes, std dev toggle -----------------
-    // flip to false to fall back to the chart.js canvas legend exactly as before
+    // html legend bar: group chips, per-variable checkboxes, std dev toggle
+    // flip to false to fall back to the chart.js canvas legend that qcChartOptions still defines
     const QC_HTML_LEGEND = true;
 
     // split a family's direct sensors from their blended GPS counterparts (the same heuristic the
@@ -717,11 +719,11 @@
         return { mean: (sSum / sN).toFixed(2), max: sMax.toFixed(2), at: qcTimeLabels[sMaxI] || '', cv: cv };
     }
 
-    // a blacked-out legend chip with a small UNAVAILABLE tag, for a sensor with no data this flight —
-    // reused both inline in a graph's legend and for a whole graph that has no data in any variable
+    // a blacked-out legend chip with a small UNAVAILABLE tag, for a sensor with no data this
+    // flight. reused both inline in a graph's legend and for a whole graph with no data at all
     function qcUnavailItem(name) {
         const it = document.createElement('span'); it.className = 'qc-lg-item qc-lg-unavail';
-        it.title = name + ' — no data for this flight';
+        it.title = name + ': no data for this flight';
         const box = document.createElement('span'); box.className = 'qc-lg-box';
         const txt = document.createElement('span'); txt.textContent = name;
         const tag = document.createElement('span'); tag.className = 'qc-lg-unavail-tag'; tag.textContent = 'UNAVAILABLE';
@@ -1171,7 +1173,7 @@
         mkRow(true, 'cross group:');
     }
 
-    // ---- difference modal: one shared overlay, the chart is built on open and destroyed on close
+    // difference modal: one shared overlay, the chart is built on open and destroyed on close
     let qcCurrentResult = null;        // the rendered qcResult, for modal lookups
     let qcDiffModalChartKey = null;
     function qcDiffModalEl() {

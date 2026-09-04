@@ -12,6 +12,19 @@
     function qcRound(x, n) { if (x === null || x === undefined || Number.isNaN(x)) return NaN; const p = Math.pow(10, n); return Math.round(x * p) / p; }
     function qcMean(arr) { let s = 0, c = 0; for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (!Number.isNaN(v)) { s += v; c++; } } return c ? s / c : NaN; }
 
+    // runs of missing seconds inside [a, b], where isMissing(i) says whether second i is missing.
+    // callers set a and b to the first and last second that DOES have data, so every run returned is
+    // interior: a run still open at b cannot exist, and a lead-in before a is never scanned.
+    function qcMissingRuns(isMissing, a, b, t) {
+        const out = []; let s = -1;
+        for (let i = a; i <= b; i++) {
+            const bad = isMissing(i);
+            if (bad && s < 0) s = i;
+            if (!bad && s >= 0) { out.push({ from: t[s], to: t[i - 1], fromIdx: s, toIdx: i - 1, secs: i - s }); s = -1; }
+        }
+        return out;
+    }
+
     // gaps: runs of missing seconds INSIDE a channel's active window, i.e. holes strictly between its
     // first and last real sample. the lead-in before a sensor comes online and the tail after it stops
     // are not gaps (a sensor that simply starts late is not "missing data"). returns { from, to, secs }.
@@ -19,13 +32,7 @@
         let a = -1, b = -1;
         for (let i = 0; i < v.length; i++) if (!Number.isNaN(v[i])) { if (a < 0) a = i; b = i; }
         if (a < 0) return [];                          // no data at all -> handled as nodata upstream
-        const out = []; let s = -1;
-        for (let i = a; i <= b; i++) {
-            const bad = Number.isNaN(v[i]);
-            if (bad && s < 0) s = i;
-            if (!bad && s >= 0) { out.push({ from: t[s], to: t[i - 1], fromIdx: s, toIdx: i - 1, secs: i - s }); s = -1; }
-        }
-        return out;
+        return qcMissingRuns(i => Number.isNaN(v[i]), a, b, t);
     }
 
     // max / mean / median over the non-NaN values of a slice.
@@ -128,7 +135,7 @@
     //      (still >= 60 m higher at the window's end), and STILL be above the bar five minutes on:
     //      an oscillation fails the hold, a lone spike fails both horizons;
     //   4. when an airspeed channel exists, the aircraft must actually be at flying speed just
-    //      after the candidate -- altitude climbing while airspeed reads taxi is a sensor problem,
+    //      after the candidate. altitude climbing while airspeed reads taxi is a sensor problem,
     //      not a takeoff, and the scan continues past it. (airspeed is used here instead of the
     //      x-acceleration burst of the takeoff roll on purpose: sustained speed IS that
     //      acceleration integrated, without the taxi-bump/turbulence spikes raw AccX carries.)
@@ -284,13 +291,7 @@
     // data system, not a sensor) and are reported once, instead of flagging every sensor.
     function qcRecordingGaps(covered, t, firstAny, lastAny) {
         if (firstAny < 0) return [];
-        const out = []; let s = -1;
-        for (let i = firstAny; i <= lastAny; i++) {
-            const bad = !covered[i];
-            if (bad && s < 0) s = i;
-            if (!bad && s >= 0) { out.push({ from: t[s], to: t[i - 1], fromIdx: s, toIdx: i - 1, secs: i - s }); s = -1; }
-        }
-        return out;
+        return qcMissingRuns(i => !covered[i], firstAny, lastAny, t);
     }
 
     // the script's per-flight stats line, column for column. order, rounding (5 places), the

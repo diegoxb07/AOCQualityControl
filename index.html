@@ -54,12 +54,12 @@
     <div id="qcBootCover" style="position:fixed;inset:0;background:var(--bg);z-index:10060;"></div>
 
 <div id="loadingOverlay" class="fixed inset-0 bg-[color-mix(in_oklab,var(--bg)_85%,transparent)] z-[10000] hidden flex-col items-center justify-center backdrop-blur-md">
-    <div id="loadingSpinner" class="relative w-16 h-16 mb-5">
+    <div id="loadingSpinner" class="relative w-14 h-14 mb-5">
         <div id="loadingRing" class="absolute inset-0 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
         <svg id="loadingCheck" class="absolute inset-0 w-full h-full" viewBox="0 0 52 52" fill="none" stroke="#10b981" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M14 27 l7 7 l16 -17" /></svg>
     </div>
-    <h2 class="text-ink text-xl md:text-2xl font-bold tracking-widest">PROCESSING FLIGHT DATA</h2>
-    <p id="loadingOverlaySubtext" class="text-accent text-sm mt-2 font-mono opacity-80">Pulling variables...</p>
+    <h2 class="text-ink text-xl md:text-2xl font-bold">Loading flight data...</h2>
+    <p id="loadingOverlaySubtext" class="text-accent text-sm mt-2 opacity-80">Pulling variables...</p>
     <div id="loadingProgressWrap" class="hidden w-72 max-w-[80vw] mt-4">
         <div class="h-2 bg-panel-strip rounded overflow-hidden"><div id="loadingProgressBar" class="h-full bg-accent transition-all duration-150" style="width:0%"></div></div>
         <div class="flex justify-between text-[11px] text-muted font-mono mt-1.5">
@@ -78,7 +78,7 @@
         <button id="reportProblemBtn" type="button" title="Report a problem or ask a question" aria-label="Report a problem or ask a question" class="flex items-center justify-center bg-panel-strip border border-hairline hover:bg-elevated rounded shadow-lg transition-colors" style="width:34px;height:30px;">
             <span aria-hidden="true" style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:2px solid var(--warn);border-radius:50%;color:var(--warn);font-size:12px;font-weight:700;line-height:1;">!</span>
         </button>
-        <button id="resetAppBtn" title="Clear the loaded flight, video, and overlays" class="px-3 py-1.5 bg-panel-strip text-muted border border-hairline hover:bg-elevated hover:text-ink rounded text-xs font-semibold shadow-lg transition-colors whitespace-nowrap">↺ Reset All</button>
+        <button id="resetAppBtn" title="Clear the loaded flight and reset the view" class="px-3 py-1.5 bg-panel-strip text-muted border border-hairline hover:bg-elevated hover:text-ink rounded text-xs font-semibold shadow-lg transition-colors whitespace-nowrap">↺ Reset All</button>
         <button id="fullscreenBtn" class="px-3 py-1.5 bg-accent text-accent-ink text-xs font-semibold rounded border border-accent hover:bg-accent transition-colors shadow-lg">⛶ Fullscreen</button>
     </div>
     <button id="themeToggleBtn" type="button" role="switch" aria-checked="false" title="Switch between light and dark mode" aria-label="Switch between light and dark mode" class="theme-switch shadow-lg">
@@ -235,8 +235,8 @@
 
 <!-- Application logic is split across js/*.js so one broken file cannot take down the
      whole page. Classic scripts, one shared global scope, load order matters. -->
-    <!-- ?v= cache-buster: bump this token after editing any css/js so browsers (and the Codespaces
-         port-preview) fetch the new files instead of a stale cached copy. -->
+    <!-- ?v= cache-buster: the deploy workflow (.github/workflows/static.yml) rewrites every one of
+         these to the commit SHA, so the committed token is a placeholder, not a value to bump. -->
     <script src="js/00b-qc-catalog.js?v=20260724a"></script>
     <script src="js/01-state.js?v=20260724a"></script>
     <script src="js/03-metrics.js?v=20260724a"></script>

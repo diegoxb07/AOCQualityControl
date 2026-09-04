@@ -73,7 +73,7 @@
         const Y = la => oy + (la - mnLa) * sc;
 
         // frame + geography, clipped to the map rect. the whole rect is water (blue), land fills
-        // green on top, lakes blue — a classic green-land / blue-water map.
+        // green on top, lakes blue: a classic green-land / blue-water map.
         doc.poly([[aL, aB], [aR, aB], [aR, aT], [aL, aT]], 0.8, [0.55, 0.6, 0.66], true);
         doc.save(); doc.clip(aL, aB, aR - aL, aT - aB);
         doc.fill([[aL, aB], [aR, aB], [aR, aT], [aL, aT]], [0.83, 0.91, 0.97]);

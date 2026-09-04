@@ -34,12 +34,11 @@
         currentSpeedIdx = 0; if (typeof updateSpeedDisplay === 'function') updateSpeedDisplay();
 
         // clear the loaded flight and sliding state.
-        allParsedData = []; filteredData = []; availableMetrics.clear(); currentIdx = 0; _lastStaticIdx = -1;
+        allParsedData = []; filteredData = []; currentIdx = 0; _lastStaticIdx = -1;
         lastParseStats = null;
         flightMetaData = { id: 'Unknown', date: 'Unknown', aircraft: 'Unknown' };
         if (typeof qcResetToEmpty === 'function') qcResetToEmpty();
         window._appliedWindow = undefined;
-        isScrubbing = false;
 
         // reset the map view.
         mapScale = 1; mapOffsetX = 0; mapOffsetY = 0; followAircraft2D = true; bgNeedsUpdate = true;
@@ -162,7 +161,7 @@
     });
 
 
-    /* ---- Remembered display preferences ----
+    /* Remembered display preferences
        View settings only (no flight data), restored on open, saved on every change.
        Restoring dispatches 'change' so each control's normal handler runs; all of them
        no-op safely when no flight is loaded yet. */
@@ -188,7 +187,7 @@
         } catch (e) { /* localStorage unavailable (private mode), defaults stand */ }
     })();
 
-    /* ---- Light/dark theme toggle ----
+    /* Light/dark theme toggle
        documentElement[data-theme] is what css/app.css keys its tokens off; the inline <head>
        script sets it before first paint so there's no flash: a saved manual pick from the
        aocVizPrefs blob when one exists, else the computer's own light/dark setting.

@@ -19,7 +19,7 @@
         // panel order mirrors the script's column(...) call: acceleration, altitude, velocity,
         // position, pressure, air data, attitude, temperature, moisture/wind, sfmr, derived.
         families: [
-            // --- acceleration (m/s^2) ---
+            // acceleration (m/s^2)
             { key: 'accx', label: 'X Acceleration', unit: 'm/s²',
               members: { HI: ['AccAXI.1','AccAXI.2','AccXI-GPS.1','AccXI-GPS.2'], N: ['AccAXI.1','AccAXI.2','AccAXI.3'] },
               diffs: { HI: [['AccAXI.1','AccAXI.2'],['AccXI-GPS.1','AccXI-GPS.2']], N: [['AccAXI.1','AccAXI.2'],['AccAXI.1','AccAXI.3']] } },
@@ -33,7 +33,7 @@
               // back to the direct-vs-GPS name heuristic
               groups: { N: [{ label: 'AccAZI', names: ['AccAZI.1','AccAZI.2','AccAZI.3'] }, { label: 'AccZI', names: ['AccZI.1','AccZI.2','AccZI.3'] }] } },
 
-            // --- altitude (m) ---
+            // altitude (m)
             { key: 'altgps', label: 'Pure GPS Altitude', unit: 'm', ref: 'ALTref',
               members: { HI: ['AltGPS.1','AltGPS.2','AltGPS.3','AltGPS.4'], N: ['AltGPS.1','AltGPS.2','AltGPS.3'] },
               diffs: { HI: [['AltGPS.3','AltGPS.1'],['AltGPS.3','AltGPS.2'],['AltGPS.3','AltGPS.4']], N: [['AltGPS.3','AltGPS.1'],['AltGPS.3','AltGPS.2']] } },
@@ -55,7 +55,7 @@
             { key: 'altsci', label: 'Scientific Derived Pres Alt & Geopotential Alt', unit: 'm',
               members: { HI: ['ALTPA.d','ALTGA.d'], N: ['ALTPA.d','ALTGA.d'] }, diffs: { HI: [], N: [] } },
 
-            // --- velocity (m/s) ---
+            // velocity (m/s)
             { key: 'velx', label: 'East-West Velocity', unit: 'm/s', ref: 'GSXref',
               members: { HI: ['GsXI-GPS.1','GsXI-GPS.2'], N: ['GsXI.1','GsXI.2','GsXI.3','GsXGPS.1','GsXGPS.2'] },
               diffs: { HI: [['GsXI-GPS.1','GsXI-GPS.2']], N: [['GsXI.1','GsXI.2'],['GsXI.1','GsXI.3'],['GsXGPS.1','GsXGPS.2']] } },
@@ -69,7 +69,7 @@
               members: { HI: [], N: ['GsGPS.1','GsGPS.2','GsGPS.3'] },
               diffs: { HI: [], N: [['GsGPS.1','GsGPS.2']] } },
 
-            // --- position (deg). plotted as time series here; the map carries the geometry ---
+            // position (deg). plotted as time series here; the map carries the geometry
             { key: 'lat', label: 'Latitude', unit: 'deg', ref: 'LATref',
               members: { HI: ['LatGPS.1','LatGPS.2','LatGPS.3','LatGPS.4','LatI-GPS.1','LatI-GPS.2'], N: ['LatGPS.1','LatGPS.2','LatGPS.3','LatI.1','LatI.2','LatI.3'] },
               diffs: { HI: [], N: [] } },
@@ -77,7 +77,7 @@
               members: { HI: ['LonGPS.1','LonGPS.2','LonGPS.3','LonGPS.4','LonI-GPS.1','LonI-GPS.2'], N: ['LonGPS.1','LonGPS.2','LonGPS.3','LonI.1','LonI.2','LonI.3'] },
               diffs: { HI: [], N: [] } },
 
-            // --- pressure (mb) ---
+            // pressure (mb)
             { key: 'pdalpha', label: 'Attack Differential Pressure', unit: 'mb', ref: 'PDALPHAref',
               members: { HI: ['PDALPHA.1','PDALPHA.2'], N: ['PDALPHA.1','PDALPHA.2'] },
               diffs: { HI: [['PDALPHA.1','PDALPHA.2']], N: [['PDALPHA.1','PDALPHA.2']] } },
@@ -99,7 +99,7 @@
             { key: 'ptm', label: 'Total Pressure', unit: 'mb',
               members: { HI: ['PTM.1'], N: ['PTM.1'] }, diffs: { HI: [], N: [] } },
 
-            // --- air data (kt / m·s, mixed; overlaid as the script does) ---
+            // air data (kt / m·s, mixed; overlaid as the script does)
             { key: 'airspeed', label: 'Air Speed', unit: 'kt',
               members: { HI: ['CasADDU.1','TasADDU.1','IasADDU.1','IAS.d','TAS.d'], N: ['CasADDU.1','CasADDU.2','TasADDU.1','TasADDU.2','IAS.d','TAS.d'] },
               diffs: { HI: [], N: [['CasADDU.1','CasADDU.2'],['TasADDU.1','TasADDU.2']] },
@@ -107,7 +107,7 @@
               groups: { HI: [{ label: 'CAS/IAS', names: ['CasADDU.1','IasADDU.1','IAS.d'] }, { label: 'TAS', names: ['TasADDU.1','TAS.d'] }],
                         N: [{ label: 'CAS/IAS', names: ['CasADDU.1','CasADDU.2','IAS.d'] }, { label: 'TAS', names: ['TasADDU.1','TasADDU.2','TAS.d'] }] } },
 
-            // --- attitude (deg / deg per s) ---
+            // attitude (deg / deg per s)
             { key: 'pitch', label: 'Pitch', unit: 'deg', ref: 'PITCHref',
               members: { HI: ['PitchI.1','PitchI.2'], N: ['PitchI.1','PitchI.2','PitchI.3'] },
               diffs: { HI: [['PitchI.1','PitchI.2']], N: [['PitchI.1','PitchI.2'],['PitchI.1','PitchI.3']] } },
@@ -121,7 +121,7 @@
               members: { HI: ['RollRateI.1','RollRateI.2'], N: ['RollRateI.1','RollRateI.2','RollRateI.3'] },
               diffs: { HI: [['RollRateI.1','RollRateI.2']], N: [['RollRateI.1','RollRateI.2'],['RollRateI.1','RollRateI.3']] } },
 
-            // --- temperature & moisture (degC / % ) ---
+            // temperature & moisture (degC / % )
             { key: 'ttm', label: 'Measured Total Temperature', unit: '°C', ref: 'TTMref',
               members: { HI: ['TTM.1','TTM.2','TA.d'], N: ['TTM.1','TTM.2','TTM.3','TTM.4','TA.d'] },
               diffs: { HI: [['TTM.1','TTM.2']], N: [['TTM.1','TTM.2'],['TTM.1','TTM.3'],['TTM.1','TTM.4']] } },
@@ -139,7 +139,7 @@
             { key: 'winddir', label: 'Flight Level Wind Direction', unit: 'deg',
               members: { HI: ['WD.d'], N: ['WD.d'] }, diffs: { HI: [], N: [] } },
 
-            // --- SFMR (P-3 only) ---
+            // SFMR (P-3 only)
             { key: 'sfmrws', label: 'SFMR Windspeed', unit: 'm/s', p3only: true,
               members: { HI: ['SfmrWS.1','ASfmrWS.1'], N: [] }, diffs: { HI: [['ASfmrWS.1','SfmrWS.1']], N: [] } },
             { key: 'sfmrrr', label: 'SFMR Rainrate', unit: 'mm/hr', p3only: true,
@@ -147,7 +147,7 @@
             { key: 'sfmrtb', label: 'AOC SFMR Brightness Temps', unit: 'K', p3only: true,
               members: { HI: ['ASfmrTB.1','ASfmrTB.2','ASfmrTB.3','ASfmrTB.4','ASfmrTB.5','ASfmrTB.6'], N: [] }, diffs: { HI: [], N: [] } },
 
-            // --- derived surface-pressure family (computed by the QC engine, not read) ---
+            // derived surface-pressure family (computed by the QC engine, not read)
             { key: 'slp', label: 'Standard Surface Pressure vs Willoughby SLP', unit: 'mb', derived: true,
               members: { HI: ['DrWslp31','DrWslp348','slps','PSURF.d'], N: ['DrWslp31','DrWslp348','slps','PSURF.d'] }, diffs: { HI: [], N: [] } }
         ],
