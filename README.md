@@ -14,7 +14,7 @@ This tool reuses selected pieces of the AOC Mission Visualizer: the design, the 
 
 Upload a `.nc` flight-level file on the **Load a Flight** section in the header!
 
-Every flight you load is saved on this device and reopens from the **Loaded Flights** list instantly, newest first, including after a reload. The red cross on a row removes that flight; the list keeps the 100 most recent.
+Every flight you load is saved on this device and reopens from the **Loaded Flights** list instantly, newest first, including after a reload. You can click the red cross on a row to remove that flight (list holds the 100 most recent).
 
 **Metrics Across Flights** finds which saved flight recorded the highest or lowest value of any metric, with a comparison graph.
 
