@@ -148,7 +148,7 @@
             '<span class="qc-skel-block qc-skel-ctitle"></span>' +
             '<div class="qc-skel-canvas-wrap"><div class="qc-skel-block qc-skel-canvas"></div>' + (overlay || '') + '</div>' +
           '</div>';
-        return card('<span class="qc-skel-wait">Upload file to QC, above</span>') + card() + card();
+        return card('<span class="qc-skel-wait">Upload file to QC above</span>') + card() + card();
     }
     function qcSkelReportHTML() {
         const row = '<div class="qc-skel-row"><span class="qc-skel-block qc-skel-rowname"></span><span class="qc-skel-block qc-skel-rowdetail"></span></div>';
@@ -963,7 +963,7 @@
         if (offStrip && !window.AOC_EMBED) {
             offStrip.innerHTML =
                 '<a id="qcOfflineCopyBtn" class="qc-ov-btn" href="AOC-QC-Tool.html" download="AOC-QC-Tool.html"' +
-                  ' title="Download the whole tool as one file that opens offline, no server needed">Offline Version (.html)</a>' +
+                  ' title="Download the whole tool as one file that opens offline, no server needed">Local version (.html)</a>' +
                 '<span class="qc-offline-note">Does not update automatically. Re-download from this button if any new updates are made.</span>';
         } else if (offStrip) {
             offStrip.remove();
