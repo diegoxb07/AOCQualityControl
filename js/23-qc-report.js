@@ -148,7 +148,7 @@
             '<span class="qc-skel-block qc-skel-ctitle"></span>' +
             '<div class="qc-skel-canvas-wrap"><div class="qc-skel-block qc-skel-canvas"></div>' + (overlay || '') + '</div>' +
           '</div>';
-        return card('<span class="qc-skel-wait">Waiting for flight file&hellip;</span>') + card() + card();
+        return card('<span class="qc-skel-wait">Upload file to QC, above</span>') + card() + card();
     }
     function qcSkelReportHTML() {
         const row = '<div class="qc-skel-row"><span class="qc-skel-block qc-skel-rowname"></span><span class="qc-skel-block qc-skel-rowdetail"></span></div>';

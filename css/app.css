@@ -590,7 +590,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
    matches the "Load a Mission" loader label (Manrope bold, uppercase, tracked); white on the dark
    theme, flipped to ink on light where white would vanish (same pattern as .qc-badge-warn). */
 .qc-skel-canvas-wrap { position: relative; }
-.qc-skel-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 56px 18px 0; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: clamp(20px, 3vw, 32px); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in oklab, #ffffff 68%, transparent); pointer-events: none; }
+.qc-skel-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 18px; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; font-size: clamp(20px, 3vw, 32px); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in oklab, #ffffff 68%, transparent); pointer-events: none; }
 :root[data-theme="light"] .qc-skel-wait { color: color-mix(in oklab, #0f172a 68%, transparent); }
 .qc-skel-famhead { width: 40%; min-width: 90px; height: 13px; margin: 10px 0 6px; }
 .qc-skel-row { display: flex; align-items: center; gap: 10px; padding: 5px 10px; }
