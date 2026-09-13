@@ -4,12 +4,11 @@
 
 This is a browser-based quality-assessment tool for Aircraft Operations Center WP-3D and G-IV flight-level data. It loads any flight, compares the sensors against their counterparts and reference sensors, flags data gaps and any physically impossible values, and exports reports FDs and engineers need (Error Summary, Flight Track, NC to TXT, and more!).
 
-Tool link: https://diegoxb07.github.io/AOCQualityControl/ (GitHub Pages)
-Offline version of the tool is available within this link too (the 'Offline Version' button)
+The live site is hosted on GitHub Pages at https://diegoxb07.github.io/AOCQualityControl/. The offline version is also available from the site via the Local Version button.
 
-Repository: https://github.com/diegoxb07/AOCQualityControl
+The source is in the GitHub repository at https://github.com/diegoxb07/AOCQualityControl.
 
-The tool reuses selected pieces of the AOC Mission Visualizer: the design, the NetCDF parser, and the 2D/3D map for context.
+This tool reuses selected pieces of the AOC Mission Visualizer: the design, the NetCDF parser, and the 2D/3D map for context.
 
 ## Loading a mission
 
@@ -75,20 +74,20 @@ The Error Summary modal prefills the flight id, takeoff/landing times, flight di
 
 ## Code architecture
 
-Classic scripts in `index.html`, one global scope, load order matters. No build step, no dependencies; all libraries, fonts, basemap, and the airport table ship in the repo.
+All the scripts are in `index.html' which makes it one global scope in which load order matters. There is no build step, no dependencies; all libraries, fonts, basemap, and the airport table ship in the repo.
 
-`sw.js` precaches every asset (page, css/js, libs, fonts, basemap data) on the first visit and serves it cache-first from then on. The deploy workflow stamps `CACHE_VERSION` in `sw.js` with the commit SHA, the same `sed` that stamps the `?v=` tokens, so every deploy installs a fresh cache (each file revalidated against the server, never trusted to the HTTP cache) and drops the previous one on activate. Cached files are matched ignoring the query string.
+`sw.js` precaches every asset (page, css/js, libs, fonts, basemap data) on the first visit and serves it cache-first from then on. The deploy workflow stamps `CACHE_VERSION` in `sw.js` with the commit SHA, using the same `sed` process that stamps the `?v=` tokens, so every deploy installs a fresh cache. Each file is revalidated against the server and is never trusted to the HTTP cache. The previous cache is dropped when the new one activates, and cached files are matched while ignoring the query string.
 
-The first load after a deploy still renders the old build while the new cache installs in the background; the reload after that shows it.
+The first load after a deploy still renders the old build while the new cache installs in the background. After that reload, the new build appears.
 
-Two rules keep that honest. Every added or renamed css/js/font/data file must also be added to `PRECACHE` in `sw.js`, because `cache.addAll` rejects wholesale on a single 404 and the precache then silently fails. And cache names keep the `aoc-qc-` prefix, because the `github.io` origin is shared with sibling project pages. The worker only registers on `github.io`; localhost and Codespaces previews stay service-worker-free and always serve the working tree.
+Every added or renamed css/js/font/data file must also be added to `PRECACHE` in `sw.js`, because `cache.addAll` rejects wholesale on a single 404 and the precache then silently fails. Cache names keep the `aoc-qc-` prefix, because the `github.io` origin is shared with sibling project pages. The worker only registers on `github.io`; localhost and Codespaces previews stay service-worker-free and always serve the working tree.
 
 QC-specific files:
 
 | File | Role |
 | --- | --- |
-| `js/00b-qc-catalog.js` | sensor catalog: families, per-airframe members (P-3 `H`/`I`, G-IV `N`), references, difference pairs. The allow-list. |
-| `js/11b-parser-core.js` | `parseFlightRawQC`: keeps every row on a continuous 1-second axis, no cleanup. |
+| `js/00b-qc-catalog.js` | sensor catalog: families, per-airframe members (P-3 `H`/`I`, G-IV `N`), references, difference pairs. |
+| `js/11b-parser-core.js` | `parseFlightRawQC`: keeps every row on a continuous 1-second axis and does not clean up the raw data. |
 | `js/21-qc-engine.js` | presence, coverage, gap classification, phase stats, differences, derived SLP. |
 | `js/22-qc-charts.js` | stacked family and difference graphs, the flight-track map, gap shading, playhead, toolbar, issue strips. |
 | `js/23-qc-report.js` | the app shell, per-sensor report, exports, cross-flight store, sidebar, map relocation. |
