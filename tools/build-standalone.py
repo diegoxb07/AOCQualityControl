@@ -62,7 +62,6 @@ BIN_ASSETS = [
 FONTS = [
     'fonts/Manrope-400.woff2',
     'fonts/IBMPlexMono-400.woff2', 'fonts/IBMPlexMono-500.woff2', 'fonts/IBMPlexMono-600.woff2',
-    'fonts/Inter-400.woff2', 'fonts/Inter-500.woff2', 'fonts/Inter-600.woff2', 'fonts/Inter-700.woff2',
 ]
 # the parse worker's importScripts targets, concatenated ahead of it into one blob-able bundle
 WORKER = 'js/parse-worker.js'
@@ -282,13 +281,8 @@ def build():
 """
 
     # ---- assemble ----------------------------------------------------------------------------
-    # fonts.css points at ../fonts/*.woff2; nothing can resolve that in a single file
     def inline_css(rel):
-        css = read_text(rel)
-        if rel.endswith('fonts.css'):
-            for f in FONTS:
-                css = css.replace('../' + f, 'data:font/woff2;base64,' + bin_payload[f])
-        return scrub_script_close(css)
+        return scrub_script_close(read_text(rel))
 
     head_css = '\n'.join('<style>\n%s\n</style>' % inline_css(c) for c in css_files)
     all_js = '\n'.join('<script>\n%s\n</script>' % scrub_script_close(read_text(j)) for j in js_files)
