@@ -375,7 +375,7 @@
             label: refM.name, data: qcDecimate(refM.series, 0, refM.series.length - 1), parsing: false, normalized: true,
             borderColor: qcRefColor(), borderWidth: 1.8, borderDash: [5, 3], pointRadius: 0, spanGaps: false, fill: false
         });
-        const tick = { color: qcAxisTickColor(), font: { family: "'IBM Plex Mono', monospace", size: 9 } };
+        const tick = { color: qcAxisTickColor(), font: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 9 } };
         qcEsGraphChart = new Chart(document.getElementById('qcEsGraphCv').getContext('2d'), {
             type: 'line', data: { datasets: dsets },
             options: {

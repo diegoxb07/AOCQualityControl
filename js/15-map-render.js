@@ -240,7 +240,7 @@
             const x = getX(a.lon), y = getY(a.lat);
             // home + military in the accent, civil in a neutral ink; all keylined to read over land/water.
             const col = (home2 || a.mil) ? '#38bdf8' : (lightMap ? '#1f2937' : '#e2e8f0');
-            ctx.font = '600 ' + ((home2 ? 12 : 10) / mapScale) + 'px Inter, ui-sans-serif, sans-serif';
+            ctx.font = '600 ' + ((home2 ? 12 : 10) / mapScale) + 'px "Helvetica Neue", Helvetica, Arial, Arimo, sans-serif';
             ctx.beginPath(); ctx.arc(x, y, home2 ? r * 1.5 : r, 0, 2 * Math.PI);
             ctx.fillStyle = col; ctx.fill();
             ctx.strokeStyle = lightMap ? 'rgba(255,255,255,0.9)' : 'rgba(5,12,20,0.85)';

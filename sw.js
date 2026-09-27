@@ -16,7 +16,6 @@ const PRECACHE = [
     './',
 
     'css/app.css',
-    'css/fonts.css',
     'css/tailwind.css',
 
     'lib/OrbitControls.js',
@@ -56,10 +55,6 @@ const PRECACHE = [
     'fonts/IBMPlexMono-400.woff2',
     'fonts/IBMPlexMono-500.woff2',
     'fonts/IBMPlexMono-600.woff2',
-    'fonts/Inter-400.woff2',
-    'fonts/Inter-500.woff2',
-    'fonts/Inter-600.woff2',
-    'fonts/Inter-700.woff2',
     'fonts/Manrope-400.woff2',
 
     'assets/noaa-bird.svg',

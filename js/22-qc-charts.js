@@ -185,7 +185,7 @@
             // theirs since they are rare and urgent
             const drawCarets = (ranges, fill, word) => {
                 ctx.fillStyle = fill;
-                ctx.font = "600 8.5px 'Manrope', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+                ctx.font = "600 8.5px 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
                 let lastWordX = -Infinity;
                 ranges.forEach(g => {
                     const x0 = Math.max(xa.getPixelForValue(g.fromIdx), area.left), x1 = Math.min(xa.getPixelForValue(g.toIdx), area.right);
@@ -209,7 +209,7 @@
             // takeoff to landing window so the empty frame cannot be mistaken for a render bug
             if (chart.$qcAllEmpty) {
                 ctx.fillStyle = light ? 'rgba(71, 85, 105, 0.7)' : 'rgba(148, 163, 184, 0.7)';
-                ctx.font = "700 26px 'Manrope', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.font = "700 26px 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 let cx = (area.left + area.right) / 2;
                 if (qcPhaseMarks) {
                     const x0 = xa.getPixelForValue(qcPhaseMarks.toIdx), x1 = xa.getPixelForValue(qcPhaseMarks.landIdx);
@@ -223,7 +223,7 @@
                 const faint = document.documentElement.dataset.theme === 'light' ? 'rgba(71,85,105,0.45)' : 'rgba(148,163,184,0.4)';
                 ctx.strokeStyle = faint; ctx.fillStyle = faint;
                 ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
-                ctx.font = "600 9px 'Manrope', sans-serif"; ctx.textBaseline = 'top';
+                ctx.font = "600 9px 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif"; ctx.textBaseline = 'top';
                 [[qcPhaseMarks.toIdx, 'takeoff'], [qcPhaseMarks.landIdx, 'landing']].forEach(mk => {
                     const x = xa.getPixelForValue(mk[0]);
                     if (x < area.left || x > area.right) return;
@@ -525,7 +525,7 @@
     });
 
     function qcChartOptions(titleText) {
-        const tick = { color: qcAxisTickColor(), font: { family: "'IBM Plex Mono', monospace", size: 10 } };
+        const tick = { color: qcAxisTickColor(), font: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 10 } };
         // x is LINEAR over the axis index (numeric labels), not a category scale: the zoom plugin
         // pans category scales in whole-label steps, which never tracks the cursor; a linear scale
         // pans 1:1 under the pointer. ticks format the index back to HH:MM:SS.
@@ -544,7 +544,7 @@
                 x: { type: 'linear', bounds: 'data', grid: { color: 'rgba(148,163,184,0.08)' }, ticks: xTicks },
                 // the top tenth of every graph is reserved: data that reaches its ceiling would
                 // otherwise sit under the gap carets and their labels, so the scale grows itself
-                y: { type: 'linear', position: 'left', grid: { color: 'rgba(148,163,184,0.10)' }, ticks: tick, title: { display: true, text: titleText, color: qcAxisTickColor(), font: { family: "'Manrope', sans-serif", size: 11, weight: '600' } },
+                y: { type: 'linear', position: 'left', grid: { color: 'rgba(148,163,184,0.10)' }, ticks: tick, title: { display: true, text: titleText, color: qcAxisTickColor(), font: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 11, weight: '600' } },
                      // headroom only while the scale is free: once pan or zoom pins explicit
                      // min/max the plugin re-reads the computed range on every gesture step, so
                      // growing it here would compound ten percent per mouse move
@@ -552,7 +552,7 @@
             },
             plugins: {
                 legend: { display: true, align: 'start',
-                    labels: { color: document.documentElement.dataset.theme === 'light' ? '#1e293b' : '#e2e8f0', font: { size: 10, family: "'IBM Plex Mono', monospace" }, boxWidth: 12, boxHeight: 12, padding: 16, usePointStyle: true, pointStyle: 'rectRounded',
+                    labels: { color: document.documentElement.dataset.theme === 'light' ? '#1e293b' : '#e2e8f0', font: { size: 10, family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif" }, boxWidth: 12, boxHeight: 12, padding: 16, usePointStyle: true, pointStyle: 'rectRounded',
                         // checkbox-style entries: a filled swatch in the series color when checked;
                         // unchecked keeps the box with the variable's line drawn corner to corner
                         // through it. the text is never struck through.
@@ -577,8 +577,8 @@
                 // same second follow in the footer, so the cross-sensor comparison stays
                 tooltip: {
                     filter: item => !item.dataset.$qcBand,
-                    bodyFont: { family: "'IBM Plex Mono', monospace", size: 11, weight: '700' },
-                    footerFont: { family: "'IBM Plex Mono', monospace", size: 10, weight: '400' },
+                    bodyFont: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 11, weight: '700' },
+                    footerFont: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 10, weight: '400' },
                     footerColor: '#94a3b8',
                     callbacks: {
                         title: (items) => items.length ? ((qcTimeLabels && qcTimeLabels[Math.round(items[0].parsed.x)]) || '') + ' UTC' : '',
@@ -910,7 +910,7 @@
             if (typeof qcRegionLabels !== 'undefined' && qcRegionLabels.length) {
                 ctx.save();
                 ctx.beginPath(); ctx.rect(area.left, area.top, area.right - area.left, area.bottom - area.top); ctx.clip();
-                ctx.font = "600 10.5px 'Manrope', ui-sans-serif, system-ui, sans-serif"; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+                ctx.font = "600 10.5px 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif"; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
                 const txtC = light ? '#1e293b' : '#e2e8f0', halo = light ? 'rgba(255,255,255,0.9)' : 'rgba(8,15,25,0.85)';
                 const placed = [];
                 for (let k = 0, shown = 0; k < qcRegionLabels.length && shown < 9; k++) {
@@ -979,8 +979,8 @@
         }));
         if (mnx === Infinity) { mnx = -100; mxx = -60; mny = 0; mxy = 40; }
         const padX = Math.max(0.2, (mxx - mnx) * 0.08), padY = Math.max(0.2, (mxy - mny) * 0.08);
-        const tick = { color: qcAxisTickColor(), font: { family: "'IBM Plex Mono', monospace", size: 10 } };
-        const axTitle = t => ({ display: true, text: t, color: qcAxisTickColor(), font: { family: "'Manrope', sans-serif", size: 11, weight: '600' } });
+        const tick = { color: qcAxisTickColor(), font: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 10 } };
+        const axTitle = t => ({ display: true, text: t, color: qcAxisTickColor(), font: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 11, weight: '600' } });
         const opts = {
             responsive: true, maintainAspectRatio: false, animation: false,
             interaction: { mode: 'nearest', axis: 'xy', intersect: false },
@@ -1006,7 +1006,7 @@
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    bodyFont: { family: "'IBM Plex Mono', monospace", size: 11, weight: '700' },
+                    bodyFont: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 11, weight: '700' },
                     callbacks: {
                         title: items => (items.length && items[0].raw && items[0].raw.i != null) ? ((qcTimeLabels[items[0].raw.i] || '') + ' UTC') : '',
                         label: item => (item.dataset.label || '') + ': ' + qcRound(item.parsed.y, 4) + ', ' + qcRound(item.parsed.x, 4)

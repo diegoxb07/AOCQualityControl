@@ -20,9 +20,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Manrope','ui-sans-serif','system-ui','sans-serif'],
-        mono: ['IBM Plex Mono','ui-monospace','SFMono-Regular','monospace'],
-        serif: ['Manrope','sans-serif']
+        sans: ['Helvetica Neue','Helvetica','Arial','Arimo','sans-serif'],
+        mono: ['Helvetica Neue','Helvetica','Arial','Arimo','sans-serif'],
+        serif: ['Helvetica Neue','Helvetica','Arial','Arimo','sans-serif']
       }
     }
   }

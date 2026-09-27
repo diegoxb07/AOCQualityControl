@@ -309,11 +309,11 @@
                 responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
                 interaction: { mode: 'nearest', intersect: false },
                 scales: {
-                    x: { type: 'linear', title: { display: true, text: 'Elapsed flight time (min)', color: axC, font: { size: 11, family: "'Manrope', sans-serif", weight: '600' } }, ticks: { color: axC, font: { family: "'IBM Plex Mono', monospace", size: 10 }, maxTicksLimit: 10 }, grid: { color: gridC } },
-                    y: { title: { display: true, text: label, color: axC, font: { size: 11, family: "'Manrope', sans-serif", weight: '600' } }, ticks: { color: axC, font: { family: "'IBM Plex Mono', monospace", size: 10 } }, grid: { color: gridC } }
+                    x: { type: 'linear', title: { display: true, text: 'Elapsed flight time (min)', color: axC, font: { size: 11, family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", weight: '600' } }, ticks: { color: axC, font: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 10 }, maxTicksLimit: 10 }, grid: { color: gridC } },
+                    y: { title: { display: true, text: label, color: axC, font: { size: 11, family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", weight: '600' } }, ticks: { color: axC, font: { family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif", size: 10 } }, grid: { color: gridC } }
                 },
                 plugins: {
-                    legend: { display: true, labels: { color: axC, boxWidth: 12, boxHeight: 12, usePointStyle: true, pointStyle: 'line', font: { size: 10, family: "'IBM Plex Mono', monospace" }, filter: (item) => item.text !== 'Peak' } },
+                    legend: { display: true, labels: { color: axC, boxWidth: 12, boxHeight: 12, usePointStyle: true, pointStyle: 'line', font: { size: 10, family: "'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif" }, filter: (item) => item.text !== 'Peak' } },
                     tooltip: { callbacks: { title: (items) => items.length ? `${items[0].parsed.x.toFixed(1)} min` : '', label: (it) => `${it.dataset.label}: ${it.parsed.y != null ? it.parsed.y.toFixed(1) : ''}` } }
                 }
             }
