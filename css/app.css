@@ -357,8 +357,9 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
    rather than page-form scale, so the loader sits in the header instead of dominating it. */
 .qc-load { display: flex; align-items: flex-start; gap: 16px; }
 .qc-load-col { display: flex; flex-direction: column; min-width: 0; }
-.qc-load-col-file { flex: 1; min-width: 160px; }
-.qc-load-col-saved { flex: none; width: 210px; }
+.qc-load-col-file { flex: 0 1 320px; min-width: 160px; }
+.qc-load-col-saved { flex: none; }
+.qc-load-pick-wrap { flex: none; width: 210px; }
 .qc-load-lbl { font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); line-height: 1.1; margin-bottom: 5px; }
 /* one short line under each label, sitting right on top of its control. the saved column's copy
    doubles as the store's status line (js/12b-mission-store.js); a long status wraps and nudges
@@ -389,9 +390,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-loader-slot #missionLoadConsole { max-width: 100%; }
 /* hug the top-right corner of the header */
 .qc-head-controls { flex: none; margin-left: auto; align-self: flex-start; margin-top: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-/* manual takeoff/landing pins: their own row a good bit under the top right buttons. the margin
-   is on top of .qc-head-controls' own 8px column gap, not instead of it. */
-.qc-phase-override { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 16px; }
+/* manual takeoff/landing pins: inline, to the right of the Loaded Flights picker (#qcLoadedRow). */
+.qc-phase-override { display: flex; align-items: center; gap: 6px; }
 .qc-ov-input.qc-bad { border-color: var(--danger); }
 /* the relocated top-right controls sit inline in the header, not fixed. the help button stays:
    qcInitUI repoints it at the qc help modal (the visualizer manual is not this app) */
@@ -585,13 +585,13 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-skel-card { display: flex; flex-direction: column; gap: 10px; }
 .qc-skel-ctitle { width: 180px; height: 13px; }
 .qc-skel-canvas { height: 30vh; }
-/* the big idle notice, centered OVER the first skeleton graph. A sibling overlay, not a child of
-   the pulsing block, so the text holds steady while the shape breathes under it. Type treatment
-   matches the "Load a Mission" loader label (bold, uppercase, tracked); white on the dark
-   theme, flipped to ink on light where white would vanish (same pattern as .qc-badge-warn). */
+/* the idle notice, centered OVER the first skeleton graph. A sibling overlay, not a child of
+   the pulsing block, so the text holds steady while the shape breathes under it. Kept small and
+   muted so it reads as a placeholder, not an alert; white on the dark theme, flipped to ink on
+   light where white would vanish (same pattern as .qc-badge-warn). */
 .qc-skel-canvas-wrap { position: relative; }
-.qc-skel-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 18px; font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: clamp(20px, 3vw, 32px); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in oklab, #ffffff 68%, transparent); pointer-events: none; }
-:root[data-theme="light"] .qc-skel-wait { color: color-mix(in oklab, #0f172a 68%, transparent); }
+.qc-skel-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 18px; font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: clamp(15px, 1.9vw, 21px); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: color-mix(in oklab, #ffffff 45%, transparent); pointer-events: none; }
+:root[data-theme="light"] .qc-skel-wait { color: color-mix(in oklab, #0f172a 45%, transparent); }
 .qc-skel-famhead { width: 40%; min-width: 90px; height: 13px; margin: 10px 0 6px; }
 .qc-skel-row { display: flex; align-items: center; gap: 10px; padding: 5px 10px; }
 .qc-skel-rowname { flex: 1; max-width: 140px; height: 11px; }

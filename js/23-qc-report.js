@@ -148,7 +148,7 @@
             '<span class="qc-skel-block qc-skel-ctitle"></span>' +
             '<div class="qc-skel-canvas-wrap"><div class="qc-skel-block qc-skel-canvas"></div>' + (overlay || '') + '</div>' +
           '</div>';
-        return card('<span class="qc-skel-wait">Upload file to QC above</span>') + card() + card();
+        return card('<span class="qc-skel-wait">Upload flight file above to QC</span>') + card() + card();
     }
     function qcSkelReportHTML() {
         const row = '<div class="qc-skel-row"><span class="qc-skel-block qc-skel-rowname"></span><span class="qc-skel-block qc-skel-rowdetail"></span></div>';
@@ -772,7 +772,7 @@
                   '<h3>Takeoff and landing</h3>' +
                   '<ul>' +
                     '<li>Takeoff and landing are detected automatically from the blended INS-GPS altitude on the P-3s and the pure GPS altitude on the G-IV (a climb through field + 100 m that holds and keeps climbing, cross-checked against airspeed), with airspeed as the fallback.</li>' +
-                    '<li><b>Manual pins:</b> the T/O and LND boxes under the top right buttons take HHMMSS times. Editing a box highlights Apply Changes, and applying recomputes everything with the entered times. Clear both boxes and apply to return to automatic detection.</li>' +
+                    '<li><b>Manual pins:</b> the T/O and LND boxes next to the Loaded Flights picker take HHMMSS times. Editing a box highlights Apply Changes, and applying recomputes everything with the entered times. Clear both boxes and apply to return to automatic detection.</li>' +
                     '<li>The takeoff and landing times sync with every export, so there won\'t be mismatches with user-inputted times.</li>' +
                     '<li>Everything recorded before five minutes ahead of takeoff is trimmed away (bad data most of the time).</li>' +
                   '</ul>' +
@@ -914,15 +914,16 @@
         qcRelocate('topRightControls', 'qcHeadControls');
         // the loaded-flights picker is NOT relocated: it stays inside #missionLoadConsole, under its
         // own label and status line, so the whole load story reads in one place.
-        // manual takeoff/landing pins. apply reruns the report with the
-        // pinned seconds; the Auto/Manual dropdown switches between detection and the pinned times.
+        // manual takeoff/landing pins, next to the loaded-flights picker. apply reruns the report
+        // with the pinned seconds; the Auto/Manual dropdown switches between detection and the
+        // pinned times.
         const ovr = document.createElement('div');
         ovr.className = 'qc-phase-override';
         ovr.innerHTML =
             '<span class="qc-ov-field">T/O <input id="qcToInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Edit and apply to change the times."></span>' +
             '<span class="qc-ov-field">LND <input id="qcLandInput" class="qc-ov-input" maxlength="6" placeholder="HHMMSS" title="Edit and apply to change the times."></span>' +
             '<button id="qcPhaseApply" class="qc-ov-btn" disabled title="Apply the entered takeoff and landing times (clear both boxes and apply to return to automatic detection)">Apply Changes</button>';
-        document.getElementById('qcHeadControls').appendChild(ovr);
+        document.getElementById('qcLoadedRow').appendChild(ovr);
         const qcToEl = document.getElementById('qcToInput'), qcLdEl = document.getElementById('qcLandInput');
         // Apply pins the entered times (the Auto/Manual indicator flips to Manual via sync). the mode
         // indicator is a read-only status, not a control: clearing both boxes and applying drops the
@@ -964,7 +965,7 @@
             offStrip.innerHTML =
                 '<a id="qcOfflineCopyBtn" class="qc-ov-btn" href="AOC-QC-Tool.html" download="AOC-QC-Tool.html"' +
                   ' title="Download the whole tool as one file that opens offline, no server needed">Local Version (.html)</a>' +
-                '<span class="qc-offline-note">Re-download the local version if there are updates made to the tool.</span>';
+                '<span class="qc-offline-note">Re-download this local version if updates are made to the tool.</span>';
         } else if (offStrip) {
             offStrip.remove();
         }

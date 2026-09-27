@@ -116,14 +116,18 @@
                 </div>
 
                 <div class="qc-load-col qc-load-col-saved">
-                    <span class="qc-load-lbl">Loaded Flights</span>
+                    <!-- kept as an invisible spacer so the note/dropdown below sit at the same height as the file column's label -->
+                    <span class="qc-load-lbl" aria-hidden="true" style="visibility:hidden">Loaded Flights</span>
                     <!-- doubles as the store's status line (js/12b-mission-store.js setMissionStoreStatus) -->
                     <span id="missionLoadStatus" class="qc-load-note">Reopen a flight you have already loaded.</span>
-                    <div class="relative">
-                        <button id="loadedPickerBtn" type="button" disabled class="qc-load-pick" title="Reopen a flight already loaded on this computer">
-                            <span id="loadedPickerLabel" class="qc-load-pick-txt">No flights loaded yet</span>
-                            <span class="qc-load-pick-caret" aria-hidden="true">&#9660;</span>
-                        </button>
+                    <!-- the manual T/O/LND pins (js/23-qc-report.js) are appended here, to the right of the picker -->
+                    <div id="qcLoadedRow" class="flex items-center gap-3">
+                        <div class="relative qc-load-pick-wrap">
+                            <button id="loadedPickerBtn" type="button" disabled class="qc-load-pick" title="Reopen a flight already loaded on this computer">
+                                <span id="loadedPickerLabel" class="qc-load-pick-txt">No flights loaded yet</span>
+                                <span class="qc-load-pick-caret" aria-hidden="true">&#9660;</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
