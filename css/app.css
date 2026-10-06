@@ -504,6 +504,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-es-row .qc-ov-input { flex: 1; width: auto; min-width: 0; }
 .qc-es-row .qc-es-sel { flex: none; width: 158px; }
 .qc-es-wide { width: 100%; }
+.qc-es-row > .qc-es-corr { flex: 1; min-width: 0; display: flex; position: relative; }
+.qc-es-corr .qc-menu { left: 0; }
 .qc-ov-input[readonly] { opacity: 0.72; cursor: default; }
 .qc-es-notes { width: 100%; min-height: 210px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; color: var(--text); outline: none; font-family: inherit; resize: vertical; }
 .qc-es-exp-row { display: grid; grid-template-columns: 1fr 80px 80px 80px; gap: 8px; align-items: center; font-size: 12px; color: var(--text-muted); padding: 2px 0; }

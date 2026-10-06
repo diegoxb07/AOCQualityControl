@@ -218,6 +218,33 @@
         });
     }
 
+    // dynamic corrections presets, picked by the airframe letter in the flight id field. they are
+    // suggestions, never prefilled: clicking a box drops its preset down to pick from, and typing
+    // stays the normal route, so a changed value is simply entered by hand. N flights usually
+    // carry no corrections, so they have no preset and their boxes offer nothing.
+    const QC_ES_CORRECTION_PRESETS = {
+        H: { tail: 'N42RF', AttackAngleIntercept: '2.359743', AttackAngleSlope: '6.097738', SlipAngleIntercept: '0.320000', SlipAngleSlope: '6.753003' },
+        I: { tail: 'N43RF', AttackAngleIntercept: '0.179211', AttackAngleSlope: '5.881633', SlipAngleIntercept: '0.15', SlipAngleSlope: '6.894722' }
+    };
+    function qcEsWireCorrectionPresets() {
+        qcEsModal.querySelectorAll('.qc-es-corr').forEach(box => {
+            const inp = box.querySelector('input'), menu = box.querySelector('.qc-menu');
+            const hide = () => menu.classList.add('hidden');
+            let offered = '';
+            inp.addEventListener('click', () => {
+                const set = QC_ES_CORRECTION_PRESETS[qcEsBareId(document.getElementById('qcEsFlightId').value).charAt(8).toUpperCase()];
+                offered = (set && set[inp.dataset.corr]) || '';
+                if (!offered || inp.value === offered) { hide(); return; }
+                menu.innerHTML = '<button class="qc-menu-item" tabindex="-1">' + offered + ' <span class="qc-search-sub">' + set.tail + ' preset</span></button>';
+                menu.classList.remove('hidden');
+            });
+            menu.addEventListener('mousedown', e => { e.preventDefault(); inp.value = offered; hide(); });
+            inp.addEventListener('input', hide);
+            inp.addEventListener('blur', hide);
+            inp.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.classList.contains('hidden')) { e.stopPropagation(); hide(); } });
+        });
+    }
+
     // the modal: the script's form, prefilled
     let qcEsModal = null, qcEsLastDefaultNotes = '';
     function qcShowErrorSummary() {
@@ -232,6 +259,8 @@
             const expRows = QC_ES_EXPENDABLES.map((t, i) =>
                 '<div class="qc-es-exp-row"><span>' + t + '</span>' +
                 [0, 1, 2].map(c => '<input id="qcEsExp' + i + '_' + c + '" class="qc-ov-input" style="width:70px">').join('') + '</div>').join('');
+            const corrRows = [['AttackAngleIntercept', 'qcEsAtkInt'], ['AttackAngleSlope', 'qcEsAtkSlp'], ['SlipAngleIntercept', 'qcEsSlipInt'], ['SlipAngleSlope', 'qcEsSlipSlp']].map(([name, id]) =>
+                '<label class="qc-es-row"><span>' + name + '</span><span class="qc-es-corr"><input id="' + id + '" class="qc-ov-input" data-corr="' + name + '" autocomplete="off"><span class="qc-menu hidden"></span></span></label>').join('');
             qcEsModal.innerHTML =
                 '<div class="qc-es-wrap">' +
                 '<div class="modal-card qc-es-card">' +
@@ -250,10 +279,7 @@
                     '<label class="qc-es-row"><span>Landing Location</span><input id="qcEsLandLoc" class="qc-ov-input qc-es-req"></label>' +
                     '<label class="qc-es-row"><span>Landing Time (Z)</span><input id="qcEsLandTime" class="qc-ov-input qc-es-req" maxlength="6" placeholder="HHMMSS"></label>' +
                     '<div class="qc-es-sec">Dynamic Corrections</div>' +
-                    '<label class="qc-es-row"><span>AttackAngleIntercept</span><input id="qcEsAtkInt" class="qc-ov-input"></label>' +
-                    '<label class="qc-es-row"><span>AttackAngleSlope</span><input id="qcEsAtkSlp" class="qc-ov-input"></label>' +
-                    '<label class="qc-es-row"><span>SlipAngleIntercept</span><input id="qcEsSlipInt" class="qc-ov-input"></label>' +
-                    '<label class="qc-es-row"><span>SlipAngleSlope</span><input id="qcEsSlipSlp" class="qc-ov-input"></label>' +
+                    corrRows +
                   '</div>' +
                   '<div class="qc-es-col">' +
                     '<div class="qc-es-sec">Sensor Designations</div>' +
@@ -286,6 +312,7 @@
             qcEsModal.addEventListener('change', qcEsPaintRequired);
             // the directory derives from the flight id as it is typed
             document.getElementById('qcEsFlightId').addEventListener('input', qcEsSyncDir);
+            qcEsWireCorrectionPresets();
             // editing a time re-runs the tool's whole pipeline right away, then re-syncs the field
             const applyTimes = () => {
                 const changed = qcApplyManualPhases(document.getElementById('qcEsToTime').value, document.getElementById('qcEsLandTime').value,
