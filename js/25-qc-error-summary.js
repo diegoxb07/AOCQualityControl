@@ -223,8 +223,8 @@
     // stays the normal route, so a changed value is simply entered by hand. N flights usually
     // carry no corrections, so they have no preset and their boxes offer nothing.
     const QC_ES_CORRECTION_PRESETS = {
-        H: { tail: 'N42RF', AttackAngleIntercept: '2.359743', AttackAngleSlope: '6.097738', SlipAngleIntercept: '0.320000', SlipAngleSlope: '6.753003' },
-        I: { tail: 'N43RF', AttackAngleIntercept: '0.179211', AttackAngleSlope: '5.881633', SlipAngleIntercept: '0.15', SlipAngleSlope: '6.894722' }
+        H: { AttackAngleIntercept: '2.359743', AttackAngleSlope: '6.097738', SlipAngleIntercept: '0.320000', SlipAngleSlope: '6.753003' },
+        I: { AttackAngleIntercept: '0.179211', AttackAngleSlope: '5.881633', SlipAngleIntercept: '0.15', SlipAngleSlope: '6.894722' }
     };
     function qcEsWireCorrectionPresets() {
         qcEsModal.querySelectorAll('.qc-es-corr').forEach(box => {
@@ -235,7 +235,7 @@
                 const set = QC_ES_CORRECTION_PRESETS[qcEsBareId(document.getElementById('qcEsFlightId').value).charAt(8).toUpperCase()];
                 offered = (set && set[inp.dataset.corr]) || '';
                 if (!offered || inp.value === offered) { hide(); return; }
-                menu.innerHTML = '<button class="qc-menu-item" tabindex="-1">' + offered + ' <span class="qc-search-sub">' + set.tail + ' preset</span></button>';
+                menu.innerHTML = '<button class="qc-menu-item" tabindex="-1">' + offered + ' <span class="qc-search-sub">historically used</span></button>';
                 menu.classList.remove('hidden');
             });
             menu.addEventListener('mousedown', e => { e.preventDefault(); inp.value = offered; hide(); });
