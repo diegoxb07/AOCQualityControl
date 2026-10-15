@@ -1,10 +1,10 @@
 /* Mission Visualizer stylesheet.
-   Functional rules (fullscreen behavior, media-bar sizing, overlay pills, classes
+   functional rules (fullscreen behavior, media-bar sizing, overlay pills, classes
    toggled from js/*.js) live alongside the visual styling, check for JS references
    before renaming or removing a selector. */
 
-/* Tokens: near-zero-chroma neutrals (light & dark) + one accent hue (NOAA navy) and one
-   reserved danger hue (recording/error states). Gated on documentElement[data-theme],
+/* tokens: near-zero-chroma neutrals (light & dark) + one accent hue (NOAA navy) and one
+   reserved danger hue (recording/error states). gated on documentElement[data-theme],
    defaults to dark; js/19-bootstrap.js flips this and persists the choice. */
 :root, :root[data-theme="dark"] {
     color-scheme: dark;
@@ -38,7 +38,7 @@
     --danger: oklch(48% 0.15 25);
 }
 
-/* Base */
+/* base */
 html, body { font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; }
 body {
     background-color: var(--bg);
@@ -57,9 +57,8 @@ body {
 button:disabled, select:disabled, input:disabled { opacity: 0.35; cursor: not-allowed; }
 button { transition: background-color 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s; }
 
-/* Theme-aware utility classes: small, hand-written replacements for the old Tailwind
-   slate-blue-amber-red-* usages, so the whole app follows [data-theme] with no
-   colors baked at build time. Used both directly in index.html and via classList
+/* theme-aware utility classes: small, hand-written color classes bound to the theme
+   tokens, so the whole app follows [data-theme] with no colors baked at build time. used both directly in index.html and via classList
    add/toggle in js/*.js (see tailwind.config.js safelist). */
 .bg-panel { background-color: var(--panel); }
 .bg-panel-strip { background-color: var(--panel-strip); }
@@ -89,7 +88,7 @@ button { transition: background-color 0.15s, border-color 0.15s, color 0.15s, op
 .border-t-transparent { border-top-color: transparent; }
 .accent-accent { accent-color: var(--accent); }
 
-/* Selects get a custom chevron since the native arrow is removed */
+/* selects get a custom chevron since the native arrow is removed */
 select {
     appearance: none;
     -webkit-appearance: none;
@@ -103,12 +102,12 @@ select {
 select:not(:disabled):hover { border-color: var(--border-strong); }
 select:not(:disabled):focus { border-color: var(--accent); }
 
-/* Sharp edges: flat 3px radius on all controls. */
+/* sharp edges: flat 3px radius on all controls. */
 button, select, input:not([type="range"]):not([type="file"]):not([type="checkbox"]) { border-radius: 3px; }
 #dataDropZone { border-radius: 3px; }
 .status-chip { border-radius: 4px; }
 
-/* Both media-panel subheaders: title-case (not uppercase), slightly larger + brighter.
+/* both media-panel subheaders: title-case (not uppercase), slightly larger + brighter.
    text-transform/letter-spacing override the parent's uppercase styling. */
 .panel-subhead { font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif !important; font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em; text-transform: none; color: var(--text); }
 
@@ -125,12 +124,12 @@ button, select, input:not([type="range"]):not([type="file"]):not([type="checkbox
 .loaded-pick-x:hover { background: color-mix(in oklab, var(--danger) 16%, transparent); color: var(--danger); }
 .loaded-pick-empty { color: var(--text-faint); font-size: 11px; padding: 8px; }
 
-/* Fullscreen behavior (functional, do not simplify) */
+/* fullscreen behavior (functional, do not simplify) */
 :fullscreen { background-color: var(--bg); overflow-y: auto; padding: 24px; padding-bottom: 140px; }
 #mapPanel:is(:fullscreen, .fake-fs) { padding: 0; border: none; border-radius: 0; background-color: var(--bg); display: flex; flex-direction: column; }
 #mapPanel:is(:fullscreen, .fake-fs) { height: 100vh !important; }
 #mapPanel:is(:fullscreen, .fake-fs) .media-container { height: 100vh; border-radius: 0; flex-grow: 1; }
-/* In fullscreen the header needs its own inset, or it sits flush against the screen edge. */
+/* in fullscreen the header needs its own inset, or it sits flush against the screen edge. */
 #mapPanel:is(:fullscreen, .fake-fs) #mapHeader { padding: 16px 22px 0 22px; }
 #mapPanel:is(:fullscreen, .fake-fs) .map-controls { padding-right: 50px; }
 /* "Fake" panel fullscreen: the panel ⛶ buttons pin the panel over the viewport (page-level
@@ -139,7 +138,7 @@ button, select, input:not([type="range"]):not([type="file"]):not([type="checkbox
    controls remain usable on top. */
 #mapPanel.fake-fs { position: fixed; inset: 0; width: 100vw; z-index: 1500; }
 
-/* Header, flat brand bar (NOAA logo + divider + title) */
+/* header, flat brand bar (NOAA logo + divider + title) */
 #mainContainer > header {
     padding: 2px 2px 10px;
     position: relative;
@@ -147,7 +146,7 @@ button, select, input:not([type="range"]):not([type="file"]):not([type="checkbox
 #mainContainer > header h1 { font-weight: 800; letter-spacing: -0.02em; }
 #brandSub { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Panels / cards */
+/* panels / cards */
 #mainContainer .bg-panel {
     background: var(--panel);
     border-color: var(--border);
@@ -158,8 +157,8 @@ button, select, input:not([type="range"]):not([type="file"]):not([type="checkbox
 /* Chart / panel title bars */
 [id^="title-"] { position: relative; padding: 4px 0 9px 13px; margin-bottom: 12px !important; border-bottom: 1px solid var(--border); color: var(--text-muted) !important; }
 
-/* Mission status chips: flat/neutral by default, switch to a real lit/active accent state
-   once a mission is loaded (JS toggles .lit + .chip-v.on). This is the one place an
+/* mission status chips: flat/neutral by default, switch to a real lit/active accent state
+   once a mission is loaded (JS toggles .lit + .chip-v.on). this is the one place an
    accent-colored border is intentional, a genuine state change, not decoration. */
 .status-chip { display: flex; flex-direction: column; gap: 3px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 4px; padding: 8px 12px; min-width: 0; transition: border-color 0.2s, background 0.2s; }
 .status-chip .chip-k { font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
@@ -177,11 +176,11 @@ canvas#mapCanvas:active { cursor: grabbing; }
 
 #threeDContainer { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; background-color: var(--bg); cursor: grab; z-index: 2; }
 
-/* Idle placeholders (hidden wholesale once data loads, via style.display on the placeholder div) */
+/* idle placeholders (hidden wholesale once data loads, via style.display on the placeholder div) */
 .media-idle-title { display: block; font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--text-muted); }
 .media-idle-sub { display: block; font-size: 12px; font-weight: 400; color: var(--text-faint); margin-top: 6px; max-width: 380px; }
 
-/* The processing spinner morphs into a green checkmark once parsing succeeds (js/12 adds .done). */
+/* the processing spinner morphs into a green checkmark once parsing succeeds (js/12 adds .done). */
 #loadingCheck { opacity: 0; }
 #loadingCheck path { stroke-dasharray: 42; stroke-dashoffset: 42; }
 #loadingSpinner.done #loadingRing { animation: none; border-color: #10b981; transition: border-color 0.25s ease; }
@@ -189,7 +188,7 @@ canvas#mapCanvas:active { cursor: grabbing; }
 #loadingSpinner.done #loadingCheck path { animation: loadCheckDraw 0.42s ease 0.05s forwards; }
 @keyframes loadCheckDraw { to { stroke-dashoffset: 0; } }
 
-/* Modals / toast */
+/* modals / toast */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: color-mix(in oklab, var(--bg) 75%, transparent); z-index: 5000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
 .modal-card { background-color: var(--panel-strip); border: 1px solid var(--border); border-radius: 4px; padding: 24px; max-width: 650px; width: 100%; position: relative; display: flex; flex-direction: column; gap: 16px; animation: modalIn 0.2s ease; }
 @keyframes modalIn { from { opacity: 0; transform: translateY(10px); } }
@@ -206,7 +205,7 @@ canvas#mapCanvas:active { cursor: grabbing; }
 .help-body kbd { font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: 11px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--text); white-space: nowrap; }
 /* help redesign: chip toc + card grid instead of one long column of text */
 .qc-help-toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
-.qc-help-toc button { background: var(--panel-strip); border: 1px solid var(--border); color: var(--text-muted); font-size: 10.5px; font-weight: 600; border-radius: 999px; padding: 3px 10px; cursor: pointer; transition: color .12s, border-color .12s; }
+.qc-help-toc button { background: var(--panel-strip); border: 1px solid var(--border); color: var(--text-muted); font-size: 10.5px; font-weight: 600; border-radius: 6px; padding: 3px 10px; cursor: pointer; transition: color .12s, border-color .12s; }
 .qc-help-toc button:hover { color: var(--accent); border-color: var(--accent); }
 .qc-help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .qc-help-card { background: color-mix(in oklab, var(--panel-strip) 70%, transparent); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-width: 0; }
@@ -220,7 +219,7 @@ canvas#mapCanvas:active { cursor: grabbing; }
 
 .toast-notification { position: fixed; top: 20px; right: 20px; background-color: color-mix(in oklab, var(--panel) 96%, transparent); border: 1px solid var(--border); border-left: 4px solid var(--accent); color: var(--text); padding: 16px 20px; border-radius: 4px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); z-index: 9999; font-size: 13px; max-width: 350px; opacity: 0; transform: translateX(50px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
 .toast-notification.show { opacity: 1; transform: translateX(0); pointer-events: auto; }
-/* Range inputs */
+/* range inputs */
 input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; background: var(--panel-strip); height: 8px; border-radius: 4px; outline: none; border: 1px solid var(--border); }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; transition: 0.2s; border: 2px solid var(--bg); }
 input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
@@ -232,21 +231,21 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
     .spin { animation-duration: 0.8s !important; animation-iteration-count: infinite !important; }
 }
 
-/* Scrollbars */
+/* scrollbars */
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: var(--bg); }
 *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; border: 2px solid var(--bg); }
 *::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
-/* Recenter-on-aircraft button: raised a little off the bottom edge so it clears the timeline. */
+/* recenter-on-aircraft button: raised a little off the bottom edge so it clears the timeline. */
 #recenterPlaneBtn { bottom: 36px !important; }
 
-/* Light/dark theme switch: a sliding pill below Fullscreen in the fixed top-right corner. The knob
+/* light/dark theme switch: a sliding pill below Fullscreen in the fixed top-right corner. the knob
    position and which icon lights are driven off [data-theme] on <html>, so the switch reflects the
    theme set pre-paint by the head script and slides on every toggle. */
 .theme-switch { -webkit-appearance: none; appearance: none; position: relative; width: 56px; height: 26px; flex: none; padding: 0; border: 1px solid var(--border); border-radius: 13px; background: var(--panel-strip); cursor: pointer; transition: background 0.2s, border-color 0.2s; }
 .theme-switch:hover { border-color: var(--border-strong); }
-/* Each icon is centered inside a knob-sized (20px) box parked at that state's knob position, so the
+/* each icon is centered inside a knob-sized (20px) box parked at that state's knob position, so the
    glyph always sits dead-center under the circle regardless of its own width. */
 .theme-switch .ts-ico { position: absolute; top: 0; height: 100%; width: 20px; display: flex; align-items: center; justify-content: center; font-size: 11px; line-height: 1; color: var(--text-faint); pointer-events: none; z-index: 2; transition: color 0.2s; }
 .theme-switch .ts-moon { left: 3px; }
@@ -254,22 +253,22 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius
 /* calc() keeps the knob centered on the icon boxes (left:3px / right:3px, each 20px wide) regardless
    of box-sizing, so the circle sits dead-center over the moon (dark) and the sun (light). */
 .theme-switch .ts-knob { position: absolute; top: calc(50% - 10px); left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,0.35); z-index: 1; transition: left 0.2s ease; }
-/* Dark (default): knob left, moon rides it. Light: knob right, sun rides it. */
+/* dark (default): knob left, moon rides it. light: knob right, sun rides it. */
 .theme-switch .ts-moon { color: var(--accent-ink); }
 :root[data-theme="light"] .theme-switch .ts-knob { left: calc(100% - 23px); }
 :root[data-theme="light"] .theme-switch .ts-moon { color: var(--text-faint); }
 :root[data-theme="light"] .theme-switch .ts-sun { color: var(--accent-ink); }
 
-/* Smooth the whole-page brightness change when toggling light/dark, in step with the knob slide.
-   Scoped to a transient class the toggle adds for ~0.4s, so it never lags hover/focus color changes
+/* smooth the whole-page brightness change when toggling light/dark, in step with the knob slide.
+   scoped to a transient class the toggle adds for ~0.4s, so it never lags hover/focus color changes
    during normal use. */
 html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
     transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease, fill 0.35s ease, left 0.35s ease !important;
 }
 
 /* ============================================================================================
-   QC Mode. Data-quality report overlay + family charts. Status is encoded in color AND shape
-   (pill + dot), readable in both themes. Uses the app's design tokens; adds only the QC status
+   QC Mode. data-quality report overlay + family charts. status is encoded in color AND shape
+   (pill + dot), readable in both themes. uses the app's design tokens; adds only the QC status
    hues (good / warn / crit) that the visualizer did not need.
    ============================================================================================ */
 :root, :root[data-theme="dark"] {
@@ -304,6 +303,10 @@ html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *
 /* name column never shrinks: a long check reason must not crush the sensor name */
 #qcStatusModalBody .qc-row { grid-template-columns: auto 1fr; }
 #qcStatusModalBody .qc-row-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+/* each sensor name opens its graph, so it is underlined like a link; the ref and deriv. tags
+   are inline blocks so the underline skips them */
+#qcStatusModalBody .qc-row-name { text-decoration: underline; text-underline-offset: 2px; }
+#qcStatusModalBody .qc-row-name em { display: inline-block; }
 
 /* flight-level recording-gap strip at the top of the report */
 .qc-recording { display: flex; align-items: center; gap: 8px; padding: 7px 10px; margin-bottom: 8px; border: 1px solid color-mix(in oklab, var(--warn) 35%, var(--border)); border-radius: 8px; font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
@@ -352,8 +355,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-loader-slot { flex: 1; min-width: 260px; }
 
 /* ---- flight loader -------------------------------------------------------------------------
-   Two parallel columns, upload and reopen, each reading label / note / control top to bottom.
-   Sized to the header's own scale (11px controls, ~26px tall, like .qc-ov-btn and .qc-ov-input)
+   two parallel columns, upload and reopen, each reading label / note / control top to bottom.
+   sized to the header's own scale (11px controls, ~26px tall, like .qc-ov-btn and .qc-ov-input)
    rather than page-form scale, so the loader sits in the header instead of dominating it. */
 .qc-load { display: flex; align-items: flex-start; gap: 16px; }
 .qc-load-col { display: flex; flex-direction: column; min-width: 0; }
@@ -564,8 +567,8 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-chart-panel:fullscreen .qc-canvas-wrap { flex: 1 1 auto; height: auto; min-height: 340px; }
 
 /* ---- skeleton loaders: pre-flight placeholders -------------------------------------------------
-   Toolbar buttons/search and the two main panels read as flat gray shapes of what will render,
-   instead of vanishing or showing plain "waiting" text. Nothing to keep in sync: qcRenderReport /
+   toolbar buttons/search and the two main panels read as flat gray shapes of what will render,
+   instead of vanishing or showing plain "waiting" text. nothing to keep in sync: qcRenderReport /
    qcRenderCharts (js/22) fully overwrite qcChartsPanel/qcReportPanel's innerHTML once a flight
    loads, so this markup is simply replaced wholesale, never patched around. */
 @keyframes qcSkelPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
@@ -583,12 +586,12 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-skel-btn { color: transparent !important; background: color-mix(in oklab, var(--text-faint) 24%, var(--panel-strip)) !important; border-color: transparent !important; box-shadow: none !important; pointer-events: none; animation: none; }
 .qc-skel-btn::placeholder { color: transparent; }
 .qc-skel-title-bar { display: inline-block; width: 160px; height: 15px; vertical-align: middle; }
-.qc-skel-pill { display: inline-block; width: 64px; height: 18px; border-radius: 999px; margin-right: 6px; }
+.qc-skel-pill { display: inline-block; width: 64px; height: 18px; border-radius: 6px; margin-right: 6px; }
 .qc-skel-card { display: flex; flex-direction: column; gap: 10px; }
 .qc-skel-ctitle { width: 180px; height: 13px; }
 .qc-skel-canvas { height: 30vh; }
 /* the idle notice, centered OVER the first skeleton graph. A sibling overlay, not a child of
-   the pulsing block, so the text holds steady while the shape breathes under it. Kept small and
+   the pulsing block, so the text holds steady while the shape breathes under it. kept small and
    muted so it reads as a placeholder, not an alert; white on the dark theme, flipped to ink on
    light where white would vanish (same pattern as .qc-badge-warn). */
 .qc-skel-canvas-wrap { position: relative; }
@@ -674,14 +677,14 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-lg-unavail .qc-lg-box { background: #000; border-color: #000; }
 :root[data-theme="light"] .qc-lg-unavail .qc-lg-box { background: #0f172a; border-color: #0f172a; }
 .qc-lg-unavail-tag { font-size: 8px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-faint); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; margin-left: 2px; }
-.qc-lg-chip { font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: 10.5px; font-weight: 600; padding: 2px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-strip); color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
+.qc-lg-chip { font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: 10.5px; font-weight: 600; padding: 2px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-strip); color: var(--text-muted); cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
 .qc-lg-chip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .qc-lg-chip.active { color: var(--accent); border-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, var(--panel-strip)); }
 .qc-lg-chip:disabled { opacity: 0.45; cursor: not-allowed; }
 /* one cluster per sensor group: the chip with its own variables right beside it. group chips
    always read accent, hovered or not, so a second unselected group never fades from the user's
    attention */
-.qc-lg-group { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px 1px 1px; border: 1px solid color-mix(in oklab, var(--border) 60%, transparent); border-radius: 999px; }
+.qc-lg-group { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px 1px 1px; border: 1px solid color-mix(in oklab, var(--border) 60%, transparent); border-radius: 7px; }
 .qc-lg-group .qc-lg-chip { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 70%, transparent); }
 .qc-lg-group .qc-lg-chip.active { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--panel-strip)); }
 /* an unselected group chip carries a dotted diagonal, same gray as the variable-box slash: it
@@ -704,7 +707,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-ref-src-name { font-family: 'Helvetica Neue', Helvetica, Arial, Arimo, sans-serif; font-size: 10px; color: var(--text); white-space: nowrap; margin-left: -5px; }
 .qc-ref-src-name.qc-ref-live { color: var(--accent); font-weight: 700; }
 /* one box around the ref variable and its reference sensor chain */
-.qc-ref-boxed { border: 1px solid color-mix(in oklab, var(--border) 75%, transparent); border-radius: 999px; padding: 1px 9px 1px 5px; background: color-mix(in oklab, var(--panel-strip) 60%, transparent); }
+.qc-ref-boxed { border: 1px solid color-mix(in oklab, var(--border) 75%, transparent); border-radius: 6px; padding: 1px 9px 1px 5px; background: color-mix(in oklab, var(--panel-strip) 60%, transparent); }
 /* graph search: far left of the status bar, next to the mission id */
 .qc-graph-search { position: relative; flex: none; }
 .qc-graph-search input { width: 340px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-size: 12px; color: var(--text); outline: none; transition: border-color .12s, box-shadow .12s; }
@@ -775,7 +778,7 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 /* ---- NC-to-TXT converter (js/27) ---------------------------------------------------------- */
 /* the converter opener + the relocated raw-.nc download link: real-button entries stacked at the
    bottom of the Export dropdown, under Share QC Link (appended there by qcInitNcTxtConverter).
-   No display property here on purpose: as flex children of the row they already fill it, and
+   no display property here on purpose: as flex children of the row they already fill it, and
    setting one would out-rank Tailwind's .hidden and break the link's archive-only visibility. */
 .qc-menu-btnrow { display: flex; flex-direction: column; gap: 6px; padding: 4px 6px 6px; }
 .qc-menu-btnrow .qc-ov-btn { text-align: center; text-decoration: none; }

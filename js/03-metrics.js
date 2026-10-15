@@ -1,13 +1,13 @@
 /* Mission Visualizer, metric definitions + map state
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order. */
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
     let scene3D, camera3D, renderer3D, controls3D;
     let planeGroup3D, trackArrow3D, headingArrow3D;
     let threeMapGroup = new THREE.Group();
     let threeDInitialized = false;
 
-    // Neon data palette: equal-weight lines, no gradient fills.
+    // neon data palette: equal-weight lines, no gradient fills.
     const METRIC_DEFS = {
         'pAlt': { label: 'Press Altitude (m)', color: '#c2beb5', yAxisID: 'y' },
         'gpsAlt': { label: 'GPS Altitude (m)', color: '#9aa1ad', yAxisID: 'y' },
@@ -33,7 +33,7 @@
         'pressure': { label: 'Static Press (mb)', color: '#bae6fd', yAxisID: 'y' }
     };
 
-    // The flight track's one color, in the 2D map (js/15) and the 3D tracker (js/07). A QC read of
+    // the flight track's one color, in the 2D map (js/15) and the 3D tracker (js/07). A QC read of
     // the path asks where the aircraft has been, so the track is a single solid line rather than a
     // metric gradient that would blend into the plane and the basemap.
     const QC_TRACK_COLOR = '#5b9dff';

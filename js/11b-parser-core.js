@@ -1,10 +1,10 @@
 /* Mission Visualizer, pure parser core (no DOM, no globals written)
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Everything in this file is a pure function of its inputs, so the SAME code runs in three places:
-   the page (js/12-file-parsing.js), the parse worker (js/parse-worker.js via importScripts), and
-   the node test runner (tests/run-tests.js). Keep it free of document/window references. */
+   everything in this file is a pure function of its inputs, so the SAME code runs in two places:
+   the page (js/12-file-parsing.js) and the parse worker (js/parse-worker.js via importScripts).
+   keep it free of document/window references. */
 
     function timeToSeconds(timeStr) {
         if (!timeStr) return 0;
@@ -16,11 +16,11 @@
 
 
 
-    // Convert a NetCDF ArrayBuffer into the tab-separated text parseFlightTextToRows consumes: tsv is
+    // convert a NetCDF ArrayBuffer into the tab-separated text parseFlightTextToRows consumes: tsv is
     // the parser's internal format, so an uploaded .nc goes through here first.
-    // Shared by the .nc upload path and the parse worker.
+    // shared by the .nc upload path and the parse worker.
     // onProgress (optional): called with { phase, ... } as decoding advances, so the loader overlay
-    // can show which variable is being processed. no-op for the tests, batch, and main thread callers.
+    // can show which variable is being processed. no-op for main thread callers.
     function ncArrayBufferToTsv(data, onProgress) {
         const report = (typeof onProgress === 'function') ? onProgress : function () {};
         const nc = new netcdfjs(data);
@@ -68,11 +68,11 @@
         return tsvStr;
     }
 
-    // Parse + clean an AOC flight-log TSV string into rows, with NO globals/UI side effects.
-    // The ONE parser: the live loader, the parse worker, the batch sat-cache, and the tests all run
-    // through it, so every consumer derives the same rows and flight extents.
+    // parse + clean an AOC flight-log TSV string into rows, with NO globals/UI side effects.
+    // the ONE parser: the live loader and the parse worker both run through it, so every consumer
+    // derives the same rows and flight extents.
     //
-    // Returns { rows, stats }. `stats` is the honesty ledger: every row the cleaner drops and every
+    // returns { rows, stats }. `stats` is the honesty ledger: every row the cleaner drops and every
     // value the parser derives (rather than reads) is counted, so the UI can disclose exactly what
     // was done to the data instead of silently modifying the record.
     function parseFlightTextToRows(rawText) {
@@ -127,7 +127,7 @@
                 if (tasKt === null && rawTas !== null) { tasKt = rawTas * 1.94384; stats.derived.tasFromMs++; }
                 let iasKt = getVal(parts, 'IASkt.d') ?? getVal(parts, 'CasADDUkt.1');
                 if (iasKt === null && getVal(parts, 'IAS.d') !== null) { iasKt = getVal(parts, 'IAS.d') * 1.94384; stats.derived.iasFromMs++; }
-                // Mixing ratio: MR.d is already g/kg; MRkg.d is kg/kg by definition, so the x1000 is
+                // mixing ratio: MR.d is already g/kg; MRkg.d is kg/kg by definition, so the x1000 is
                 // a unit identity, not a derivation, and is not counted in the ledger.
                 let finalMixRate = getVal(parts, 'MR.d');
                 if (finalMixRate === null) { const mrKgKg = getVal(parts, 'MRkg.d'); if (mrKgKg !== null) finalMixRate = mrKgKg * 1000; }
@@ -151,7 +151,7 @@
         if (tempParsedData.length === 0) return { rows: [], stats };
         tempParsedData.sort((a,b) => a.absSeconds - b.absSeconds);
         let cleaned = [];
-        // Cleanup drops rows below 20 kt airspeed (ramp idle, normally unused, and it slows playback),
+        // cleanup drops rows below 20 kt airspeed (ramp idle, normally unused, and it slows playback),
         // rows below 200 ft GPS altitude (ground, taxi, and low approach),
         // rows with NO airspeed reading when the file carries an airspeed channel (unfilled .nc
         // padding; positionless rows are already gone via badPosition above), and erroneous rows
@@ -165,7 +165,7 @@
             const spd = current.tas !== null ? current.tas : current.ias;
             if (hasSpeedChannel && spd === null) { stats.dropped.noSpeed++; continue; }
             if (spd !== null && spd < 20) { stats.dropped.preTakeoff++; continue; }
-            // Drop anything below 200 ft (60.96 m) GPS altitude; rows with no GPS-altitude channel
+            // drop anything below 200 ft (60.96 m) GPS altitude; rows with no GPS-altitude channel
             // are kept, there is no basis to judge them.
             if (current.gpsAlt !== null && current.gpsAlt < 60.96) { stats.dropped.belowMinAlt++; continue; }
             if (cleaned.length === 0) { current.computedVsi = 0; cleaned.push(current); continue; }
@@ -173,7 +173,7 @@
             if (dt <= 0) { stats.dropped.dupTime++; continue; }
             if (dt > 3600) { stats.dropped.gapReset += cleaned.length; cleaned = []; current.computedVsi = 0; cleaned.push(current); continue; }
 
-            // Longitude delta the short way round: a dateline crossing (-179.99 -> +179.99)
+            // longitude delta the short way round: a dateline crossing (-179.99 -> +179.99)
             // is a 0.02deg step, not a 360deg teleport, without this the glitch filter below
             // silently drops the entire post-crossing half of a Pacific flight.
             let dLonWrap = Math.abs(current.lon - prev.lon); if (dLonWrap > 180) dLonWrap = 360 - dLonWrap;
@@ -190,19 +190,19 @@
         return { rows: cleaned, stats };
     }
 
-    // QC-Mode parser fork. Where parseFlightTextToRows above CLEANS the record (drops taxi, ground,
+    // QC-Mode parser fork. where parseFlightTextToRows above CLEANS the record (drops taxi, ground,
     // teleports, gaps) for smooth playback, this keeps EVERY raw sample and every catalog variable,
     // then indexes them onto a continuous 1-second axis so any missing second becomes an explicit
-    // gap (a NaN run). No value is filtered or derived here; that is the whole point of QC Mode.
+    // gap (a NaN run). no value is filtered or derived here; that is the whole point of QC Mode.
     //
-    // Returns { timeAxis, raw, t0, t1, present, dropped } where:
+    // returns { timeAxis, raw, t0, t1, present, dropped } where:
     //   timeAxis  Float64Array of seconds, continuous t0..t1 step 1 (may roll past 86400 across UTC midnight)
     //   raw       { 'PSM.1': Float32Array, ... } one array per catalog var present, NaN where no sample
     //   t0,t1     first/last second on the axis
     //   present   { varName: sampleCount } how many real (non-NaN) samples each var carried
     //   dropped   { noTime } rows that could not be placed for lack of a time
     // keepVars: a Set of variable names to keep, or the sentinel '*' to keep EVERY column in the file
-    // (voltages, housekeeping, GPS status and all), used by the NC-to-TXT converter. Omitted -> the
+    // (voltages, housekeeping, GPS status and all), used by the NC-to-TXT converter. omitted -> the
     // catalog allow-list, so the QC engine's normal parse still drops non-catalog channels.
     function parseFlightRawQC(rawText, keepVars) {
         const keepAll = keepVars === '*';
@@ -277,7 +277,7 @@
         return out;
     }
 
-    // One human-readable line disclosing what the parser did to the file: how many rows survived,
+    // one human-readable line disclosing what the parser did to the file: how many rows survived,
     // what was filtered and why, and which values are derived rather than measured.
     function summarizeParseStats(stats) {
         const fmt = n => n.toLocaleString('en-US');

@@ -1,16 +1,16 @@
 /* Mission Visualizer, 3D aircraft models (WP-3D Orion + Gulfstream IV-SP)
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Builds the tracker's 3D airframe procedurally (lofted fuselage, airfoil wing panels, nacelles,
+   builds the tracker's 3D airframe procedurally (lofted fuselage, airfoil wing panels, nacelles,
    props) with the NOAA livery painted onto canvas textures: white top, navy belly, sky cheatline,
-   navy tail with the white swoosh and tail registration. The WP-3D carries its mission hardware
+   navy tail with the white swoosh and tail registration. the WP-3D carries its mission hardware
    (black nose radome, chin + belly radomes, tail Doppler boom, four turboprops); the G-IV carries
    winglets, aft fuselage nacelles, the T-tail, and its tail Doppler tube. setPlaneModel3D() picks
    the airframe from the loaded flight id (isGulfstreamFlight) and swaps it inside planeGroup3D.
 
-   Conventions: nose at -Z, tail +Z, up +Y, span along X, all sizes in plane-local units
-   (planeGroup3D applies the world scale). Fuselage textures map u around the hull (0 = belly,
+   conventions: nose at -Z, tail +Z, up +Y, span along X, all sizes in plane-local units
+   (planeGroup3D applies the world scale). fuselage textures map u around the hull (0 = belly,
    0.5 = top) and v along it (0 = nose, 1 = tail). */
 
     let planeModelGroup3D = null;    // airframe-only group inside planeGroup3D (the direction arrows live outside it)
@@ -19,16 +19,16 @@
 
     const NOAA_LIV = { white: '#f2f5f7', navy: '#11356f', sky: '#7ec8ec', black: '#1d2126', dark: '#2b3540', metal: '#aab4bd', prop: '#23272c' };
 
-    // Tail registration for the fin decal: NOAA42/43 are the two WP-3Ds, NOAA49 the G-IV.
+    // tail registration for the fin decal: NOAA42/43 are the two WP-3Ds, NOAA49 the G-IV.
     function noaaTailReg(type) {
         if (type === 'giv') return 'N49RF';
         const s = ((typeof flightMetaData !== 'undefined' && flightMetaData) ? (flightMetaData.aircraft + ' ' + flightMetaData.id) : '');
         return (/noaa43/i.test(s) || /\d{8}I\d/i.test(s)) ? 'N43RF' : 'N42RF';
     }
 
-    // Geometry helpers
+    // geometry helpers
 
-    // Skin a list of same-length 3D point loops into one closed surface with end caps.
+    // skin a list of same-length 3D point loops into one closed surface with end caps.
     // uv: u = section fraction (spanwise), v = loop fraction, or the chord fraction folded onto
     // both surfaces when foldV is set (used by textured fins so a decal reads on either side).
     function loftGeometry(sections, opts) {
@@ -64,8 +64,8 @@
         return geo;
     }
 
-    // Closed airfoil outline: [chordwise 0..chord, thickness +up/-down], leading edge first,
-    // around the trailing edge and back along the underside. Slightly cambered (flatter bottom).
+    // closed airfoil outline: [chordwise 0..chord, thickness +up/-down], leading edge first,
+    // around the trailing edge and back along the underside. slightly cambered (flatter bottom).
     function airfoilLoop(chord, thick) {
         const ts = [0, 0.03, 0.09, 0.18, 0.32, 0.5, 0.7, 0.88, 1];
         const pts = ts.map(t => [t * chord, chord * thick * 2.4 * Math.sqrt(t) * (1 - t)]);
@@ -73,8 +73,8 @@
         return pts;
     }
 
-    // Chord fraction -> loft loop fraction for airfoilLoop's fixed sampling, top or bottom face.
-    // Lets textures draw lines at an exact chord position despite the non-uniform point spacing.
+    // chord fraction -> loft loop fraction for airfoilLoop's fixed sampling, top or bottom face.
+    // lets textures draw lines at an exact chord position despite the non-uniform point spacing.
     function loopV(t, top) {
         const ts = [0, 0.03, 0.09, 0.18, 0.32, 0.5, 0.7, 0.88, 1];
         let i = 0; while (i < ts.length - 2 && ts[i + 1] < t) i++;
@@ -82,9 +82,9 @@
         return top ? fi / 16 : (16 - fi) / 16;
     }
 
-    // Painted control-surface grooves for a lifting panel: the spanwise hinge line at hinge chord
+    // painted control-surface grooves for a lifting panel: the spanwise hinge line at hinge chord
     // fraction plus a chordwise separator at each span fraction in seps, drawn on both faces and
-    // wrapped around the trailing edge. Canvas x = span fraction, y = loop fraction. base/line
+    // wrapped around the trailing edge. canvas x = span fraction, y = loop fraction. base/line
     // recolor the panel (a navy surface takes a darker groove line).
     function grooveTexture(hinge, seps, base, line) {
         const W = 256, H = 256;
@@ -99,7 +99,7 @@
         return makePlaneTexture(cv);
     }
 
-    // One horizontal lifting-surface panel (half a wing or stabilizer). root = leading edge of the
+    // one horizontal lifting-surface panel (half a wing or stabilizer). root = leading edge of the
     // root section; side +1/-1 mirrors it. grooves { hinge, seps } paints flap/aileron panel lines.
     function wingPanel(o) {
         const tanS = Math.tan((o.sweepDeg || 0) * Math.PI / 180), tanD = Math.tan((o.dihedralDeg || 0) * Math.PI / 180);
@@ -118,7 +118,7 @@
         return new THREE.Mesh(loftGeometry(sections), mat);
     }
 
-    // Vertical surface (fin/winglet) built at the origin, leading edge of the base at (0,0,0),
+    // vertical surface (fin/winglet) built at the origin, leading edge of the base at (0,0,0),
     // span along +Y; the caller positions and cants the mesh.
     function finPanel(o) {
         const tanS = Math.tan((o.sweepDeg || 0) * Math.PI / 180);
@@ -130,7 +130,7 @@
         return new THREE.Mesh(loftGeometry(sections, { foldV: !!o.foldV }), o.mat);
     }
 
-    // Body of revolution along Z from stations [{ z, r, y }], y = centerline offset (nose droop /
+    // body of revolution along Z from stations [{ z, r, y }], y = centerline offset (nose droop /
     // tail upsweep). uv.y is remapped to the z fraction so textures paint in station space.
     function bodyLathe(stations, mat, radial, phiStart, phiLength) {
         const pts = stations.map(s => new THREE.Vector2(Math.max(0.008, s.r), s.z));
@@ -147,8 +147,8 @@
         return new THREE.Mesh(geo, mat);
     }
 
-    // Four-blade propeller facing -Z: spinner cone, pitched paddle blades, and a faint spin disc.
-    // The render loop spins everything in planeSpinners3D about Z.
+    // four-blade propeller facing -Z: spinner cone, pitched paddle blades, and a faint spin disc.
+    // the render loop spins everything in planeSpinners3D about Z.
     function buildProp(o, mats) {
         const grp = new THREE.Group();
         const spinner = new THREE.Mesh(new THREE.ConeGeometry(o.spinnerR, o.spinnerLen, 16), o.spinnerMat || mats.metal);
@@ -176,7 +176,7 @@
         return grp;
     }
 
-    // Livery textures (canvas painted, so the whole app stays asset-free)
+    // livery textures (canvas painted, so the whole app stays asset-free)
 
     function makePlaneTexture(cv) {
         const tex = new THREE.CanvasTexture(cv);
@@ -185,7 +185,7 @@
         return tex;
     }
 
-    // Piecewise-smoothstep height curve through [z, u] anchors, clamped at the ends; the u
+    // piecewise-smoothstep height curve through [z, u] anchors, clamped at the ends; the u
     // building block for livery sweeps that rise, dive, or wrap along the hull.
     function liveryCurve(z, pts) {
         if (z <= pts[0][0]) return pts[0][1];
@@ -196,7 +196,7 @@
         return pts[pts.length - 1][1];
     }
 
-    // Fill the hull region between two height curves over z0..z1, mirrored onto both sides
+    // fill the hull region between two height curves over z0..z1, mirrored onto both sides
     // across the belly seam (u and 1-u). A bottom curve that reaches 0 makes the two sides
     // meet at the seam, wrapping the paint under the belly. shift2 slides the mirrored (port)
     // side's curves aft by that many z-units, so a sweep crosses the crown asymmetrically and
@@ -212,8 +212,8 @@
         });
     }
 
-    // Pinstripe following a height curve over z0..z1, on both sides; shift2 as in paintSweep.
-    // Curve functions receive (z, mirrorIndex), so a livery can shape the two sides differently.
+    // pinstripe following a height curve over z0..z1, on both sides; shift2 as in paintSweep.
+    // curve functions receive (z, mirrorIndex), so a livery can shape the two sides differently.
     function strokeSweep(g, W, H, vOf, z0, z1, uOf, color, lw, shift2) {
         const N = 72;
         const dzf = typeof shift2 === 'function' ? shift2 : (() => shift2 || 0);
@@ -225,7 +225,7 @@
         });
     }
 
-    // Registration or title text on both hull sides at height band u (right side; left mirrors to
+    // registration or title text on both hull sides at height band u (right side; left mirrors to
     // 1-u), each side through its own reflection so the letters run nose-to-tail and stay upright.
     function paintHullTextPair(g, W, H, u, y, text, color, px, hs) {
         hs = hs || 1;   // letter-height stretch around the hull, so narrow tail sections don't squeeze the glyphs
@@ -237,7 +237,7 @@
         });
     }
 
-    // Fuselage hull texture. spec: { len, z0, antiGlareZ (aft end of the black nose-crown wedge,
+    // fuselage hull texture. spec: { len, z0, antiGlareZ (aft end of the black nose-crown wedge,
     // or null), paintLivery(g, vOf) (plane-specific bands/sweeps, painted over the white base),
     // windows [{ z, drop }] + windowStyle 'oval'|'circle' (drop lowers a window, the overwing
     // emergency exit), tailWrap { zTop, slope } (navy tail paint sweeping down over the aft
@@ -264,7 +264,7 @@
             g.stroke();
         }
         // black anti-glare panel: only the middle of the nose crown, flowing out of the radome
-        // and tapering aft toward the windshield base; the nose cheeks stay white. The visor
+        // and tapering aft toward the windshield base; the nose cheeks stay white. the visor
         // band (addWindshieldBand) is the windshield itself, nothing else is painted up there.
         if (spec.antiGlareZ != null) {
             g.fillStyle = NOAA_LIV.black;
@@ -290,11 +290,11 @@
                 g.fill();
             });
         });
-        // No fuselage titles (the real livery carries none): just the registration and the
+        // no fuselage titles (the real livery carries none): just the registration and the
         // emblem roundel wherever this airframe's livery puts them.
         if (spec.reg) paintHullTextPair(g, W, H, spec.reg.u, vOf(spec.reg.z) * H, spec.reg.text, spec.reg.color, spec.reg.px || 18, spec.reg.hs || 1.8);
         const tex = makePlaneTexture(cv);
-        // The roundel is the official NOAA emblem (the noaa.gov digital logo, inlined below as
+        // the roundel is the official NOAA emblem (the noaa.gov digital logo, inlined below as
         // NOAA_EMBLEM_URI), on the single side the real livery carries it, drawn through that
         // side's orientation transform so it sits upright; the texture refreshes when it decodes.
         if (spec.emblem) {
@@ -314,7 +314,7 @@
         return tex;
     }
 
-    // The official NOAA emblem (a 160px copy of assets/noaa-emblem.png) inlined as a data URI:
+    // the official NOAA emblem (a 160px copy of assets/noaa-emblem.png) inlined as a data URI:
     // data URIs load on file:// too, where fetch() is blocked, and never taint the canvas, so
     // the hull roundel appears no matter how the page is opened.
     const NOAA_EMBLEM_URI = 'data:image/png;base64,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';
@@ -329,8 +329,8 @@
         return noaaEmblemPromise;
     }
 
-    // Fin decal texture: navy field, leading-edge sky stripe, the rudder hinge line, and the
-    // white NOAA bird (the exact assets/noaa-bird.svg silhouette, drawn as a path). Canvas x =
+    // fin decal texture: navy field, leading-edge sky stripe, the rudder hinge line, and the
+    // white NOAA bird (the exact assets/noaa-bird.svg silhouette, drawn as a path). canvas x =
     // height fraction (root to tip), y = the loft's loop fraction: the +X face maps to y [0, H/2]
     // (LE to TE) and the -X face to y [H, H/2], so each face is painted separately, with a
     // y-shear leaning the decal forward against the fin's sweep. bird overrides the decal span
@@ -379,8 +379,8 @@
         return makePlaneTexture(cv);
     }
 
-    // Tiny US flag texture for the fin-tip decal quads (stripes horizontal, canton upper left).
-    // Plain quads use the standard flipY texture convention, unlike the hull's station-mapped
+    // tiny US flag texture for the fin-tip decal quads (stripes horizontal, canton upper left).
+    // plain quads use the standard flipY texture convention, unlike the hull's station-mapped
     // textures, so this one is NOT built through makePlaneTexture.
     function usFlagTexture() {
         const cv = document.createElement('canvas'); cv.width = 66; cv.height = 40;
@@ -406,7 +406,7 @@
         });
     }
 
-    // Framed windshield glass: dark glazing with a subtle sheen, white frame, white posts
+    // framed windshield glass: dark glazing with a subtle sheen, white frame, white posts
     // dividing the panes; u runs across the wraparound arc, v up the glass (v=1 is the crown
     // edge). eyebrows reserves a white roof strip above the glass carrying the two small corner
     // panes the WP-3D flight deck has.
@@ -420,7 +420,7 @@
             // the Gulfstream windshield, drawn to the head-on photo: four equal-height panes
             // leaning into a strong vertical center post (each wider at its base), the end
             // pair swept back with a rounded upper-outboard corner, all set in thick white
-            // frame. Canvas y runs up the visor, so pane tops sit at the larger y. A darker
+            // frame. canvas y runs up the visor, so pane tops sit at the larger y. A darker
             // trim line runs along the band's base so the visor-to-nose edge reads defined,
             // like the WP-3D's brow.
             const glass = path => { path(); g.fillStyle = '#10151b'; g.fill(); path(); g.fillStyle = grad; g.fill(); };
@@ -440,19 +440,19 @@
         g.strokeStyle = '#e8ecef'; g.lineWidth = 6;
         posts.forEach(u => { g.beginPath(); g.moveTo(256 * u, 0); g.lineTo(256 * u, glassTop); g.stroke(); });
         if (eyebrows) {
-            // Two eyebrow windows above the main glass, shaped to the WP-3D flight deck (1st.jpg):
+            // two eyebrow windows above the main glass, shaped to the WP-3D flight deck (1st.jpg):
             // a right-triangle-ish quad (four sides) tall on the OUTBOARD edge with a 90-degree
             // corner at its base, the top sloping down toward the center, tilted a few degrees.
-            // Each pane sits near its own outboard edge of the windshield (not toward the middle),
+            // each pane sits near its own outboard edge of the windshield (not toward the middle),
             // and the two mirror each other so both lean outboard.
             const eyebrow = (cx, mirror) => {
                 g.save();
                 g.translate(cx, glassTop + 21);
                 g.rotate(-0.16);             // lean the thick aft base up toward the roof
                 if (mirror) g.scale(-1, 1);
-                // Texture v (canvas y) runs FORWARD (top) → AFT (bottom) with flipY off, so a wedge
+                // texture v (canvas y) runs FORWARD (top) → AFT (bottom) with flipY off, so a wedge
                 // that's a narrow point at the top and a wide base at the bottom is thin forward and
-                // thick aft; the tilt swings that thick base toward the roof. Large, but each pane
+                // thick aft; the tilt swings that thick base toward the roof. large, but each pane
                 // stays over its own side (outboard) window, not spanning toward the middle.
                 const w = 30, h = 20;
                 g.beginPath();
@@ -470,7 +470,7 @@
         return makePlaneTexture(cv);
     }
 
-    // Wraparound cockpit windshield: a partial-arc lathe band centered on the crown, riding the
+    // wraparound cockpit windshield: a partial-arc lathe band centered on the crown, riding the
     // forehead stations a skin's thickness proud of the hull so the glass follows the nose
     // curvature exactly. stations = hull forehead stations with the outward offset already
     // applied; arc = half-angle of the wrap; posts = frame-post positions across the glass.
@@ -492,7 +492,7 @@
         };
     }
 
-    // Thin blade antennas along the spine, a small recognizable AOC detail.
+    // thin blade antennas along the spine, a small recognizable AOC detail.
     function addAntennas(grp, mat, spots) {
         spots.forEach(([z, y, up]) => {
             const a = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.038, 0.055), mat);
@@ -505,11 +505,11 @@
     // tall fin with dorsal fillet, and the tail Doppler radar boom.
     function buildP3Model(reg) {
         const grp = new THREE.Group();
-        // Livery: white hull and belly aft; the navy flank band runs below the window line and
+        // livery: white hull and belly aft; the navy flank band runs below the window line and
         // keeps going forward into the nose, wrapping down under it so the nose underbelly is
         // navy against the black radome, with the sky pinstripe riding the band's upper edge
-        // the whole way. Aft it flows into the all-navy tail.
-        // The texture's z frame MUST match the hull lathe's station span (-2.30..2.45), because
+        // the whole way. aft it flows into the all-navy tail.
+        // the texture's z frame MUST match the hull lathe's station span (-2.30..2.45), because
         // bodyLathe maps texture v to the lathe's own z fraction; a nominal frame here shifts
         // every painted feature away from the 3D meshes (bubbles, radome) it must line up with.
         const tex = fuselageTexture({
@@ -596,7 +596,7 @@
         fin.position.set(0, 0.14, 1.55); grp.add(fin);
         // flag ahead of the rudder hinge line, so the rudder groove never cuts through it
         addFinFlags(grp, { halfThick: 0.033, y: 0.86, z: 2.19 });
-        // Dorsal fillet: a tall spine fairing whose trailing edge runs up the fin's leading edge and
+        // dorsal fillet: a tall spine fairing whose trailing edge runs up the fin's leading edge and
         // OVERLAPS into the fin (TE reaches z~1.61 at the base, past the fin LE at z 1.55, and follows
         // the fin's aft sweep up to ~60% of fin height), so the two panels connect with no gap/notch
         // and the tall fin fairs continuously into the roof spine.
@@ -671,7 +671,7 @@
         return grp;
     }
 
-    // Aft nacelle livery: navy upper half with sky pinstripes along its edges, white below; the
+    // aft nacelle livery: navy upper half with sky pinstripes along its edges, white below; the
     // starboard nacelle carries the registration in the navy field on its outboard face.
     function nacelleTexture(regText) {
         const W = 256, H = 128;
@@ -694,15 +694,15 @@
     // tail Doppler radar tube out the tail cone.
     function buildGIVModel(reg) {
         const grp = new THREE.Group();
-        // Livery: one navy sweep, drawn to the N49RF photos. Aft, the navy sits well above the
+        // livery: one navy sweep, drawn to the N49RF photos. aft, the navy sits well above the
         // tail radar (the tail cone is white at the TDR's level); going forward the sweep
         // narrows into a THIN band diving diagonally across the side at about the fifth window,
         // then runs forward as the navy underbelly, ending where the two sides' diagonals
         // CONVERGE under the belly still at thickness (a blunt rounded stop under the flight
-        // deck, not a hairline pinch; white under the nose). The sky stripe is bold and rides
-        // the navy's upper edge the whole way. Registration is on the starboard engine
+        // deck, not a hairline pinch; white under the nose). the sky stripe is bold and rides
+        // the navy's upper edge the whole way. registration is on the starboard engine
         // nacelle, not the hull.
-        // The texture's z frame MUST match the hull lathe's station span (-2.06..1.98), because
+        // the texture's z frame MUST match the hull lathe's station span (-2.06..1.98), because
         // bodyLathe maps texture v to the lathe's own z fraction; a nominal frame here shifts
         // every painted feature away from the 3D geometry it must line up with.
         const tex = fuselageTexture({
@@ -710,11 +710,11 @@
             paintLivery: (g, vOf) => {
                 // the belly stripe holds full thickness to its forward end, then drops to the
                 // seam over a very short run: two solid thick bands meeting bluntly, no point
-                // The diagonal is a LONG thin straight slit cutting across most of the side,
+                // the diagonal is a LONG thin straight slit cutting across most of the side,
                 // its upper edge passing through the second window from the aft; at the
                 // forward belly the two sides' slits come together and wrap into a beret cap
                 // sitting on the LOWER PORT flank (the port side carries a rounded bulge, the
-                // starboard slit dives to the seam and feeds into it). The port side also
+                // starboard slit dives to the seam and feeds into it). the port side also
                 // samples the sweep shifted aft so the navy wraps the crown like wallpaper,
                 // the shift ramping to zero toward the nose so the cap stays joined.
                 const base = z => liveryCurve(z, [[-1.82, 0.005], [-1.42, 0.09], [-0.62, 0.285], [0.50, 0.50]]);
@@ -823,7 +823,7 @@
         });
     }
 
-    // Build (or swap) the airframe inside planeGroup3D to match the loaded flight. No-ops when the
+    // build (or swap) the airframe inside planeGroup3D to match the loaded flight. no-ops when the
     // right model is already up.
     function setPlaneModel3D() {
         if (typeof planeGroup3D === 'undefined' || !planeGroup3D || typeof THREE === 'undefined') return;

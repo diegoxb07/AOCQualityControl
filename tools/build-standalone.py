@@ -1,36 +1,11 @@
 #!/usr/bin/env python3
-"""Build the standalone offline version of the QC tool: one self-contained .html file.
+"""build the offline version of the QC tool: one self-contained .html file.
 
-    python3 tools/build-standalone.py            # -> dist/AOC-QC-Tool-YYYYMMDD.html + .zip
+    python3 tools/build-standalone.py            # -> dist/AOC-QC-Tool.html (+ a dated copy and .zip)
 
-Why this exists: GitHub Pages goes down occasionally, and the tool is what the branch uses to QC a
-flight. The output is a single file anyone can keep on a laptop or a share drive and open by
-double-clicking, with every capability of the live site: .nc upload, QC engine, charts, 2D/3D map,
-Error Summary, Track PDF, Gap Report, NC-to-TXT, and the interactive HTML export.
-
-The one rule this script follows: it does NOT modify anything the site serves. Every difference
-between the site and the offline version is produced here, in the generated file. The app's own
-js/*.js are inlined byte for byte, so the live version cannot regress because of anything below.
-
-A page opened from disk has an opaque origin, which costs three things the app relies on:
-
-  1. fetch() is refused outright, so the basemap geography, airport codes, and the interactive
-     HTML export (which re-reads css/app.css, the chart libs, and the fonts) all fail.
-  2. new Worker('js/parse-worker.js') is refused, and a blob worker cannot resolve the relative
-     importScripts() the worker uses, so parsing would fall back to the main thread and freeze
-     the page on a large file.
-  3. an <img> pointing at data/etopo-heightmap.png has nothing to point at in a single file, so
-     3D terrain elevation is lost.
-
-So the generated file carries a prelude that shims fetch, Worker, and HTMLImageElement.src against
-an embedded asset payload. The app source calls them exactly as it always has and never knows.
-
-Drift guard: the script scans the app source, the parse worker, and the stylesheets for asset
-references and WARNS about any it did not embed, so a newly added fetch() or @font-face is visible
-at build time. It warns rather than failing because this runs inside the Pages deploy, where a
-non-zero exit would take the live site's deploy down. It is a best-effort net, not a proof: a path
-assembled at runtime ('data/' + name) is invisible to any static scan, so a structural change still
-deserves opening the built file once.
+the deploy runs this and publishes AOC-QC-Tool.html beside the site; the Local Version button
+downloads it. the app's js/*.js are inlined unchanged, and a small prelude answers fetch, Worker,
+and <img src> from an embedded payload, since a page opened from disk can load none of them.
 """
 
 import base64
@@ -83,7 +58,7 @@ def b64(rel):
 
 
 def js_string(s):
-    """A JS string literal that is safe inside <script>: no raw </script, no line breaks."""
+    """a JS string literal that is safe inside <script>: no raw </script, no line breaks."""
     out = (s.replace('\\', '\\\\').replace('"', '\\"')
             .replace('\r', '\\r').replace('\n', '\\n')
             .replace('\u2028', '\\u2028').replace('\u2029', '\\u2029'))
@@ -91,7 +66,7 @@ def js_string(s):
 
 
 def scrub_script_close(s):
-    """Inline JS/CSS may contain the literal </script in a string; neutralise it."""
+    """inline JS/CSS may contain the literal </script in a string; neutralise it."""
     return re.sub(r'</(script)', r'<\\/\1', s, flags=re.I)
 
 
@@ -104,17 +79,14 @@ def git_sha():
 
 
 def parse_index_scripts(html):
-    """The css and js the page loads, in order, straight from index.html so this script never
-    holds a second copy of the load order that could drift out of step with the real one."""
+    """the css and js the page loads, in index.html order."""
     css = re.findall(r'<link[^>]+rel="stylesheet"[^>]+href="([^"?]+)', html)
     js = re.findall(r'<script[^>]+src="([^"?]+)', html)
     return css, js
 
 
 def strip_js_comments(src):
-    """Drop // and /* */ comments while leaving string and template literals intact, so a path
-    written in a comment is not mistaken for a load. Regex literals are not tokenised, so a regex
-    containing a quote can still confuse it; that is why the caller only warns."""
+    """drop // and /* */ comments, keeping string literals, so a path in a comment is not a load."""
     out, i, n = [], 0, len(src)
     while i < n:
         c = src[i]
@@ -143,19 +115,13 @@ def strip_js_comments(src):
     return ''.join(out)
 
 
-# a quoted or backticked repo path, and a css url(); '../' is normalised away so fonts.css matches
 REF_JS = re.compile(r"""["'`](?:\./)?((?:data|assets|fonts|lib|css|js)/[A-Za-z0-9._-]+)["'`]""")
 REF_CSS = re.compile(r"""url\(\s*['"]?(?:\.\./)?((?:data|assets|fonts)/[A-Za-z0-9._-]+)""")
 
 
 def warn_unembedded_assets(sources, embedded):
-    """Report asset references this build did not embed, so a newly added fetch() or @font-face
-    is visible instead of silently shipping a standalone version with a dead feature.
-
-    This WARNS and keeps going on purpose. The build runs inside the Pages deploy, so exiting
-    non-zero here would take the live site's deploy down over a cosmetic drift, which is a worse
-    failure than an offline version missing one asset. It is a best-effort net, not a proof:
-    a path built by concatenation ('data/' + name) cannot be seen by any static scan."""
+    """warn about asset references this build did not embed. it only warns: the build runs inside
+    the Pages deploy, and a non-zero exit would stop the live site from deploying."""
     missing = {}
     for rel in sources:
         text = read_text(rel)
@@ -181,7 +147,6 @@ def build():
     stamp_date = datetime.date.today().isoformat()
     sha = git_sha()
 
-    # ---- payload -----------------------------------------------------------------------------
     text_payload = {}
     for rel in TEXT_ASSETS:
         text_payload[rel] = read_text(rel)
@@ -190,22 +155,18 @@ def build():
     for rel in BIN_ASSETS + FONTS:
         bin_payload[rel] = b64(rel)
 
-    # the chart libs the interactive HTML export re-reads to inline into its own output
+    # chart libs the interactive HTML export inlines into its own output
     for rel in ['lib/chart.umd.min.js', 'lib/hammer.min.js', 'lib/chartjs-plugin-zoom.min.js']:
         text_payload[rel] = read_text(rel)
 
-    # one blob-able worker: its importScripts targets first, then the worker with that call removed
+    # the parse worker as one blob-able script: its importScripts targets, then the worker itself
     worker_src = read_text(WORKER)
     worker_src = re.sub(r'^\s*importScripts\([^)]*\);\s*$', '', worker_src, flags=re.M)
     bundle = '\n;\n'.join([read_text(p) for p in WORKER_IMPORTS] + [worker_src])
     text_payload['js/parse-worker.bundle.js'] = bundle
 
     embedded = set(text_payload) | set(bin_payload)
-    # the worker imports are reachable through the bundle, and the page loads every lib and app
-    # script as an inline <script>, so none of those needs its own payload entry to count as present
     embedded |= set(WORKER_IMPORTS) | set(js_files) | set(css_files) | {WORKER}
-    # every source that can name an asset: the page's own scripts, the worker (which index.html
-    # never lists), and the stylesheets (fonts.css names each woff2 in a url())
     warn_unembedded_assets(app_js + [WORKER] + css_files, embedded)
 
     payload = ['window.AOC_EMBED={text:{']
@@ -215,13 +176,11 @@ def build():
     payload.append('}};')
     payload.append('window.AOC_BUILD={date:%s,sha:%s};' % (js_string(stamp_date), js_string(sha)))
 
-    # ---- shims -------------------------------------------------------------------------------
     shims = r"""
 (function () {
   var E = window.AOC_EMBED, T = E.text, B = E.b64;
   var MIME = { png: 'image/png', woff2: 'font/woff2', svg: 'image/svg+xml', json: 'application/json' };
-  // the app asks with repo-relative paths ('data/airports.json'); an absolute or nested URL is
-  // matched by the longest embedded path it ends with, so both forms resolve to one payload key
+  // a relative or absolute url resolves to the longest embedded path it ends with
   function key(u) {
     u = String(u).split('?')[0].split('#')[0].replace(/^\.\//, '');
     if (T[u] !== undefined || B[u] !== undefined) return u;
@@ -240,8 +199,7 @@ def build():
     return 'data:' + (MIME[ext] || 'application/octet-stream') + ';base64,' + B[k];
   }
 
-  // fetch: a page opened from disk has an opaque origin and the browser refuses fetch() for any
-  // local file, so every asset read is answered from the embedded payload instead.
+  // fetch: answered from the payload, since a page opened from disk cannot fetch local files
   var nativeFetch = window.fetch;
   window.fetch = function (input, init) {
     var k = key(input && input.url ? input.url : input);
@@ -251,8 +209,7 @@ def build():
     return Promise.reject(new TypeError('offline version: no embedded asset for ' + k));
   };
 
-  // Worker: a file:// document cannot spawn a worker from disk, and a blob worker cannot resolve
-  // the relative importScripts the parse worker uses, so it runs the pre-concatenated bundle.
+  // Worker: started from the bundled blob, since a page opened from disk cannot load worker files
   var NativeWorker = window.Worker;
   window.Worker = function (url, opts) {
     var k = key(url), bundle = T[k.replace(/\.js$/, '.bundle.js')];
@@ -260,8 +217,7 @@ def build():
     return new NativeWorker(url, opts);
   };
 
-  // <img src="data/etopo-heightmap.png"> has no file to reach in a single-file build. A data URI
-  // also keeps the canvas untainted, so the terrain's getImageData still works.
+  // <img src>: embedded images become data URIs, which also keeps the terrain canvas readable
   var d = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
   Object.defineProperty(HTMLImageElement.prototype, 'src', {
     configurable: true, enumerable: d.enumerable,
@@ -269,7 +225,7 @@ def build():
     set: function (v) { var k = key(v); d.set.call(this, B[k] !== undefined ? dataURI(k) : v); }
   });
 
-  // build stamp, bottom right, so an old copy is identifiable without opening anything else
+  // build date, bottom right
   window.addEventListener('load', function () {
     var s = document.createElement('div');
     s.textContent = 'Local version \u00b7 Build date: ' + window.AOC_BUILD.date;
@@ -280,7 +236,6 @@ def build():
 })();
 """
 
-    # ---- assemble ----------------------------------------------------------------------------
     def inline_css(rel):
         return scrub_script_close(read_text(rel))
 
@@ -289,26 +244,26 @@ def build():
 
     out = index
 
-    # CSP: 'self' does not match a file:// origin, and the worker now comes from a blob
+    # CSP: 'self' does not match a file:// origin, and the worker comes from a blob
     out = re.sub(r'<meta http-equiv="Content-Security-Policy"[^>]*>',
                  '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
                  'script-src \'unsafe-inline\' blob:; style-src \'unsafe-inline\'; '
                  'img-src data: blob:; font-src data:; connect-src data: blob:; '
                  'worker-src blob:; object-src \'none\'; form-action \'none\'">', out, count=1)
 
-    # every external reference becomes inline content
+    # inline every stylesheet and script
     out = re.sub(r'\s*<link[^>]+rel="stylesheet"[^>]*>', '', out)
     out = re.sub(r'\s*<script[^>]+src="[^"]+"[^>]*></script>', '', out)
     out = out.replace('</head>', head_css + '\n</head>', 1)
     out = out.replace('</body>', all_js + '\n</body>', 1)
 
-    # static markup references: favicon and the header emblem
+    # favicon and header emblem
     out = out.replace('href="assets/noaa-emblem-64.png"',
                       'href="data:image/png;base64,' + bin_payload['assets/noaa-emblem-64.png'] + '"')
     out = out.replace('src="assets/noaa-emblem-72.png"',
                       'src="data:image/png;base64,' + bin_payload['assets/noaa-emblem-72.png'] + '"')
 
-    # the offline version is the download, so drop its own download button and the service worker
+    # a service worker cannot register from file://
     out = re.sub(r'\s*<script>\s*if \(\'serviceWorker\' in navigator.*?</script>', '', out, flags=re.S)
 
     # payload and shims run before any app script
@@ -322,12 +277,12 @@ def build():
     html_path = os.path.join(DIST, name + '.html')
     with open(html_path, 'w', encoding='utf-8') as f:
         f.write(out)
-    # a .zip too: .html attachments are routinely stripped by enterprise mail filters
+    # a dated copy and a .zip for handing out by email, where .html attachments are often blocked
     zip_path = os.path.join(DIST, name + '.zip')
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         z.write(html_path, name + '.html')
 
-    # a stable copy for the site's download button to point at
+    # the stable name the deploy publishes
     stable = os.path.join(DIST, 'AOC-QC-Tool.html')
     shutil.copyfile(html_path, stable)
 

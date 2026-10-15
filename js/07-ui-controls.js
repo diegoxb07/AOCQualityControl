@@ -1,8 +1,8 @@
 /* Mission Visualizer, DOM refs, 3D scene, control wiring
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order. */
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
-    // Fullscreen-Friendly Drag & Drop Logic
+    // fullscreen-friendly drag & drop logic
     ['dataDropZone'].forEach(zoneId => {
         const zone = document.getElementById(zoneId);
         if (!zone) return;
@@ -56,11 +56,11 @@
         if (sub) {
             const rawId = (flightMetaData.id && flightMetaData.id !== 'Unknown') ? flightMetaData.id : '';
             const idPart = rawId.replace(/\s*\([^)]*\)\s*$/, '');
-            // Storm name, from the "(NAME)" the mission id carries when the file names one.
+            // storm name, from the "(NAME)" the mission id carries when the file names one.
             let storm = (rawId.match(/\(([^)]+)\)/) || [])[1] || '';
             if (/unknown|training|research/i.test(storm)) storm = '';
             if (storm) storm = storm.charAt(0).toUpperCase() + storm.slice(1).toLowerCase();
-            // Aircraft designator from the tail number, NOAA name, or the mission-id letter (H/I/N).
+            // aircraft designator from the tail number, NOAA name, or the mission-id letter (H/I/N).
             const acId = ((flightMetaData.aircraft || '') + ' ' + rawId).toUpperCase();
             let plane = '';
             if (/N?42 ?RF|NOAA ?42|\d{8}H\d/.test(acId)) plane = 'NOAA42';
@@ -98,7 +98,7 @@
     }
 
     // G-IV (NOAA49) glyph for the 2D tracker, same coordinate frame as drawP3Orion
-    // (nose at +X, drawn white with a dark outline). Swept wings, two aft-fuselage
+    // (nose at +X, drawn white with a dark outline). swept wings, two aft-fuselage
     // nacelles, T-tail; picked over the P-3 by isGulfstreamFlight().
     function drawGulfstreamIV(c) {
         c.fillStyle = '#ffffff'; c.strokeStyle = '#222222'; c.lineWidth = 2.5; c.beginPath();
@@ -120,15 +120,15 @@
         c.beginPath(); c.moveTo(19, -1.4); c.lineTo(21, -0.8); c.lineTo(21, 0.8); c.lineTo(19, 1.4); c.lineTo(18, 0); c.closePath(); c.fillStyle = '#222222'; c.fill();
     }
 
-    // True when the loaded flight is the Gulfstream: aircraft letter N in the AOC
+    // true when the loaded flight is the Gulfstream: aircraft letter N in the AOC
     // mission id (e.g. 20240826N1), or an archive aircraft/tail string naming it.
     function isGulfstreamFlight() {
         const id = flightMetaData.id || '', ac = flightMetaData.aircraft || '';
         return /\d{8}N\d/i.test(id) || /gulfstream|\bg-?iv\b|\bn49/i.test(ac + ' ' + id);
     }
 
-    // Home camera offset from the aircraft (the orbit target): close enough that the airframe
-    // fills the view on open. The per-frame follow keeps whatever offset the user orbits to;
+    // home camera offset from the aircraft (the orbit target): close enough that the airframe
+    // fills the view on open. the per-frame follow keeps whatever offset the user orbits to;
     // reset3DView() snaps back to this one.
     const CAM3D_HOME = { x: 0, y: 0.28, z: 0.66 };
     function reset3DView() {
@@ -143,7 +143,7 @@
         controls3D.update();
     }
 
-    // The 3D scene's void behind the map, tracking the theme like the rest of the basemap.
+    // the 3D scene's void behind the map, tracking the theme like the rest of the basemap.
     function scene3DBgColor() {
         return (document.documentElement.dataset.theme === 'light') ? 0xdfe6ec : 0x171122;
     }
@@ -152,13 +152,13 @@
         if (threeDInitialized) return;
         const w = threeDContainer.clientWidth || canvas.width, h = threeDContainer.clientHeight || canvas.height, aspect = w / (h || 1);
         scene3D = new THREE.Scene(); scene3D.background = new THREE.Color(scene3DBgColor());
-        // Near clip is tiny so the camera can dolly right up to the aircraft (scaled 0.06, so it is
+        // near clip is tiny so the camera can dolly right up to the aircraft (scaled 0.06, so it is
         // small in world units and a larger near plane clips it away before you get close); the huge
         // near/far span rides a logarithmic depth buffer to stay z-fight-free.
         camera3D = new THREE.PerspectiveCamera(45, aspect, 0.001, 50000);
         camera3D.position.set(CAM3D_HOME.x, CAM3D_HOME.y, CAM3D_HOME.z);   // starts zoomed into the aircraft, no scroll-in needed
         renderer3D = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, logarithmicDepthBuffer: true });
-        // Render at the display's true pixel density (capped at 2x), so the 3D view is crisp on retina screens.
+        // render at the display's true pixel density (capped at 2x), so the 3D view is crisp on retina screens.
         renderer3D.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
         renderer3D.setSize(w, h); threeDContainer.insertBefore(renderer3D.domElement, threeDContainer.firstChild);
         controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement); controls3D.enableDamping = true;
@@ -167,8 +167,8 @@
         planeGroup3D = new THREE.Group(); planeGroup3D.scale.set(0.06, 0.06, 0.06); scene3D.add(planeGroup3D);
         // the airframe itself (WP-3D or G-IV per the loaded flight) is built by js/07b-plane-models.js
         if (typeof setPlaneModel3D === 'function') setPlaneModel3D();
-        // Direction arrow: shaft + a cone HEAD whose apex points forward (-Z, this model's nose
-        // direction). The cone's local apex is at +Y, so it needs a NEGATIVE X rotation to face -Z.
+        // direction arrow: shaft + a cone HEAD whose apex points forward (-Z, this model's nose
+        // direction). the cone's local apex is at +Y, so it needs a NEGATIVE X rotation to face -Z.
         const buildDirectionArrow = (color, scale, standoff, opacity) => {
             const mat = new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity });
             const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 1.2, 8), mat); shaft.rotation.x = Math.PI / 2; shaft.position.z = -standoff - 0.6;
@@ -176,9 +176,9 @@
             const group = new THREE.Group(); group.add(shaft, head); group.scale.set(scale, scale, scale);
             return group;
         };
-        // Ground track: blue, standing out ahead of the airframe so it never overlaps it.
+        // ground track: blue, standing out ahead of the airframe so it never overlaps it.
         trackArrow3D = buildDirectionArrow(0x3da5ff, 0.17, 2.3, 1); scene3D.add(trackArrow3D);
-        // True heading: yellow and slightly smaller, nested inside the track arrow's world-space
+        // true heading: yellow and slightly smaller, nested inside the track arrow's world-space
         // span, so it hides within the blue when the two agree and appears only when they
         // diverge; scene-level (not planeGroup3D) so it stays a clean world-space compass pointer.
         headingArrow3D = buildDirectionArrow(0xffd400, 0.145, 2.76, 0.8); scene3D.add(headingArrow3D);
@@ -187,7 +187,7 @@
             requestAnimationFrame(animate3D); if (controls3D) controls3D.update();
             // props spin only while playback runs; pausing freezes them with everything else
             if (typeof planeSpinners3D !== 'undefined' && isPlaying) for (let i = 0; i < planeSpinners3D.length; i++) planeSpinners3D[i].rotation.z += 0.3;
-            // the state the plane is over: one label at that state's own centre. Runs before the
+            // the state the plane is over: one label at that state's own centre. runs before the
             // country labels, which read _stateLabelIdx to stand down under it.
             if (_stateLabels.length) {
                 const in3dS = !trackerModeSelect || trackerModeSelect.value === '3d';
@@ -198,7 +198,7 @@
                     if (sIdx >= 0) _stateLabels[sIdx].mesh.visible = true;
                     _stateLabelIdx = sIdx;
                 }
-                // Size and facing follow the camera, the anchor never does. Yaw puts the text across
+                // size and facing follow the camera, the anchor never does. yaw puts the text across
                 // the view; pitching by the camera's elevation lays the name flat from straight above
                 // and stands it up as the camera drops to the horizon.
                 if (sIdx >= 0 && camera3D) {
@@ -244,15 +244,15 @@
         animate3D(); threeDInitialized = true;
     }
 
-    // Real-scale toggle (a Filters checkbox): draw the 3D airframe at its true size against the world
-    // instead of the default enlarged glyph. Real fuselage lengths per type, defaulting to the WP-3D
+    // real-scale toggle (a Filters checkbox): draw the 3D airframe at its true size against the world
+    // instead of the default enlarged glyph. real fuselage lengths per type, defaulting to the WP-3D
     // when the aircraft is unknown; at 20 units/deg the model is tiny, so it only reads once dollied in.
     let realScale3D = false;
     let _borderLines = [];      // { line, mat, box, base } coastline/border lines, faded by distance to the plane
     let _countryLabels = [];    // { sprite, mat, aspect, pts, isUSA } country name labels shown near visible coastlines
     let _stateLabels = [];      // { mesh, mat, rings, bbox } flat US state names, lying on the basemap
     let _stateLabelIdx = -1;    // index into _stateLabels of the state under the plane, -1 = none
-    // How far offshore a state still names the ground beneath (these flights sit over water most of a
+    // how far offshore a state still names the ground beneath (these flights sit over water most of a
     // mission, so an inside-only test would leave the state nameless exactly when it is asked).
     const STATE_NEAR_DEG = 2.5;
     let _reframeRealScale = false;   // set when the plane is (re)built with real-scale on; consumed once the plane is positioned (update3DFrame)
@@ -287,9 +287,9 @@
         // that may not be placed yet.
         if (realScale3D) _reframeRealScale = true;
     }
-    // Frame the plane after a real-scale toggle: real-scale dollies in to ~2.5 plane-lengths so the
+    // frame the plane after a real-scale toggle: real-scale dollies in to ~2.5 plane-lengths so the
     // now-tiny airframe is visible immediately; turning it off restores the default framing distance.
-    // Camera distance that frames the real-size plane to ~64% of the vertical view.
+    // camera distance that frames the real-size plane to ~64% of the vertical view.
     function realScaleCamDistance() {
         const halfLen = Math.max(1e-5, planeModelLocalLength() * planeGroup3D.scale.x * 0.5);
         const fovR = (camera3D.fov || 45) * Math.PI / 180;
@@ -312,12 +312,12 @@
         const centerLon = (plotMinLon + plotMaxLon) / 2 || 0, centerLat = (plotMinLat + plotMaxLat) / 2 || 0, scaleMult = 20;
         // wrapLon (js/15-map-render.js) keeps dateline-crossing flights continuous here too;
         // safe because build3DScene only renders flight-adjacent features (never the far seam).
-        // Altitude is exaggerated ~8x against the horizontal scale (20 units/deg = 0.181 units/km,
+        // altitude is exaggerated ~8x against the horizontal scale (20 units/deg = 0.181 units/km,
         // /690 = 1.45 units/km) so climbs read at a believable angle without the track gluing flat.
         const x = (wrapLon(lon) - centerLon) * scaleMult, z = -(lat - centerLat) * scaleMult, y = (altMeters || 0) / 690; return new THREE.Vector3(x, y, z);
     }
 
-    // Altitude for the 3D map's vertical dimension: GPS, falling back to pressure altitude.
+    // altitude for the 3D map's vertical dimension: GPS, falling back to pressure altitude.
     function track3DAltMeters(d) {
         if (!d) return 0;
         return d.gpsAlt != null ? d.gpsAlt : (d.pAlt != null ? d.pAlt : 0);
@@ -327,13 +327,13 @@
         if (!bbox) return true;
         const expandDeg = 15, viewMinLon = plotMinLon - expandDeg, viewMaxLon = plotMaxLon + expandDeg, viewMinLat = plotMinLat - expandDeg, viewMaxLat = plotMaxLat + expandDeg;
         if (bbox[1] > viewMaxLat || bbox[3] < viewMinLat) return false;
-        // Also test the bbox shifted ±360: a dateline-centered flight's plot window sits outside
+        // also test the bbox shifted ±360: a dateline-centered flight's plot window sits outside
         // [-180,180], where every raw feature bbox would otherwise miss it.
         return [0, -360, 360].some(s => !(bbox[0] + s > viewMaxLon || bbox[2] + s < viewMinLon));
     }
 
     // A small text sprite for a country name, white with a dark outline so it reads on any terrain.
-    // The label keeps a constant on-screen size in animate3D by scaling with its camera distance.
+    // the label keeps a constant on-screen size in animate3D by scaling with its camera distance.
     function countryLabelSprite(name) {
         const cv = document.createElement('canvas');
         let c = cv.getContext('2d');
@@ -363,7 +363,7 @@
     }
 
     // A state name on the basemap. A mesh, not a sprite, so animate3D can lay it onto the map from
-    // straight above and stand it up as the camera drops. Built one world unit tall whatever the
+    // straight above and stand it up as the camera drops. built one world unit tall whatever the
     // name's length, and scaled there by camera distance.
     function stateLabelMesh(name) {
         const cv = document.createElement('canvas');
@@ -385,7 +385,7 @@
         return { mesh, mat };
     }
 
-    // Degrees from (lat, lon) to a [minLon, minLat, maxLon, maxLat] box, 0 anywhere inside it.
+    // degrees from (lat, lon) to a [minLon, minLat, maxLon, maxLat] box, 0 anywhere inside it.
     function bboxDistDeg(b, lat, lon) {
         const dx = Math.max(b[0] - lon, 0, lon - b[2]);
         const dy = Math.max(b[1] - lat, 0, lat - b[3]);
@@ -393,8 +393,8 @@
     }
 
     // _stateLabels index for the US state at (lat, lon): the one holding it, else the nearest within
-    // STATE_NEAR_DEG, else -1. The last match is tested first (a flight sits with one state for
-    // minutes), the rest reject on bbox. Crossings count across every ring, even-odd.
+    // STATE_NEAR_DEG, else -1. the last match is tested first (a flight sits with one state for
+    // minutes), the rest reject on bbox. crossings count across every ring, even-odd.
     function stateIndexAt(lat, lon) {
         const hit = i => {
             const s = _stateLabels[i], b = s.bbox;
@@ -434,7 +434,7 @@
         const stateMat = new THREE.LineBasicMaterial({ color: light3d ? 0x94a3b0 : 0xaac2d6, transparent: true, opacity: 0.55, depthWrite: false });
         // when the bundled terrain grid (js/07c-terrain.js) is loaded, coastlines and borders drape onto
         // the terrain surface at their sampled elevation and the flat land fill is skipped. c is GeoJSON
-        // [lon, lat], so terrainSurfaceMeters takes (c[1], c[0]). It reads the drawn surface, not the
+        // [lon, lat], so terrainSurfaceMeters takes (c[1], c[0]). it reads the drawn surface, not the
         // raw ground, or a coastline sampling to a water cell would sit under the sea.
         const hasTerrain = typeof isTerrainLoaded === 'function' && isTerrainLoaded();
         // both prime terrainSurfaceMeters, and the drape below is its first reader
@@ -484,7 +484,7 @@
                 polys.forEach(poly => poly.forEach(ring => rings.push(ring.map(cc => ({ lon: cc[0], lat: cc[1] })))));
                 const bbox = feature.properties.bbox;
                 if (rings.length && bbox) {
-                    // Anchor on the largest ring's average vertex, which sits inside the landmass for
+                    // anchor on the largest ring's average vertex, which sits inside the landmass for
                     // shapes whose bbox centre does not (a bay, a lake, a second peninsula).
                     let big = rings[0];
                     rings.forEach(r => { if (r.length > big.length) big = r; });
@@ -492,7 +492,7 @@
                     big.forEach(p => { sx += p.lon; sy += p.lat; });
                     const cLon = sx / big.length, cLat = sy / big.length;
                     const lbl = stateLabelMesh(feature.properties.name);
-                    // Lifted well clear of the centroid's ground, since the name spans further than the
+                    // lifted well clear of the centroid's ground, since the name spans further than the
                     // point it samples; the standing-up lift in animate3D then builds on it.
                     const at = get3DCoord(cLon, cLat, borderAlt([cLon, cLat]) + 220);
                     lbl.mesh.position.copy(at);
@@ -538,15 +538,15 @@
         }
         let t_pitch = d.pitch ?? 0, t_th = d.th ?? 0, t_roll = d.roll ?? 0, t_track = d.gTrack ?? 0;
         planeGroup3D.rotation.set(THREE.MathUtils.degToRad(t_pitch), THREE.MathUtils.degToRad(-t_th), THREE.MathUtils.degToRad(-t_roll), 'YXZ');
-        // Size both scene-level arrows to the plane's current scale so they stay proportional in
+        // size both scene-level arrows to the plane's current scale so they stay proportional in
         // real-scale mode (done here every frame so it holds regardless of arrow/plane build order).
         const arrowF = planeGroup3D.scale.x / 0.06;
         trackArrow3D.scale.setScalar(0.17 * arrowF);
         if (headingArrow3D) headingArrow3D.scale.setScalar(0.145 * arrowF);
         trackArrow3D.position.copy(pos); trackArrow3D.rotation.set(0, THREE.MathUtils.degToRad(-t_track), 0);
-        // True-heading arrow: same scene-level convention as the ground-track arrow (world position,
+        // true-heading arrow: same scene-level convention as the ground-track arrow (world position,
         // Y-only rotation, not banked/pitched with the airframe), so it reads as a clean compass pointer.
-        // It fades in only as heading diverges from ground track (hidden below 3 deg of drift, full by 8)
+        // it fades in only as heading diverges from ground track (hidden below 3 deg of drift, full by 8)
         // so a no-drift leg shows a single arrow instead of two overlapping, z-fighting ones.
         if (headingArrow3D) {
             headingArrow3D.position.copy(pos); headingArrow3D.rotation.set(0, THREE.MathUtils.degToRad(-t_th), 0);
@@ -561,7 +561,7 @@
         if (_reframeRealScale) { _reframeRealScale = false; dollyCameraForScale(); }   // frame the plane after a real-scale build/refresh
     }
 
-    // Real fullscreen is page-level ONLY. The panel ⛶ buttons "fake" fullscreen instead: pin the
+    // real fullscreen is page-level ONLY. the panel ⛶ buttons "fake" fullscreen instead: pin the
     // panel over the whole viewport (.fake-fs, styled like :fullscreen via :is()) and take the page
     // fullscreen too if it isn't already, so panel/page switches are a single click.
     const refreshAfterViewChange = () => setTimeout(() => { resizeCanvasLayout(); if (filteredData.length > 0) { if (trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]); } }, 100);
@@ -581,13 +581,13 @@
 
     document.addEventListener('fullscreenchange', () => {
         fullscreenBtn.innerText = !document.fullscreenElement ? "⛶ Fullscreen" : "⛶ Exit Fullscreen";
-        // Leaving real fullscreen (Esc or the main button) unpins any fake-fullscreened panel too.
+        // leaving real fullscreen (Esc or the main button) unpins any fake-fullscreened panel too.
         if (!document.fullscreenElement) setFakePanel(null);
         else refreshAfterViewChange();
     });
 
     trackerModeSelect.addEventListener('change', (e) => {
-        // Keep the early-boot FOUC guard (index.html <head>) in sync with the live mode: its CSS
+        // keep the early-boot FOUC guard (index.html <head>) in sync with the live mode: its CSS
         // rule hides the 2D-only controls, and clearing an inline display cannot override it.
         document.documentElement.classList.toggle('pref-tracker-3d', e.target.value === '3d');
 

@@ -1,11 +1,11 @@
 /* Mission Visualizer, timeline sliding, keyboard, canvas input
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order. */
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
     let arrowSkipSpeed = 1;
     document.addEventListener('keydown', (e) => {
         if (!filteredData || filteredData.length === 0) return; if (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number')) return;
-        // Space = play/pause. Skipped when a button/select/checkbox has focus, space already
+        // Space = play/pause. skipped when a button/select/checkbox has focus, space already
         // activates those natively and hijacking it would double-fire (a focused range slider is
         // fine though: space is a no-op there, and slide-then-space is a common flow).
         if (e.code === 'Space' && !/SELECT|BUTTON|TEXTAREA/.test(e.target.tagName)
@@ -25,16 +25,16 @@
     });
     document.addEventListener('keyup', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') arrowSkipSpeed = 1; });
 
-    // Reset the 2D view = re-engage follow (zoom in and re-center on the aircraft).
+    // reset the 2D view = re-engage follow (zoom in and re-center on the aircraft).
     function resetMapView() { engageFollowAircraft(); }
-    // The tracker's ⟲ button resets whichever view is active: 2D pan/zoom, or the 3D orbit
+    // the tracker's ⟲ button resets whichever view is active: 2D pan/zoom, or the 3D orbit
     // camera back to its home offset on the aircraft.
     document.getElementById('resetMapZoomBtn').addEventListener('click', () => {
         if (trackerModeSelect.value === '3d') { if (typeof reset3DView === 'function') reset3DView(); }
         else resetMapView();
     });
 
-    // The recenter button only surfaces in 2D once the user has panned/zoomed off the aircraft.
+    // the recenter button only surfaces in 2D once the user has panned/zoomed off the aircraft.
     function updateFollowButton() {
         const btn = document.getElementById('recenterPlaneBtn');
         if (!btn) return;

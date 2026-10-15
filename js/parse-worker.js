@@ -1,8 +1,8 @@
 /* QC Mode, flight-file parse worker.
-   Runs the pure parser core off the main thread so a large .nc load never freezes the page.
-   Receives { tsv } or { nc: ArrayBuffer } and posts back { rows, stats, qc }: the cleaned playback
-   rows AND the QC-Mode raw dataset (every sample on a continuous 1-second axis). Posts { error } if
-   the file can't be read. The ?v= cache-buster arrives via the worker URL's query string and is
+   runs the pure parser core off the main thread so a large .nc load never freezes the page.
+   receives { tsv } or { nc: ArrayBuffer } and posts back { rows, stats, qc }: the cleaned playback
+   rows AND the QC-Mode raw dataset (every sample on a continuous 1-second axis). posts { error } if
+   the file can't be read. the ?v= cache-buster arrives via the worker URL's query string and is
    forwarded to the core imports so they bust together. 00b-qc-catalog.js is imported so the raw
    parser can use the catalog allow-list off-thread. */
 importScripts('../lib/netcdfjs.min.js', '00b-qc-catalog.js' + self.location.search, '11b-parser-core.js' + self.location.search);
@@ -19,7 +19,7 @@ self.onmessage = (e) => {
         try {
             result.qc = parseFlightRawQC(tsv);
             // wantAll: a THIRD pass keeping EVERY column (catalog superset), for the NC-to-TXT
-            // converter, so it is asked for only when something needs it. Memory-only on the page
+            // converter, so it is asked for only when something needs it. memory-only on the page
             // (never stored), so no IndexedDB bloat.
             if (e.data.wantAll) { try { result.qcAll = parseFlightRawQC(tsv, '*'); } catch (allErr) { result.qcAll = null; } }
             const transfers = [];

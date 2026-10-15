@@ -1,11 +1,11 @@
 /* Mission Visualizer, playback control + master playback loop
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order. */
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
-    // Playback state. isPlaying (js/01-state.js) is the truth; start/stop/toggle below are the only
+    // playback state. isPlaying (js/01-state.js) is the truth; start/stop/toggle below are the only
     // things that change it, and every consumer (the QC play button, arrow-key sliding, graph
-    // scrubbing) goes through them. There is no hidden player UI behind this: the QC app's own
-    // Play button is the sole control.
+    // scrubbing) goes through them. there is no hidden player UI behind this: the QC app's own
+    // the Play button is the sole control.
     let playbackReady = false;   // a flight is loaded, so playback is allowed
 
     function setPlaybackReady(on) { playbackReady = !!on; syncPlayButton(); }
@@ -18,7 +18,7 @@
 
     function startPlayback() {
         if (!playbackReady || filteredData.length === 0 || isPlaying) return;
-        // Every play start is seeded FROM the playhead through the one translation contract, so a
+        // every play start is seeded FROM the playhead through the one translation contract, so a
         // playhead parked before takeoff starts at takeoff (row 0), never "x hours in".
         if (typeof qcPlayheadToRow === 'function') currentIdx = qcPlayheadToRow();
         isPlaying = true;

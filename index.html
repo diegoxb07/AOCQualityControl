@@ -7,7 +7,7 @@
          only place a CSP can be set. 'unsafe-inline' is required for both script-src (inline onclick/
          oninput handlers throughout index.html) and style-src (inline style attributes built by JS),
          this app's whole architecture is classic inline-handler scripts, not a build step that could
-         move them out. The tool is fully self-contained: no external host is listed anywhere, so
+         move them out. the tool is fully self-contained: no external host is listed anywhere, so
          nothing it does can reach off this origin. -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>AOC QC Tool</title>
@@ -15,16 +15,16 @@
     <meta name="theme-color" content="#1c1c1c">
     <link rel="icon" href="assets/noaa-emblem-64.png" type="image/png">
 
-    <!-- Stamp the saved tracker mode onto <html> before the body paints, so the 2D-only map
+    <!-- stamp the saved tracker mode onto <html> before the body paints, so the 2D-only map
          controls start hidden on a 3D-preference refresh
-         instead of flashing in and then being hidden when persistDisplayPrefs restores 3D. The
+         instead of flashing in and then being hidden when persistDisplayPrefs restores 3D. the
          tracker-mode change handler (js/07-ui-controls.js) toggles this class on every switch,
          so it always reflects the live mode. -->
     <script>
         try {
             var p = JSON.parse(localStorage.getItem('aocVizPrefs') || '{}');
             if (p.trackerModeSelect === '3d') document.documentElement.classList.add('pref-tracker-3d');
-            // A saved theme is a manual pick from the toggle and always wins. Without one the app
+            // A saved theme is a manual pick from the toggle and always wins. without one the app
             // follows the computer's own light/dark setting (and keeps following it live, see the
             // themeToggle block in js/19-bootstrap.js).
             document.documentElement.dataset.theme = (p.theme === 'light' || p.theme === 'dark') ? p.theme
@@ -32,7 +32,7 @@
         } catch (e) { document.documentElement.dataset.theme = 'dark'; }
     </script>
 
-    <!-- Everything below is served from this repo: the whole app (fonts, basemap, parser) runs
+    <!-- everything below is served from this repo: the whole app (fonts, basemap, parser) runs
          with no internet at all.
          css/tailwind.css is COMPILED, not hand-written, regenerate after changing Tailwind
          classes in index.html or js/*.js:  npx tailwindcss@3 -i tailwind.input.css -o css/tailwind.css --minify -->
@@ -49,7 +49,7 @@
 </head>
 <body class="font-sans antialiased">
     <!-- QC boot cover: paints from the first frame so the reused visualizer never flashes on refresh
-         before the QC app mounts over it. Removed by js/23-qc-report.js once #qcApp is up. -->
+         before the QC app mounts over it. removed by js/23-qc-report.js once #qcApp is up. -->
     <div id="qcBootCover" style="position:fixed;inset:0;background:var(--bg);z-index:10060;"></div>
 
 <div id="loadingOverlay" class="fixed inset-0 bg-[color-mix(in_oklab,var(--bg)_85%,transparent)] z-[10000] hidden flex-col items-center justify-center backdrop-blur-md">
@@ -101,10 +101,10 @@
 
     <div class="bg-[color-mix(in_oklab,var(--bg)_55%,transparent)] border border-hairline rounded p-5 relative">
         <div class="flex flex-col gap-4">
-            <!-- Mission loading: upload on the left, reopen-from-this-computer on the right.
-                 Both columns read label / note / control. The upload target is the primary action
+            <!-- mission loading: upload on the left, reopen-from-this-computer on the right.
+                 both columns read label / note / control. the upload target is the primary action
                  so it runs taller; the reopen picker stays at the QC header's own 26px control
-                 scale. Styles live in css/app.css (.qc-load*). -->
+                 scale. styles live in css/app.css (.qc-load*). -->
             <div id="missionLoadConsole" class="qc-load">
                 <div class="qc-load-col qc-load-col-file">
                     <span class="qc-load-lbl">Load a Flight</span>
@@ -132,13 +132,13 @@
                 </div>
             </div>
 
-            <!-- Flight window, set from the loaded file and editable to trim the player's range. -->
+            <!-- flight window, set from the loaded file and editable to trim the player's range. -->
             <div class="hidden">
                 <input type="text" id="startTimeInput" disabled />
                 <input type="text" id="endTimeInput" disabled />
             </div>
 
-            <!-- Loaded-flight status strip + parser ledger, full width. -->
+            <!-- loaded-flight status strip + parser ledger, full width. -->
             <div>
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
                     <div class="status-chip"><span class="chip-k">Flight Data Window</span><span class="chip-v" id="hdrRange">Waiting</span></div>
@@ -146,7 +146,7 @@
                     <div class="status-chip"><span class="chip-k">Aircraft</span><span class="chip-v" id="hdrAircraft">-</span></div>
                     <div class="status-chip"><span class="chip-k">Flight Date</span><span class="chip-v" id="hdrDate">-</span></div>
                 </div>
-                <!-- Parser ledger: what was filtered out of the loaded file and which values are derived. -->
+                <!-- parser ledger: what was filtered out of the loaded file and which values are derived. -->
                 <div id="dataReportLine" class="hidden text-[10px] text-faint font-sans leading-snug mt-2"></div>
             </div>
         </div>
@@ -175,7 +175,7 @@
         <div class="media-container">
             <canvas id="mapCanvas"></canvas>
             <div id="threeDContainer"></div>
-            <!-- Appears only after the user pans/zooms away from the followed aircraft; clicking
+            <!-- appears only after the user pans/zooms away from the followed aircraft; clicking
                  re-centers the map on the plane and resumes following it. -->
             <button id="recenterPlaneBtn" style="display:none;" title="Recenter on the aircraft" class="absolute left-1/2 -translate-x-1/2 bottom-4 z-[2400] px-2 py-1 bg-accent text-accent-ink border border-accent hover:bg-accent rounded text-[10px] font-semibold shadow-lg transition-colors whitespace-nowrap">&#9678; Recenter on Aircraft</button>
         </div>
@@ -188,56 +188,14 @@
     <div id="toastMessage"></div>
 </div>
 
-<div id="flightSearchModal" class="modal-overlay">
-    <div class="modal-card" style="max-width: 860px; max-height: 90vh; overflow-y: auto;">
-        <button id="fsCloseX" class="absolute top-4 right-4 bg-transparent border-none text-faint text-2xl cursor-pointer hover:text-ink transition-colors focus:outline-none">✕</button>
-        <h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">Search Across Loaded Flights</h2>
-        <p class="text-[11px] text-muted mt-2 leading-relaxed">Find which loaded flight recorded the highest or lowest value of a metric at any point, with the time, altitude, and position of that moment and a graph comparing every flight. Searches the flights loaded or pre-loaded on this device (works offline).</p>
-
-        <div class="flex flex-wrap items-end gap-3 mt-3">
-            <div class="flex flex-col">
-                <label class="text-xs text-muted font-semibold mb-1.5">Metric</label>
-                <select id="fsMetricSelect" class="bg-panel-strip text-ink border border-hairline rounded px-2 py-1 text-[11px] outline-none cursor-pointer" style="min-width:200px;"></select>
-            </div>
-            <div class="flex flex-col">
-                <label class="text-xs text-muted font-semibold mb-1.5">Find</label>
-                <select id="fsModeSelect" class="bg-panel-strip text-ink border border-hairline rounded px-2 py-1 text-[11px] outline-none cursor-pointer">
-                    <option value="max">Highest (max)</option>
-                    <option value="min">Lowest (min)</option>
-                </select>
-            </div>
-            <button id="fsRunBtn" class="bg-accent hover:bg-accent text-accent-ink font-bold rounded px-4 py-1.5 text-xs transition-colors">Search</button>
-        </div>
-
-        <div class="flex items-center justify-between mt-3">
-            <div class="text-xs text-muted font-semibold">Flights to search</div>
-            <label class="flex items-center gap-2 text-[11px] text-muted cursor-pointer select-none"><input type="checkbox" id="fsSelectAll" checked class="accent-accent flex-none"> Select all</label>
-        </div>
-        <div id="fsFlightChecks" class="text-[11px] text-ink select-none border border-hairline rounded" style="margin-top:4px;max-height:30vh;min-height:64px;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:2px;flex-shrink:0;"></div>
-
-        <div id="fsResults" class="mt-4" style="display:none;flex-shrink:0;">
-            <div id="fsWinner"></div>
-            <div style="position:relative;height:280px;margin-top:12px;">
-                <canvas id="fsChart"></canvas>
-            </div>
-            <div id="fsTable" class="mt-3" style="overflow-x:auto;"></div>
-        </div>
-
-        <div id="fsStatus" class="text-[11px] text-muted mt-3"></div>
-        <div class="flex gap-2 mt-4">
-            <button id="fsCloseBtn" class="bg-elevated hover:bg-elevated text-ink rounded px-4 py-2 text-xs transition-colors">Close</button>
-        </div>
-    </div>
-</div>
-
 <!-- loaded-flights picker: a custom popover (not a native <select>) so each flight row can carry
-     a red × to remove it. Lives at <body> level, fixed-positioned under its button. -->
+     a red × to remove it. lives at <body> level, fixed-positioned under its button. -->
 <div id="loadedPickerPanel" class="hidden loaded-picker-panel">
     <div id="loadedPickerList" class="loaded-picker-list"></div>
 </div>
 
-<!-- Application logic is split across js/*.js so one broken file cannot take down the
-     whole page. Classic scripts, one shared global scope, load order matters. -->
+<!-- application logic is split across js/*.js so one broken file cannot take down the
+     whole page. classic scripts, one shared global scope, load order matters. -->
     <!-- ?v= cache-buster: the deploy workflow (.github/workflows/static.yml) rewrites every one of
          these to the commit SHA, so the committed token is a placeholder, not a value to bump. -->
     <script src="js/00b-qc-catalog.js?v=20260724a"></script>
@@ -256,10 +214,9 @@
     <script src="js/15-map-render.js?v=20260724a"></script>
     <script src="js/17-charts.js?v=20260724a"></script>
     <script src="js/18-engine.js?v=20260724a"></script>
-    <script src="js/18b-flight-search.js?v=20260724a"></script>
     <script src="js/19-bootstrap.js?v=20260724a"></script>
     <!-- QC Mode: catalog loads up top (00b); engine, charts, and report/controller load last so
-         they can wrap the player's update path. See js/21..23 and js/11b parseFlightRawQC. -->
+         they can wrap the player's update path. see js/21..23 and js/11b parseFlightRawQC. -->
     <script src="js/21-qc-engine.js?v=20260724a"></script>
     <script src="js/22-qc-charts.js?v=20260724a"></script>
     <script src="js/23-qc-report.js?v=20260724a"></script>
@@ -268,9 +225,9 @@
     <script src="js/26-qc-track-pdf.js?v=20260724a"></script>
     <script src="js/27-nc-txt-converter.js?v=20260724a"></script>
 
-    <!-- Offline support: sw.js precaches the whole app (css/js/lib/fonts/data), so after one
+    <!-- offline support: sw.js precaches the whole app (css/js/lib/fonts/data), so after one
          load the page opens and replays flights with no network.
-         Registered on 'load' so the first-visit precache download never competes with startup
+         registered on 'load' so the first-visit precache download never competes with startup
          fetches; the relative './sw.js' keeps the scope scoped to this project-pages path.
          github.io-only: on localhost / Codespaces previews the cache-first worker would keep
          serving the precached snapshot and mask live edits (CACHE_VERSION only rolls at deploy),

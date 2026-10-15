@@ -1,12 +1,12 @@
 /* QC Mode, standalone interactive report export
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Builds ONE self-contained .html file that mirrors the QC tool: the same stylesheet and
+   builds ONE self-contained .html file that mirrors the QC tool: the same stylesheet and
    bundled fonts, every family graph (zoom, pan, hover, legend, gap and check markers), the
    flight-track map with geography, the summary pills, per-graph badges, and the chip strips.
    Chart.js, the zoom plugin, hammer, the fonts, and app.css are all inlined, so the file opens
-   anywhere with no internet and no flight load. Mission loading is left out (API). */
+   anywhere with no internet and no flight load. mission loading is left out (API). */
 
     function qcB64FromF32(arr) {
         const u8 = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);

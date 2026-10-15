@@ -1,11 +1,11 @@
 /** Tailwind config for the static build (css/tailwind.css).
- *  Regenerate after adding/removing Tailwind classes in index.html or js/*.js:
+ *  regenerate after adding/removing Tailwind classes in index.html or js/*.js:
  *    npx tailwindcss@3 -i tailwind.input.css -o css/tailwind.css --minify
- *  Theme matches the old cdn.tailwindcss.com inline config exactly. */
+ *  the theme block below sets every font family to the app's Helvetica Neue stack. */
 module.exports = {
   content: ['./index.html', './js/*.js'],
-  // Classes toggled from JS (classList.add/toggle), listed explicitly so a scanner
-  // miss can never drop one from the compiled CSS. Color classes below are the small,
+  // classes toggled from JS (classList.add/toggle), listed explicitly so a scanner
+  // miss can never drop one from the compiled CSS. color classes below are the small,
   // hand-written theme-aware utilities defined in css/app.css (bound to CSS variables so
   // they follow [data-theme]), NOT Tailwind color utilities; Tailwind just needs to not
   // purge them since they're built via classList.add/toggle rather than literal markup.

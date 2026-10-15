@@ -1,9 +1,9 @@
 /* QC Mode, family panels + difference sub-plots
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Each catalog family draws one main panel overlaying every member and its reference, plus a
-   difference sub-panel whose badges carry each pair's max diff. Charts read the raw arrays on
+   each catalog family draws one main panel overlaying every member and its reference, plus a
+   difference sub-panel whose badges carry each pair's max diff. charts read the raw arrays on
    the continuous 1-second axis, so gaps render as real breaks. Chart.js overlay plugins draw
    the gap shading and markers, the check regions, and the playhead line. */
 
@@ -360,7 +360,7 @@
             // name the sensor(s) the marker covers (a few by name, otherwise a count)
             const names = g.names ? Array.from(g.names) : [];
             const who = !names.length ? '' : names.length <= 3 ? names.join(', ') + ' ' : names.length + ' sensors ';
-            tip.textContent = who + 'data gap from ' + qcSecToLabel(qcAxisRef[g.fromIdx]) + ' - ' + qcSecToLabel(qcAxisRef[g.toIdx]) + ' (' + (g.toIdx - g.fromIdx + 1) + ' s)';
+            tip.textContent = (who ? who + 'data gap' : 'Data gap') + ' from ' + qcSecToLabel(qcAxisRef[g.fromIdx]) + ' - ' + qcSecToLabel(qcAxisRef[g.toIdx]) + ' (' + (g.toIdx - g.fromIdx + 1) + ' s)';
             tip.style.left = (ev.clientX + 14) + 'px'; tip.style.top = (ev.clientY + 14) + 'px';
             tip.classList.remove('hidden');
         });
@@ -791,7 +791,7 @@
                     chart.$qcRefNameEls.push(nm);
                 });
                 qcRefLiveHighlight();
-                it.title += '. This ref rode: ' + chart.$qcRefSegs.map(s => s.source + ' from ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '')).join(', then ') + '.';
+                it.title += '. This ref used: ' + chart.$qcRefSegs.map(s => s.source + ' from ' + ((qcTimeLabels && qcTimeLabels[s.fromIdx]) || '')).join(', then ') + '.';
             }
             bar.appendChild(it);
         });
@@ -1196,7 +1196,7 @@
             '<div class="modal-card qc-diff-context" id="qcDiffContext" style="display:none">' +
               '<div class="qc-context-head">Flight <span>map</span></div>' +
               '<div class="qc-map-slot" id="qcDiffMapSlot"></div>' +
-              '<div class="qc-context-note">the map follows the graph playhead, so slide to the moment the difference occurs</div>' +
+              '<div class="qc-context-note">The map follows the graph playhead, so slide to the moment the difference occurs.</div>' +
             '</div>';
         document.body.appendChild(m);
         m.addEventListener('click', e => { if (e.target === m) qcCloseDiffModal(); });

@@ -1,6 +1,6 @@
 /* Mission Visualizer, remaining wiring, map geojson fetch, display prefs, theme
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order. */
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
     ['startTimeInput', 'endTimeInput'].forEach(id => {
         const el = document.getElementById(id);
@@ -8,7 +8,7 @@
         el.addEventListener('keyup', (e) => { if (e.key === 'Enter') el.blur(); });
     });
 
-    // Jump the playhead by N flight-minutes.
+    // jump the playhead by N flight-minutes.
     function skipFlightMinutes(mins) {
         if (!filteredData.length || !filteredData[currentIdx]) return;
         const targetSec = filteredData[currentIdx].absSeconds + mins * 60;
@@ -80,9 +80,9 @@
         return [minX, minY, maxX, maxY];
     }
 
-    // Local copies first (data/ ships with the app, so the basemap works offline);
-    // Airfields for the 2D basemap, as [ident, iata, lat, lon, name, isLarge, isMil]. Local-only:
-    // a failed fetch just leaves the layer off. Loads after the basemap and marks the map dirty so
+    // local copies first (data/ ships with the app, so the basemap works offline);
+    // airfields for the 2D basemap, as [ident, iata, lat, lon, name, isLarge, isMil]. local-only:
+    // a failed fetch just leaves the layer off. loads after the basemap and marks the map dirty so
     // the codes appear as soon as they land.
     function loadAirports() {
         fetch('data/airports.json' + (typeof assetVer === 'function' ? assetVer() : ''))
@@ -151,7 +151,7 @@
         bgNeedsUpdate = true;
     }).catch(() => {});
 
-    // Click anywhere on a modal's dimmed backdrop (not its card) to close it, so the ✕ is never the
+    // click anywhere on a modal's dimmed backdrop (not its card) to close it, so the ✕ is never the
     // only way out of a long dialog. mousedown target === the overlay means the card was not clicked.
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('mousedown', (e) => {
@@ -161,9 +161,9 @@
     });
 
 
-    /* Remembered display preferences
-       View settings only (no flight data), restored on open, saved on every change.
-       Restoring dispatches 'change' so each control's normal handler runs; all of them
+    /* remembered display preferences
+       view settings only (no flight data), restored on open, saved on every change.
+       restoring dispatches 'change' so each control's normal handler runs; all of them
        no-op safely when no flight is loaded yet. */
     (function persistDisplayPrefs() {
         const PREF_IDS = ['trackerModeSelect'];
@@ -187,26 +187,26 @@
         } catch (e) { /* localStorage unavailable (private mode), defaults stand */ }
     })();
 
-    /* Light/dark theme toggle
+    /* light/dark theme toggle
        documentElement[data-theme] is what css/app.css keys its tokens off; the inline <head>
        script sets it before first paint so there's no flash: a saved manual pick from the
        aocVizPrefs blob when one exists, else the computer's own light/dark setting.
-       Stored under its own 'theme' key in aocVizPrefs rather than PREF_IDS above, since the
+       stored under its own 'theme' key in aocVizPrefs rather than PREF_IDS above, since the
        toggle isn't a form control that fires a 'change' event. */
     (function themeToggle() {
         const KEY = 'aocVizPrefs';
         const btn = document.getElementById('themeToggleBtn');
         if (!btn) return;
-        // The switch itself (knob position, lit icon) is CSS-driven off [data-theme]; only the
-        // ARIA state is mirrored here (checked = light). Do not write btn.textContent, it would
+        // the switch itself (knob position, lit icon) is CSS-driven off [data-theme]; only the
+        // ARIA state is mirrored here (checked = light). do not write btn.textContent, it would
         // wipe the knob/icon spans.
         const syncAria = () => btn.setAttribute('aria-checked', document.documentElement.dataset.theme === 'light' ? 'true' : 'false');
         syncAria();
         let themeAnimTimer = null;
-        // Everything a theme change repaints, shared by the toggle click and the OS follower below.
+        // everything a theme change repaints, shared by the toggle click and the OS follower below.
         function applyTheme(next) {
             const root = document.documentElement;
-            // Fade the token-driven colors across the switch (see css/app.css .theme-anim), then drop
+            // fade the token-driven colors across the switch (see css/app.css .theme-anim), then drop
             // the class so it never affects ordinary hover/focus color changes.
             root.classList.add('theme-anim');
             clearTimeout(themeAnimTimer);
@@ -233,8 +233,8 @@
                 localStorage.setItem(KEY, JSON.stringify(saved));
             } catch (e) { /* localStorage unavailable (private mode) */ }
         });
-        // With no manual pick saved, the theme keeps following the computer's light/dark setting
-        // live, so an OS-level switch mid-session re-themes the app. The first toggle click above
+        // with no manual pick saved, the theme keeps following the computer's light/dark setting
+        // live, so an OS-level switch mid-session re-themes the app. the first toggle click above
         // writes saved.theme and this goes quiet for good.
         try {
             const mq = matchMedia('(prefers-color-scheme: light)');

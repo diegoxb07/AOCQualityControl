@@ -1,4 +1,4 @@
-// Offline app shell. Registered from index.html with a *relative* path so the scope stays
+// offline app shell. registered from index.html with a *relative* path so the scope stays
 // /AOCQualityControl/ on the shared diegoxb07.github.io origin (sibling project pages live on
 // the same origin, so both the scope and the cache cleanup below must stay app-prefixed).
 //
@@ -8,7 +8,7 @@
 const CACHE_VERSION = '?v=20260724a';
 const CACHE_NAME = 'aoc-qc-' + CACHE_VERSION.replace(/[^0-9A-Za-z._-]/g, '');
 
-// Every same-origin file the app needs at runtime. Fetches are matched with ignoreSearch, so the
+// every same-origin file the app needs at runtime. fetches are matched with ignoreSearch, so the
 // ?v= tokens on index.html's includes (and assetVer()'d runtime fetches) hit these entries.
 // cache.addAll() rejects if ANY entry 404s: when adding or renaming a css/js/font/data file,
 // add it here too, or the precache silently fails and the app just stays online-only.
@@ -41,7 +41,6 @@ const PRECACHE = [
     'js/15-map-render.js',
     'js/17-charts.js',
     'js/18-engine.js',
-    'js/18b-flight-search.js',
     'js/19-bootstrap.js',
     'js/21-qc-engine.js',
     'js/22-qc-charts.js',
@@ -71,14 +70,14 @@ const PRECACHE = [
 
 self.addEventListener('install', (e) => {
     // 'no-cache' forces every precache fetch to revalidate with the server (ETag -> 304 when
-    // unchanged, so installs stay cheap). Without it, addAll's default-mode fetches are answered
+    // unchanged, so installs stay cheap). without it, addAll's default-mode fetches are answered
     // by the browser HTTP cache, and GitHub Pages serves everything with max-age=600: a deploy
     // installed inside that window would fill the NEW cache with the PREVIOUS deploy's bytes
     // (whole or torn), and cache-first serving would pin users there until the deploy after next.
     //
-    // skipWaiting: the new deploy takes over without waiting for every tab to close. The load
+    // skipWaiting: the new deploy takes over without waiting for every tab to close. the load
     // that discovers the new sw.js still renders from the old cache; the refresh after that
-    // shows the new version. The cache is a complete per-deploy snapshot, so the only skew
+    // shows the new version. the cache is a complete per-deploy snapshot, so the only skew
     // window is a page from deploy N runtime-fetching from deploy N+1's cache (data files,
     // parse-worker), which is harmless here and better than pinned tabs staying stale for days.
     e.waitUntil(
@@ -89,7 +88,7 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
-    // Only touch this app's own caches: Cache Storage is origin-wide and other project pages
+    // only touch this app's own caches: Cache Storage is origin-wide and other project pages
     // share diegoxb07.github.io.
     e.waitUntil(
         caches.keys()
@@ -104,7 +103,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     if (e.request.method !== 'GET') return;
 
-    // The app is fully same-origin, so anything cross-origin is not ours: pass it straight to
+    // the app is fully same-origin, so anything cross-origin is not ours: pass it straight to
     // the network and never cache it here.
     const url = new URL(e.request.url);
     if (url.origin !== self.location.origin) return;
@@ -116,7 +115,7 @@ self.addEventListener('fetch', (e) => {
         try {
             return await fetch(e.request);
         } catch (err) {
-            // Offline hard-refresh of any in-scope URL still gets the app shell.
+            // offline hard-refresh of any in-scope URL still gets the app shell.
             if (e.request.mode === 'navigate') {
                 const shell = await cache.match('./');
                 if (shell) return shell;

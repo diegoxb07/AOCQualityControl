@@ -14,9 +14,7 @@ This tool reuses selected pieces of the AOC Mission Visualizer: the design, the 
 
 Upload a `.nc` flight-level file on the **Load a Flight** section in the header!
 
-Every flight you load is saved on this device and reopens from the **Loaded Flights** list instantly, newest first, including after a reload. You can click the red cross on a row to remove that flight (list holds the 100 most recent).
-
-**Metrics Across Flights** finds which saved flight recorded the highest or lowest value of any metric, with a comparison graph.
+Every flight you load is saved on this device and reopens from the **Loaded Flights** list instantly, newest first, including after a reload. You can click the red cross on a row to remove that flight (the 100 most recent flights are kept).
 
 ## Takeoff, landing, and trimming
 
@@ -26,7 +24,7 @@ Takeoff is designated as the first climb from taxi elevation + 100 m and seen to
 
 Everything recorded more than five minutes before takeoff is trimmed away and never reaches any of the graphs, gaps, or anything else. The kept five minutes are used for the takeoff phase of the phase stats.
 
-To override the automatically set T/O and Landing times, type `HHMMSS` in the **T/O** and **LND** boxes in the header and press **Apply**; the whole report (trim, phases, stats, references, graphs) recomputes. **Auto** returns to detection.
+To override the automatically set T/O and Landing times, type `HHMMSS` in the **T/O** and **LND** boxes in the header and press **Apply Changes**; the whole report (trim, phases, stats, references, graphs) recomputes. Clearing both boxes and applying returns to automatic detection.
 
 ## Reading a graph
 
@@ -42,15 +40,15 @@ Timesliding (dragging your mouse moves the playhead), pan (drags the graph itsel
 
 Clicking a group chip selects or unselects a whole sensor set, and several groups can be selected at once. Selected sensors display a standard deviation and coefficient of variation between each other.
 
-A horizontal line shows the reference and its referring sensor as it goes across the flight, in order. If it switches mid-flight, a badge in the title names each switch with its time (click a time to jump there), and the source sensor reads blue as you slide to the point in the flight it is being referred to.
+A horizontal line shows the reference and its referring sensor as it goes across the flight, in order. If it switches mid-flight, a badge in the title names each switch with its time (click a time to jump there), and the source sensor turns blue as you slide to the point in the flight it is being referred to.
 
 ## Issues, pills, and statistics
 
-Summary pills list the flagged items on each sensor; click one to jump to its graph. A **No Gaps** pill means just that: the sensor recorded without gaps, which is all the tool can attest. Every graph carries something similar but more in-depth, with the flag breakdown in parentheses beside the **+N more** toggle.
+Summary pills list the flagged items on each sensor; click one to jump to its graph. A **with no gaps** pill means only that the sensor recorded without gaps. Every graph has a similar, more detailed chip strip, with the flag breakdown in parentheses beside the **+N more** toggle.
 
 Max/mean/median shows the takeoff, mid-flight, and landing max, mean, and median for any variable (ex. PSM, PS.c).
 
-The Difference Between Sensors graph plots every in-group pair with its max difference listed. Cross-group pairs sit on their own row, and any combination of pairs (cross-group included) can be selected at once. Each pair is labeled first sensor − second sensor, and the plotted difference is computed in exactly that order.
+The Difference Between Sensors graph plots every in-group pair with its max difference listed. Cross-group pairs are on their own row, and any combination of pairs (cross-group included) can be selected at once. Each pair is labeled first sensor − second sensor, and the plotted difference is computed in exactly that order.
 
 ## Flight map
 
@@ -70,7 +68,7 @@ Keyboard shortcuts: Space play/pause, ← / → step one second (Shift for ten),
 | Flight Track Map (.pdf) | A landscape PDF map of the flight track, in the traditional FD style. |
 | NC → TXT (.txt) | Converts the loaded flight to a delimited text file. Every variable in the file is listed, not just the graphed set, and the parameters, delimiter, and time window are all pickable. |
 
-The Error Summary modal prefills the flight id, takeoff/landing times, flight directory, ground locations (nearest airport within a few miles of the aircraft at takeoff/landing), and sensor designations (from what the reference variables rode). Any field the tool cannot derive is left blank rather than automated, and required fields flag red while empty. Click a designation row to graph its sensors beside the modal.
+The Error Summary modal prefills the flight id, takeoff/landing times, flight directory, ground locations (nearest airport within a few miles of the aircraft at takeoff/landing), and sensor designations (from the sensors the reference variables used). Any field the tool cannot derive is left blank, and required fields are outlined in red while empty. Click a designation row to graph its sensors beside the modal.
 
 ## Code architecture
 
@@ -86,13 +84,13 @@ QC-specific files:
 
 | File | Role |
 | --- | --- |
-| `js/00b-qc-catalog.js` | sensor catalog: families, per-airframe members (P-3 `H`/`I`, G-IV `N`), references, difference pairs. |
+| `js/00b-qc-catalog.js` | Sensor catalog: families, per-airframe members (P-3 `H`/`I`, G-IV `N`), references, difference pairs. |
 | `js/11b-parser-core.js` | `parseFlightRawQC`: keeps every row on a continuous 1-second axis and does not clean up the raw data. |
-| `js/21-qc-engine.js` | presence, coverage, gap classification, phase stats, differences, derived SLP. |
-| `js/22-qc-charts.js` | stacked family and difference graphs, the flight-track map, gap shading, playhead, toolbar, issue strips. |
-| `js/23-qc-report.js` | the app shell, per-sensor report, exports, cross-flight store, sidebar, map relocation. |
-| `js/24-qc-export-html.js` | the self-contained interactive HTML export. |
-| `js/25-qc-error-summary.js` | the Error Summary PDF and its prefill logic. |
-| `data/airports.json` | large/medium airports worldwide (OurAirports, public domain), for ground-location lookup. |
+| `js/21-qc-engine.js` | Presence, coverage, gap classification, phase stats, differences, derived SLP. |
+| `js/22-qc-charts.js` | Stacked family and difference graphs, the flight-track map, gap shading, playhead, toolbar, issue strips. |
+| `js/23-qc-report.js` | The app shell, per-sensor report, exports, cross-flight store, sidebar, map relocation. |
+| `js/24-qc-export-html.js` | The self-contained interactive HTML export. |
+| `js/25-qc-error-summary.js` | The Error Summary PDF and its prefill logic. |
+| `data/airports.json` | Large/medium airports worldwide (OurAirports, public domain), for ground-location lookup. |
 
 The remaining `js/` files are the reused visualizer subsystems: parser, 2D/3D map, playback engine, on-device mission store, layout, theming. The visualizer's shell stays in the DOM underneath the QC app so its wiring keeps working; the map panel, the flight loader, and the top-right controls are relocated into the QC layout.

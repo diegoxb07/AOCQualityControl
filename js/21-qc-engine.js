@@ -1,12 +1,12 @@
 /* QC Mode, the QC engine (checks + statistics)
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Pure functions over the parsed raw arrays and timeAxis (js/11b-parser-core.js parseFlightRawQC).
-   Reproduces the statistics the qc_plots_with_map_v2.py script computed: presence + gaps down to
+   pure functions over the parsed raw arrays and timeAxis (js/11b-parser-core.js parseFlightRawQC).
+   reproduces the statistics the qc_plots_with_map_v2.py script computed: presence + gaps down to
    one second, takeoff / mid-flight / landing max-mean-median, redundant-member differences with
    their whole-flight mean, the derived pressure-altitude / standard-SLP / Willoughby-SLP block, and
-   the whole-flight UWZ mean. Everything here returns plain data the report (js/23) and the charts
+   the whole-flight UWZ mean. everything here returns plain data the report (js/23) and the charts
    (js/22) consume; nothing touches the DOM. */
 
     function qcRound(x, n) { if (x === null || x === undefined || Number.isNaN(x)) return NaN; const p = Math.pow(10, n); return Math.round(x * p) / p; }

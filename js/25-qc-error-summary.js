@@ -1,14 +1,14 @@
 /* QC Mode, error summary PDF export (qc_Error_Summary_1.1.py, semi-automated)
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Follows the ES script's reportlab layout: Courier text at inch coordinates on letter pages,
+   follows the ES script's reportlab layout: Courier text at inch coordinates on letter pages,
    the same title rule, sensor table, directory line, corrections, wrapped notes, expendables
-   table, and flight director block, in that order. The row pitches and section gaps are NOT the
-   script's own numbers: they were tightened (sensor and expendable rows to 0.2in, notes to 12pt
-   leading, gaps to 0.25in) so a form carrying the standing notes still lands on one page, which
-   the script's looser spacing no longer allowed. Change them together, and check the page count
-   with the notes box full. The modal prefills what the tool knows (flight id, takeoff/landing
+   table, and flight director block, in that order. the row pitches and section gaps are NOT the
+   script's own numbers: they are tighter (sensor and expendable rows 0.2in, notes on 12pt
+   leading, gaps 0.25in) so a form carrying the standing notes fits on one page, which the
+   script's looser spacing does not allow. change them together, and check the page count
+   with the notes box full. the modal prefills what the tool knows (flight id, takeoff/landing
    times, sensor designations from what the refs actually rode, plus the standing notes for the
    airframe); everything stays editable, like the script's form. */
 
@@ -392,8 +392,8 @@
         const note = document.getElementById('qcEsGraphNote');
         if (!found.length) { note.textContent = 'No graphable variables behind this row in this flight; it stays a manual call.'; return; }
         note.textContent = (refFam && refFam.refInfo && refFam.refInfo.sources && refFam.refInfo.sources.length)
-            ? refFam.ref + ' rode ' + refFam.refInfo.sources.join(', then ')
-            : 'No ref variable names one of these; judge by eye and set the dropdown.';
+            ? refFam.ref + ' used ' + refFam.refInfo.sources.join(', then ')
+            : 'No ref variable used one of these; judge by eye and set the dropdown.';
         const dsets = found.map((m, k) => ({
             label: m.name, data: qcDecimate(m.series, 0, m.series.length - 1), parsing: false, normalized: true,
             borderColor: QC_SERIES_COLORS[k % QC_SERIES_COLORS.length], borderWidth: 1.3, pointRadius: 0, spanGaps: false, fill: false

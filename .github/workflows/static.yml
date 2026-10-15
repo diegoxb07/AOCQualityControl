@@ -1,28 +1,28 @@
-# Simple workflow for deploying static content to GitHub Pages
+# simple workflow for deploying static content to GitHub Pages
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
+  # runs on pushes targeting the default branch
   push:
     branches: ["main"]
 
-  # Allows you to run this workflow manually from the Actions tab
+  # allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# however, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
+  # single deploy job since we're just deploying
   deploy:
     environment:
       name: github-pages
@@ -32,19 +32,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Cache-bust asset URLs with the commit SHA
-        # Rewrites every ?v=... on the css/js includes in index.html to this deploy's commit SHA
+        # rewrites every ?v=... on the css/js includes in index.html to this deploy's commit SHA
         # (no manual token bumping), which keeps plain HTTP-cache busting working for first visits
-        # and service-worker-less browsers. The same rewrite stamps sw.js's CACHE_VERSION, which is
+        # and service-worker-less browsers. the same rewrite stamps sw.js's CACHE_VERSION, which is
         # what drives freshness once the service worker controls the page: each deploy installs a
         # fresh, server-revalidated precache and drops the old one; the new build appears on the
         # second page load after a push (the first load installs it in the background).
         run: sed -i "s/?v=[0-9A-Za-z._-]\{1,\}/?v=${GITHUB_SHA}/g" index.html sw.js
       - name: Build the standalone offline copy
-        # One self-contained .html with every asset inlined, published beside the site so the
-        # Export menu's "Offline Copy" button has something to serve. Runs AFTER the cache-bust
-        # rewrite so the embedded copy carries the same stamps as the deployed site. The build
-        # fails loudly if the app gained an asset reference it does not embed, rather than
-        # shipping an offline copy with a silently dead feature.
+        # one self-contained .html with every asset inlined, published beside the site so the
+        # Export menu's "Local Version (.html)" button has something to serve. runs AFTER the cache-bust
+        # rewrite so the embedded copy carries the same stamps as the deployed site. the build
+        # warns in the log about any asset reference it does not embed.
         run: |
           python3 tools/build-standalone.py
           # only the stable name ships; dist/ also holds a dated copy and a zip for hand-out,
@@ -58,7 +57,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
+          # upload entire repository
           path: '.'
       - name: Deploy to GitHub Pages
         id: deployment

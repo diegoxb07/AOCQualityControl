@@ -1,9 +1,9 @@
 /* Mission Visualizer, file upload + flight-load pipeline
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   The parsing itself lives in js/11b-parser-core.js (pure, shared with the parse worker and the
-   node tests). This file owns the DOM side: upload wiring, the worker round-trip, the data
+   the parsing itself lives in js/11b-parser-core.js (pure, shared with the parse worker).
+   this file owns the DOM side: upload wiring, the worker round-trip, the data
    report, and the post-parse UI/global setup. */
 
     let lastParseStats = null;   // stats ledger from the most recent load (see parseFlightTextToRows)
@@ -25,7 +25,7 @@
 
     document.getElementById('fileInput').addEventListener('change', function(e) {
         if (!e.target.files[0]) return;
-        // .nc only. The accept attribute filters the browse dialog but not a drag-and-drop, so this
+        // .nc only. the accept attribute filters the browse dialog but not a drag-and-drop, so this
         // is the check that actually holds, and it clears the input so re-picking the same file fires.
         if (!/\.nc$/i.test(e.target.files[0].name)) {
             showToast('Only .nc flight-level files can be loaded. "' + e.target.files[0].name + '" was not loaded.', 8000);
@@ -61,14 +61,14 @@
         }, 50);
     });
 
-    // Clears the upload drop zone. Reopening a stored flight starts clean, so the zone never
+    // clears the upload drop zone. reopening a stored flight starts clean, so the zone never
     // keeps naming the file from the previous flight.
     function clearLoadedMedia() {
         document.getElementById('fileInput').value = '';
         resetDropZone('dataDropZone', 'dataDropLabel');
     }
 
-    // The shared ?v= cache-buster, read off this page's own script tags so the worker URL stays in
+    // the shared ?v= cache-buster, read off this page's own script tags so the worker URL stays in
     // step with the single version string in index.html.
     function assetVer() {
         const s = document.querySelector('script[src*="?v="]');
@@ -76,9 +76,9 @@
         return m ? m[0] : '';
     }
 
-    // Parse a flight source (TSV string, or an .nc ArrayBuffer) into { rows, stats }, off the main
-    // thread so the page never freezes on a big file. Falls back to parsing on the main thread when
-    // workers are unavailable (e.g. file://). Rejects with the parse error for the caller to report.
+    // parse a flight source (TSV string, or an .nc ArrayBuffer) into { rows, stats }, off the main
+    // thread so the page never freezes on a big file. falls back to parsing on the main thread when
+    // workers are unavailable (e.g. file://). rejects with the parse error for the caller to report.
     // reflect the worker's decode progress in the loading overlay subtext (see ncArrayBufferToTsv).
     function updateParseProgress(p) {
         if (!p) return;
@@ -141,7 +141,7 @@
         });
     }
 
-    // Fill #dataReportLine with the parser's honesty ledger (rows filtered, values derived),
+    // fill #dataReportLine with the parser's honesty ledger (rows filtered, values derived),
     // so what was done to the data is always disclosed under the mission header.
     function updateDataReport(stats) {
         const line = document.getElementById('dataReportLine');
@@ -151,7 +151,7 @@
         }
     }
 
-    // Load a flight from a TSV string or an .nc ArrayBuffer. Throws (after cleaning up its own
+    // load a flight from a TSV string or an .nc ArrayBuffer. throws (after cleaning up its own
     // state) when the file yields nothing usable; callers decide how to surface that.
     async function parseEntireFile(source) {
         // wantAll: this is the interactive single-flight load (manual upload or archive), the only
@@ -159,9 +159,9 @@
         applyParsedFlight(await parseFlightSource(source, undefined, true));
     }
 
-    // Take an already-parsed { rows, stats } (fresh from the worker, or held by the mission
+    // take an already-parsed { rows, stats } (fresh from the worker, or held by the mission
     // preloader) and make it the loaded flight: resets, globals, and the post-parse UI setup.
-    // Throws when the rows are empty.
+    // throws when the rows are empty.
     function applyParsedFlight(parsed) {
         allParsedData = parsed.rows; lastParseStats = parsed.stats;
         updateDataReport(parsed.stats);
@@ -171,9 +171,9 @@
 
 
         // QC Mode: hand the raw dataset (continuous 1-second axis, every catalog var) to the QC
-        // engine/report/charts. Best-effort so any QC failure never disturbs the player.
+        // engine/report/charts. best-effort so any QC failure never disturbs the player.
         qcRawData = parsed.qc || null;
-        // Every-variable dataset for the NC-to-TXT converter (memory-only, current flight). Absent for
+        // every-variable dataset for the NC-to-TXT converter (memory-only, current flight). absent for
         // batch-preloaded / reopened-from-store flights, which fall back to the catalog set + a note.
         qcRawDataAll = parsed.qcAll || null;
         try { if (typeof onFlightLoadedForQC === 'function') onFlightLoadedForQC(); }
@@ -186,14 +186,14 @@
         document.getElementById('endTimeInput').value = allParsedData[allParsedData.length-1].time;
         applyFiltersAndInit(false);
 
-        // New flight: start zoomed in on the aircraft and following it (js/15-map-render.js).
+        // new flight: start zoomed in on the aircraft and following it (js/15-map-render.js).
         if (typeof engageFollowAircraft === 'function') engageFollowAircraft();
 
         if (filteredData.length > 0 && !isPlaying) {
             startPlayback();
         }
 
-        // Success: this runs only once processing is fully done, so morph the spinner to a checkmark
+        // success: this runs only once processing is fully done, so morph the spinner to a checkmark
         // right here and close almost immediately (just long enough for the check to draw), no lingering.
         const spin = document.getElementById('loadingSpinner');
         if (spin) {

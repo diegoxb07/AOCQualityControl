@@ -1,10 +1,10 @@
 /* QC Mode, flight-track map PDF export
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Mirrors the qc_plots_with_map script's flight-track map: the ref lat/lon path over a faint
+   mirrors the qc_plots_with_map script's flight-track map: the ref lat/lon path over a faint
    country/state basemap with names, directional heading arrows at a chosen interval, and time
-   markers at a chosen interval, plus takeoff and landing markers. Rendered client-side into a
+   markers at a chosen interval, plus takeoff and landing markers. rendered client-side into a
    landscape PDF through the shared qcPdfDoc writer (js/25), no libraries, no internet. */
 
     // ref lat/lon over the flight; the map panel already fused these, else fall back to the report

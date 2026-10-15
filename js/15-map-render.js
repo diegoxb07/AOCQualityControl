@@ -1,10 +1,10 @@
 /* Mission Visualizer, 2D map projection + render engine
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order. */
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order. */
 
     // Shift a longitude into the flight-centered window [lonDomainCenter-180, lonDomainCenter+180)
     // so a dateline-crossing flight (e.g. Hawaii -> Asia) projects continuously instead of
-    // snapping across the whole map. Identity (lonDomainCenter 0) for normal flights.
+    // snapping across the whole map. identity (lonDomainCenter 0) for normal flights.
     function wrapLon(lon) {
         if (!lonDomainCenter) return lon;
         return ((lon - lonDomainCenter) % 360 + 540) % 360 - 180 + lonDomainCenter;
@@ -12,7 +12,7 @@
 
     function calculateMapScales() {
         const rawLons = filteredData.map(d => d.lon); const lats = filteredData.map(d => d.lat);
-        // A dateline crosser reads as a ~360-degree raw span "the wrong way round". Re-center
+        // A dateline crosser reads as a ~360-degree raw span "the wrong way round". re-center
         // the longitude domain on the flight's circular-mean longitude so bounds, zoom, and
         // every layer projected through getX stay continuous.
         lonDomainCenter = 0;
@@ -26,7 +26,7 @@
         const centerLon = (minLon + maxLon)/2; const centerLat = (minLat + maxLat)/2;
         deltaLon = (maxLon - minLon)*1.6 || 0.2; deltaLat = (maxLat - minLat)*1.6 || 0.2;
         const cosLat = Math.cos(centerLat * Math.PI/180);
-        // Default framing is never tighter than a 200 km radius around the flight; wheel/drag
+        // default framing is never tighter than a 200 km radius around the flight; wheel/drag
         // (mapScale/mapOffset) still override it for closer looks.
         const minSpanDeg = 400 / 111;
         deltaLat = Math.max(deltaLat, minSpanDeg);
@@ -36,10 +36,10 @@
         plotMinLon = centerLon - deltaLon/2; plotMaxLon = centerLon + deltaLon/2; plotMinLat = centerLat - deltaLat/2; plotMaxLat = centerLat + deltaLat/2;
     }
 
-    // The user's live pan/zoom is stored as pixel offsets (mapOffsetX/Y) and a scale relative to
+    // the user's live pan/zoom is stored as pixel offsets (mapOffsetX/Y) and a scale relative to
     // the current canvas size and base frame; a resize or a base reframe (fullscreen, window
     // resize) changes both and the same pixels then point at a different place, so the view jumps.
-    // Capturing the viewport as geography (its center lon/lat and visible lon span) and re-applying
+    // capturing the viewport as geography (its center lon/lat and visible lon span) and re-applying
     // it after keeps what the user was looking at fixed across the change.
     function isMapPanned() { return mapScale !== 1 || mapOffsetX !== 0 || mapOffsetY !== 0; }
     function getMapViewportGeo() {
@@ -58,7 +58,7 @@
         mapOffsetY = cssH / 2 - mapScale * getY(v.cLat);
     }
 
-    // Follow-the-aircraft: the 2D map keeps the current plane position at screen center until the
+    // follow-the-aircraft: the 2D map keeps the current plane position at screen center until the
     // user pans or zooms (which flips followAircraft2D off and reveals the recenter button).
     const FOLLOW_SPAN_KM = 360;   // visible width, in km, when following (framed around the plane)
     function centerMapOnPlane2D(d) {
@@ -66,7 +66,7 @@
         mapOffsetX = cssW / 2 - mapScale * getX(d.lon);
         mapOffsetY = cssH / 2 - mapScale * getY(d.lat);
     }
-    // Engage follow and zoom into the plane. Called on load and by the recenter button.
+    // engage follow and zoom into the plane. called on load and by the recenter button.
     function engageFollowAircraft() {
         followAircraft2D = true;
         if (filteredData.length && deltaLon) {
@@ -79,18 +79,18 @@
         if (typeof updateFollowButton === 'function') updateFollowButton();
         if (filteredData.length && trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
     }
-    // Called by the pan/zoom handlers: stop following and surface the recenter button.
+    // called by the pan/zoom handlers: stop following and surface the recenter button.
     function disengageFollowAircraft() {
         if (!followAircraft2D) return;
         followAircraft2D = false;
         if (typeof updateFollowButton === 'function') updateFollowButton();
     }
 
-    // Projection works in LOGICAL css pixels; the renderers apply the DPR base transform.
+    // projection works in LOGICAL css pixels; the renderers apply the DPR base transform.
     function getX(lon) { return ((wrapLon(lon) - plotMinLon) / deltaLon) * cssW; }
     function getY(lat) { return cssH - ((lat - plotMinLat) / deltaLat) * cssH; }
 
-    // Geographic bounds currently visible (depends on pan/zoom). Used to draw the WHOLE world map
+    // geographic bounds currently visible (depends on pan/zoom). used to draw the WHOLE world map
     // but only the parts on screen, so Africa etc. appear when you zoom out, with no perf hit when
     // zoomed into the flight.
     function getVisibleGeoBounds() {
@@ -122,7 +122,7 @@
     function getBarbColor(spd) { const [r, g, b] = getSpdColorRGB(spd); return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`; }
 
     function getBarbSpacingPx() {
-        // Screen-px gap between barbs along the track. The zoomed-out cap sets density at
+        // screen-px gap between barbs along the track. the zoomed-out cap sets density at
         // low zoom; zoomed in this converges to the 8px floor.
         const zoom = Math.max(mapScale, 0.35);
         return Math.min(16, Math.max(8, 30 / zoom));
@@ -145,9 +145,9 @@
     }
     
     // Sutherland-Hodgman ring clip against a lon/lat box in the plot's lon domain (shift applied
-    // first). Zoomed in far, the raw world rings project to paths millions of device px across
+    // first). zoomed in far, the raw world rings project to paths millions of device px across
     // and the rasterizer silently drops them whole, visible land included; clipping every ring
-    // to a padded view box keeps path extents small. The pad puts the clip's artificial box-edge
+    // to a padded view box keeps path extents small. the pad puts the clip's artificial box-edge
     // segments (and their strokes) outside the visible area.
     function clipRingToBox(ring, shift, box) {
         let out = [];
@@ -166,7 +166,7 @@
         return out;
     }
 
-    // Geometry clipping kicks in past this zoom; below it the raw paths are small enough for the
+    // geometry clipping kicks in past this zoom; below it the raw paths are small enough for the
     // rasterizer and the draw stays byte-identical to the unclipped output.
     const MAP_CLIP_MIN_SCALE = 6;
     function mapClipBox() {
@@ -176,20 +176,20 @@
         return { minLon: v.minLon - padLon, maxLon: v.maxLon + padLon, minLat: v.minLat - padLat, maxLat: v.maxLat + padLat };
     }
 
-    // Airfield codes: the flight's takeoff and landing fields (the airfield nearest each end of the
+    // airfield codes: the flight's takeoff and landing fields (the airfield nearest each end of the
     // track), each drawn while the plane is within AIRPORT_RADIUS_NM of it, plus the home field (LAL)
-    // drawn whenever it is within the map view, as a fixed geographic reference. Drawn on the live
-    // foreground so they follow the playhead. Home + military take the accent.
+    // drawn whenever it is within the map view, as a fixed geographic reference. drawn on the live
+    // foreground so they follow the playhead. home + military take the accent.
     const AIRPORT_HOME_CODE = 'LAL';   // Lakeland Linder, the AOC's home field
     const AIRPORT_RADIUS_NM = 60;      // show a takeoff/landing field only within this of the plane
-    // The home field object (once airports load), cached; drawn as a constant geographic reference.
+    // the home field object (once airports load), cached; drawn as a constant geographic reference.
     let _homeAirport = null, _homeSet = false;
     function homeAirport() {
         if (!_homeSet && airports.length) { _homeAirport = airports.find(a => a.code === AIRPORT_HOME_CODE) || null; _homeSet = true; }
         return _homeAirport;
     }
-    // The takeoff + landing fields: the airfield nearest each end of the track, within the radius of that
-    // end (so a track that opens/closes already far from any field yields none). Cached per flight.
+    // the takeoff + landing fields: the airfield nearest each end of the track, within the radius of that
+    // end (so a track that opens/closes already far from any field yields none). cached per flight.
     let _endpointAirports = null, _endpointKey = '';
     function endpointAirports() {
         if (!airports.length || filteredData.length === 0) return [];
@@ -267,11 +267,11 @@
             const borderCol = lightMap ? 'rgba(94,111,124,0.50)' : 'rgba(126,168,191,0.40)';
             bgCtx.fillStyle = landFill;
             const strokeFor = isState => { bgCtx.strokeStyle = isState ? borderCol : coastCol; bgCtx.lineWidth = (isState ? 1.0 : 1.5) / mapScale; };
-            // Draw the whole world, cull off-screen, and repeat it shifted ±360 so a dateline-centered
-            // or zoomed-out view shows continuous land instead of an empty seam. Projects with the
+            // draw the whole world, cull off-screen, and repeat it shifted ±360 so a dateline-centered
+            // or zoomed-out view shows continuous land instead of an empty seam. projects with the
             // raw (unwrapped) x, wrapping would cancel the shift.
             const getXShift = (lon, shift) => xOf(lon + shift);
-            // Clipped rings lose the data's repeated closing point, so close the subpath for the
+            // clipped rings lose the data's repeated closing point, so close the subpath for the
             // stroke; the unclipped branch keeps the original untouched draw.
             const traceRing = (ring, shift) => {
                 if (!clipBox) {
@@ -303,13 +303,13 @@
 
     function renderMapEngineFrame(idx, visualRow) {
         if (!canvas.width || !canvas.height) return;
-        // Follow mode keeps the plane centered every frame; recenter (and mark the background dirty
+        // follow mode keeps the plane centered every frame; recenter (and mark the background dirty
         // since the pan moved) before drawing.
         if (followAircraft2D && (visualRow || filteredData[idx])) { centerMapOnPlane2D(visualRow || filteredData[idx]); bgNeedsUpdate = true; }
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1.0; ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (bgNeedsUpdate) renderBackground();
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bgCanvas, 0, 0);   // bgCanvas is already device-res
-        // Base transform = devicePixelRatio, then the map pan/zoom. Everything below draws in logical px.
+        // base transform = devicePixelRatio, then the map pan/zoom. everything below draws in logical px.
         ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.translate(mapOffsetX, mapOffsetY); ctx.scale(mapScale, mapScale);
 
 
@@ -341,7 +341,7 @@
             flx = cp.x2; fly = cp.y2;
         }
 
-        // Future (not-yet-flown) track, faint grey, same straight segments. Normally one continuous path, but
+        // future (not-yet-flown) track, faint grey, same straight segments. normally one continuous path, but
         // zoomed in far that single path spans a device-pixel extent the rasterizer drops whole (the same
         // failure the polygon clip fixes), so past the clip threshold stroke it per on-screen segment.
         ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5/mapScale; ctx.globalAlpha = 0.3;

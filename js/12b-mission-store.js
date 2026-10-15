@@ -1,10 +1,10 @@
 /* Mission Visualizer, on-device mission store + loaded-flight picker
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   Every flight the user uploads is parsed once and kept here, so reopening it costs no parse.
-   Records live in a session Map mirrored write-through into IndexedDB (db aocPreloadedMissions),
-   so loaded flights survive reloads and open instantly on any later visit. Fully offline. */
+   every flight the user uploads is parsed once and kept here, so reopening it costs no parse.
+   records live in a session Map mirrored write-through into IndexedDB (db aocPreloadedMissions),
+   so loaded flights survive reloads and open instantly on any later visit. fully offline. */
 
     function storeEscapeHtml(str) {
         return String(str).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -64,8 +64,8 @@
         return Object.assign({}, rec, { parsed: parsed });
     }
 
-    // Write-through save + prune: the oldest stored missions past the cap leave IndexedDB (an
-    // in-memory copy, if the session holds one, stays usable until reload). The full record (incl.
+    // write-through save + prune: the oldest stored missions past the cap leave IndexedDB (an
+    // in-memory copy, if the session holds one, stays usable until reload). the full record (incl.
     // qcAll) goes to disk; the session Map keeps only the lean copy.
     function savePreloadedMission(id, rec) {
         preloadedMissions.set(id, qcLeanRec(rec));
@@ -74,13 +74,13 @@
             try {
                 const tx = missionDB.transaction(['missions', 'meta'], 'readwrite');
                 tx.objectStore('missions').put(rec, id);
-                // hasQc marks this as a QC-processed flight. The store is shared with the sibling
+                // hasQc marks this as a QC-processed flight. the store is shared with the sibling
                 // Mission Visualizer on this origin, whose cached flights carry no QC data, so this
                 // flag is what keeps its flights out of this tool's list (see metaHasQc below).
                 tx.objectStore('meta').put({ missionId: id, stormName: (rec.mission && rec.mission.storm_name) || '', isNc: rec.isNc, uploaded: true, hasQc: !!(rec.parsed && rec.parsed.qc), savedAt: Date.now() }, id);
                 const listRq = tx.objectStore('meta').getAll();
                 listRq.onsuccess = () => {
-                    // Prune only this tool's own (QC) flights. Counting or evicting the Visualizer's
+                    // prune only this tool's own (QC) flights. counting or evicting the Visualizer's
                     // flights here would let one tool delete the other's cache from the shared store.
                     const metas = (listRq.result || []).filter(metaHasQc).sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
                     metas.slice(0, Math.max(0, metas.length - PRELOADED_STORE_MAX)).forEach(m => {
@@ -94,11 +94,11 @@
     }
 
     // A QC-processed flight has QC data (parsed.qc), recorded by the hasQc flag on every save.
-    // The IndexedDB store is shared with the sibling Mission Visualizer on this origin, whose
+    // the IndexedDB store is shared with the sibling Mission Visualizer on this origin, whose
     // cached flights have no QC data, so the list keeps only flights that were processed here.
     function metaHasQc(m) { return !!(m && m.hasQc); }
 
-    // Startup: list the QC flights the store already holds as light stubs; rows stay on disk until opened.
+    // startup: list the QC flights the store already holds as light stubs; rows stay on disk until opened.
     missionStoreReady.then(() => {
         if (!missionDB) return;
         try {
@@ -114,9 +114,9 @@
         } catch (e) {}
     });
 
-    // One-time backfill for flights saved before the hasQc flag existed (they would otherwise all
-    // drop out of the list). Each unclassified record is peeked ONE at a time, so peak memory stays
-    // a single flight, and only QC flights (parsed.qc present) get the flag and reappear. Foreign
+    // one-time backfill for flights saved before the hasQc flag existed (they would otherwise all
+    // drop out of the list). each unclassified record is peeked ONE at a time, so peak memory stays
+    // a single flight, and only QC flights (parsed.qc present) get the flag and reappear. foreign
     // Visualizer flights are read but left untouched, so this tool never writes to the other's
     // records. A localStorage guard keeps the pass from repeating on later visits.
     async function backfillHasQcFlag() {
@@ -143,7 +143,7 @@
         } catch (e) {}
     }
 
-    // Loaded-flights picker (custom popover, see index.html #loadedPickerPanel). Each row is a name
+    // loaded-flights picker (custom popover, see index.html #loadedPickerPanel). each row is a name
     // button (opens the flight) plus a red × that removes just that flight from this device.
     let loadedPickerSelectedId = '';   // mission whose row shows active + names the button, '' = none
 
@@ -200,8 +200,8 @@
     }
     function closeLoadedPicker() { const p = document.getElementById('loadedPickerPanel'); if (p) p.classList.add('hidden'); }
 
-    // An uploaded flight joins the loaded list, so it reopens instantly from the picker with no
-    // re-parse. Called by the upload handler in js/12-file-parsing.js once its parse has fully
+    // an uploaded flight joins the loaded list, so it reopens instantly from the picker with no
+    // re-parse. called by the upload handler in js/12-file-parsing.js once its parse has fully
     // applied, so the globals captured here (rows, stats, QC sets) all belong to this upload.
     function rememberUploadedFlight(fileName) {
         const id = fileName.replace(/\.nc$/i, '');
@@ -213,7 +213,7 @@
         updatePreloadedSelect(id);   // the picker's active row and label now show this upload
     }
 
-    // Remove one flight from this device: drop it from the session map and IndexedDB, then re-render.
+    // remove one flight from this device: drop it from the session map and IndexedDB, then re-render.
     function removePreloadedMission(id) {
         if (!preloadedMissions.has(id)) return;
         preloadedMissions.delete(id);
@@ -224,17 +224,17 @@
         setMissionStoreStatus('Removed ' + id + ' from the loaded flights list.');
     }
 
-    // Open a stored mission: no re-parse. A stub from a previous visit pulls its record out of
+    // open a stored mission: no re-parse. A stub from a previous visit pulls its record out of
     // IndexedDB first, then applies like a session-cached one.
     async function openPreloadedMission(missionId) {
-        // The loaded list rehydrates from IndexedDB while later script files are still loading, so
+        // the loaded list rehydrates from IndexedDB while later script files are still loading, so
         // on a slow connection a stub can be opened before the playback engine (js/18-engine.js and
         // beyond) has executed; wait out the page load first.
         if (document.readyState !== 'complete') await new Promise(r => window.addEventListener('load', r, { once: true }));
         let rec = preloadedMissions.get(missionId); if (!rec) return;
-        // Pull the full record from disk when the in-memory copy can't drive the whole tool: a light
+        // pull the full record from disk when the in-memory copy can't drive the whole tool: a light
         // stub (no parsed at all), or a lean copy that dropped the every-variable QC set to save RAM.
-        // Loading it here gives the NC-to-TXT converter every parameter, not just the catalog set.
+        // loading it here gives the NC-to-TXT converter every parameter, not just the catalog set.
         if (!rec.parsed || !rec.parsed.qcAll) {
             if (!rec.parsed) setMissionStoreStatus('Opening ' + missionId + ' from the on-device store…');
             const stored = await missionIdbGet(missionId);

@@ -1,30 +1,30 @@
 /* QC Mode, NC-to-TXT converter
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
    A top-left button (in the QC app brand corner) opens a modal that exports the loaded flight's
-   raw data to a delimited text file. Unlike the QC graphs (a curated set of "needed" variables),
+   raw data to a delimited text file. unlike the QC graphs (a curated set of "needed" variables),
    this lists EVERY variable in the file so the user can pick exactly what to include.
 
-   Data source: qcRawDataAll (js/01 state, set in js/12 applyParsedFlight), the every-variable raw
-   parse. Preloaded/cached flights carry it too (persisted to IndexedDB, restored on open by
+   data source: qcRawDataAll (js/01 state, set in js/12 applyParsedFlight), the every-variable raw
+   parse. preloaded/cached flights carry it too (persisted to IndexedDB, restored on open by
    js/12b openPreloadedMission), so this only falls back to the catalog-only qcRawData for an older
-   cache saved before that existed. Both share the same shape: { timeAxis, raw:{name:Float32Array},
+   cache saved before that existed. both share the same shape: { timeAxis, raw:{name:Float32Array},
    t0, t1, present }.
 
-   The default window matches the QC graphs' trim: five minutes before the detected (or pinned)
-   takeoff through the end of the data. Both ends are editable HHMMSS boxes. */
+   the default window matches the QC graphs' trim: five minutes before the detected (or pinned)
+   takeoff through the end of the data. both ends are editable HHMMSS boxes. */
 
     let qcConvBuilt = false;
     let qcConvDrag = null;        // { target } while a click-and-drag paint-select is in progress
     let qcConvAnchorRow = null;   // last row acted on directly (click or drag start), the shift+click range anchor
 
-    // Named presets: a curated set that starts PRE-CHECKED while every other variable stays listed but
-    // unchecked (so the whole file is still one click away). Nothing here is hardcoded into the general
+    // named presets: a curated set that starts PRE-CHECKED while every other variable stays listed but
+    // unchecked (so the whole file is still one click away). nothing here is hardcoded into the general
     // list: "All variables" always enumerates whatever the loaded file actually contains, so a new
-    // plane's new variables show up automatically. Presets are just saved name lists: matching is
+    // plane's new variables show up automatically. presets are just saved name lists: matching is
     // case-insensitive, and a preset name missing from the file simply matches nothing, so a renamed or
-    // dropped variable never breaks the preset. To edit a preset, paste names separated by any whitespace.
+    // dropped variable never breaks the preset. to edit a preset, paste names separated by any whitespace.
     const QC_CONV_PRESETS = [
         {
             id: 'rebecca',
@@ -96,7 +96,7 @@
         return String(h).padStart(2, '0') + String(m).padStart(2, '0') + String(ss).padStart(2, '0');
     }
 
-    // an HHMMSS box -> the matching absolute second on this flight's axis. Mirrors the takeoff/landing
+    // an HHMMSS box -> the matching absolute second on this flight's axis. mirrors the takeoff/landing
     // pin logic (js/23 qcApplyManualPhases): a time earlier than the start by more than 12 h is the
     // next UTC day, so it lifts onto the axis of a flight that crossed midnight.
     function qcConvParseTime(str, t0) {
@@ -107,8 +107,8 @@
         return sec;
     }
 
-    // one value -> a text cell. Gaps and fills are NaN in the raw arrays (js/11b drops <= -990), so a
-    // non-finite value is always "no reading" and gets the chosen missing token. Finite values are
+    // one value -> a text cell. gaps and fills are NaN in the raw arrays (js/11b drops <= -990), so a
+    // non-finite value is always "no reading" and gets the chosen missing token. finite values are
     // trimmed to float32's ~7 significant digits so the file carries clean numbers, not packing noise.
     function qcConvFmtNum(v, missing) {
         if (v == null || !Number.isFinite(v)) return missing;
@@ -198,7 +198,7 @@
         const src = qcConvSource(); const list = document.getElementById('qcConvList');
         list.innerHTML = ''; qcConvAnchorRow = null;   // old rows are gone; drop the shift+click anchor with them
         if (!src) return;
-        // file/column order (header order), so the txt mirrors the source layout. Every variable is
+        // file/column order (header order), so the txt mirrors the source layout. every variable is
         // always listed; a preset only changes which ones start checked (its members on, the rest off).
         const preset = qcConvActivePreset();
         const names = Object.keys(src.raw);
@@ -224,7 +224,7 @@
     }
 
     // mass select: click-and-drag paints a run of checkboxes to one state, shift+click selects
-    // a range. With ~150-500 variables in the list, checking them one at a time doesn't scale.
+    // a range. with ~150-500 variables in the list, checking them one at a time doesn't scale.
     function qcConvVisibleRows() {
         return Array.prototype.filter.call(document.querySelectorAll('#qcConvList .qc-conv-item'), r => r.style.display !== 'none');
     }
@@ -289,9 +289,9 @@
         const total = Object.keys(src.raw).length;
         // this always reflects whatever flight is CURRENTLY loaded (qcConvSource reads the live
         // qcRawDataAll/qcRawData globals, overwritten by applyParsedFlight on every load), never a
-        // fixed file. The badge names the exact source FILE, revision letter included: file
+        // fixed file. the badge names the exact source FILE, revision letter included: file
         // revisions are lettered (...H1A.nc, ...H1B.nc, ...), and the uploaded file's own name
-        // carries the revision. It comes from the drop-zone label; fallback is just the data format.
+        // carries the revision. it comes from the drop-zone label; fallback is just the data format.
         let srcFile = '';
         {
             const dl = document.getElementById('dataDropLabel');
@@ -438,7 +438,7 @@
         // the rows are <label>s, and canceling pointerdown does NOT cancel the browser's follow-up
         // click: that click activates the label and flips the checkbox straight BACK, which made a
         // clean click look like the row refused to toggle (pointer-events:none on the box stops
-        // direct hits, not label forwarding). The toggle already happened in qcConvDragStart, so
+        // direct hits, not label forwarding). the toggle already happened in qcConvDragStart, so
         // cancel every click in the list, except one targeting the checkbox itself, which only
         // keyboard activation (Tab + Space) can produce here; canceling that would roll it back.
         document.getElementById('qcConvList').addEventListener('click', e => {
@@ -448,8 +448,8 @@
         document.getElementById('qcConvResetTrim').addEventListener('click', () => { qcConvSetDefaultTrim(); qcConvUpdateEstimate(); });
         [document.getElementById('qcConvStart'), document.getElementById('qcConvEnd'), document.getElementById('qcConvTimeFmt')]
             .forEach(el => el.addEventListener('input', qcConvUpdateEstimate));
-        // Select all / none act on the currently-shown rows (search AND "Show unselected" both narrow
-        // that), so you can filter then bulk-pick. With "Show unselected" off, "Select none" on the
+        // select all / none act on the currently-shown rows (search AND "Show unselected" both narrow
+        // that), so you can filter then bulk-pick. with "Show unselected" off, "Select none" on the
         // shown (== selected) rows empties the view too, which follows directly from the toggle's
         // own definition, not a bug.
         const setShown = checked => {
@@ -467,10 +467,10 @@
 
     // called from qcInitUI (js/23) once the QC app shell exists: append the converter opener and the
     // raw-.nc download link (relocated from the mission loader console) to the BOTTOM of the Export
-    // menu, past a separator. It keeps a real button skin (.qc-ov-btn), not the
-    // flat menu-item look. Not .qc-menu-item, so the menu's own close-on-click pass skips them --
-    // each closes the menu itself. The link keeps its id, so its existing show/hide (archive
-    // missions only, js/12b) and API-offline greying (js/02) still apply untouched. Safe to call
+    // menu, past a separator. it keeps a real button skin (.qc-ov-btn), not the
+    // flat menu-item look. not .qc-menu-item, so the menu's own close-on-click pass skips them --
+    // each closes the menu itself. the link keeps its id, so its existing show/hide (archive
+    // missions only, js/12b) and API-offline greying (js/02) still apply untouched. safe to call
     // more than once.
     function qcInitNcTxtConverter() {
         const menu = document.getElementById('qcExportMenu');

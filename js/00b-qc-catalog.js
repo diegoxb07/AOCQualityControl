@@ -1,16 +1,16 @@
 /* QC Mode, sensor catalog (the allow-list + families)
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   This is the data model for QC Mode. Every variable the qc_plots_with_map_v2.py script plots
+   this is the data model for QC Mode. every variable the qc_plots_with_map_v2.py script plots
    is listed here, grouped into families of redundant members with their chosen reference and the
-   difference pairs the script draws. The catalog IS the allow-list: any file variable not named
+   difference pairs the script draws. the catalog IS the allow-list: any file variable not named
    here (voltages, board/status channels, GPS housekeeping) is skipped and never plotted.
 
-   Members are split by airframe. The python script branches on mission_file[8]: H or I is a P-3
-   (NOAA42 / NOAA43, keyed 'HI' here since they share a member set), N is the G-IV (NOAA49). Names
+   members are split by airframe. the python script branches on mission_file[8]: H or I is a P-3
+   (NOAA42 / NOAA43, keyed 'HI' here since they share a member set), N is the G-IV (NOAA49). names
    are the raw NetCDF variable names, verbatim from the script's qcfile.variables[...] calls.
-   Suffixes: .d derived, .c corrected, ref = the sensor chosen to best represent the group. */
+   suffixes: .d derived, .c corrected, ref = the sensor chosen to best represent the group. */
 
     // resolve an airframe letter to its member-list key. H and I share the P-3 catalog.
     function qcAirframeKey(aircraft) { return aircraft === 'N' ? 'N' : 'HI'; }
@@ -173,7 +173,7 @@
             if (fam.ref) set.add(fam.ref);
         });
         QC_CATALOG.derivedInputs.forEach(v => set.add(v));
-        // Time is always needed to build the axis
+        // time is always needed to build the axis
         set.add('Time');
         return set;
     }

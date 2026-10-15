@@ -1,9 +1,9 @@
 /* QC Mode, report panel + CSV export + cross-flight store + mode controller
-   Part of index.html, split into modules so a failure in one file does not break the others.
-   Loaded as a classic (non-module) script; all parts share one global scope, in order.
+   part of index.html, split into modules so a failure in one file does not break the others.
+   loaded as a classic (non-module) script; all parts share one global scope, in order.
 
-   This owns the QC user surface: the always-on full-page app shell, with a per-sensor
-   presence/gap/flag report down the side and the family charts (js/22) filling the rest. It
+   this owns the QC user surface: the always-on full-page app shell, with a per-sensor
+   presence/gap/flag report down the side and the family charts (js/22) filling the rest. it
    exports the current flight's report as CSV, keeps a cross-flight difference-stats store in
    IndexedDB with its own CSV export, and jumps the map and charts to the exact second a sensor broke. */
 
@@ -123,7 +123,7 @@
 
     // QC app is the primary, always-on view (not a dismissible overlay)
     // the report controls only exist once there is a flight: pre-flight there is nothing to
-    // search, view on the map, summarize, or export. They stay VISIBLE but skeletonized (a flat
+    // search, view on the map, summarize, or export. they stay VISIBLE but skeletonized (a flat
     // gray placeholder, inert) rather than vanishing, so the toolbar keeps its shape and nothing
     // jumps into existence the moment a flight finishes loading.
     function qcToggleReportControls(show) {
@@ -137,11 +137,11 @@
     }
 
     // skeleton placeholders: pre-flight, these stand in for the mission title/pills and the
-    // chart/report panels, mimicking their eventual shape (see css/app.css qc-skel-*). Both panels
+    // chart/report panels, mimicking their eventual shape (see css/app.css qc-skel-*). both panels
     // get fully overwritten by qcRenderReport/qcRenderCharts once a flight loads, so there is never
     // a mix of skeleton and real rows to reconcile.
     function qcSkelChartsHTML() {
-        // overlay: the big waiting text centers over the FIRST skeleton graph. It is a SIBLING of
+        // overlay: the big waiting text centers over the FIRST skeleton graph. it is a SIBLING of
         // the pulsing block (absolutely positioned over it), never a child: a child would inherit
         // the parent's opacity pulse and read as actively loading instead of idle-waiting.
         const card = overlay => '<div class="qc-chart-panel qc-skel-card">' +
@@ -211,7 +211,7 @@
         // isolate the heavy renders so a failure in one (or in a single chart family) can never
         // blank the whole panel and strand the user on the "waiting for flight file" text.
         try { qcBuildFlightContext(); } catch (e) { console.warn('QC flight context failed:', e); }
-        // builds the sidebar's per-sensor report list. Safe to run even while the sidebar is
+        // builds the sidebar's per-sensor report list. safe to run even while the sidebar is
         // hidden (plain innerHTML, no canvas/layout dependency like the map/player below), so this
         // runs eagerly here rather than waiting on qcSideToggle, so the report is ready the moment
         // the flight loads, matching qcMissionName/qcSummaryPills right above it.
@@ -273,7 +273,7 @@
 
     // THE playhead-to-player contract: the one function allowed to translate the playhead (axis
     // seconds since recording start) into a player row (rows exist takeoff..landing only). a
-    // Flight context readout: the live flight conditions at the playhead, in the sidebar. The
+    // flight context readout: the live flight conditions at the playhead, in the sidebar. the
     // sidebar map hides its own HUD, so this is the sidebar's only current-values readout.
     function qcFcEsc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
     function qcBuildFlightContext() {
@@ -288,12 +288,12 @@
             '<div class="qc-fc-head">Flight conditions</div>' +
             '<div class="qc-fc-mission"><div class="qc-fc-mid">' + qcFcEsc(md.id || 'Unknown') + '</div>' +
             (sub ? '<div class="qc-fc-sub">' + sub + '</div>' : '') + '</div>' +
-            rows.map(r => '<div class="qc-row qc-fc-row"><span class="qc-row-name">' + r[0] + '</span><span class="qc-row-detail" data-fc="' + r[1] + '">—</span></div>').join('');
+            rows.map(r => '<div class="qc-row qc-fc-row"><span class="qc-row-name">' + r[0] + '</span><span class="qc-row-detail" data-fc="' + r[1] + '">N/A</span></div>').join('');
         qcUpdateFlightContext();
     }
     // climb / cruise / descent from the GPS-altitude rate over a ±15 s window; ground near the ends.
     function qcFcPhase(i) {
-        if (!filteredData || !filteredData.length) return '—';
+        if (!filteredData || !filteredData.length) return 'N/A';
         const n = filteredData.length, w = 15, alt = r => r ? (r.gpsAlt != null ? r.gpsAlt : r.pAlt) : null;
         const cur = alt(filteredData[i]);
         if (cur != null && cur < 300) return i < n * 0.5 ? 'On the ground / takeoff' : 'On the ground / landing';
@@ -309,15 +309,15 @@
         const set = (k, v) => { const el = panel.querySelector('[data-fc="' + k + '"]'); if (el) el.textContent = v; };
         const i = qcPlayheadToRow(), row = filteredData[i]; if (!row) return;
         const t0 = filteredData[0].absSeconds, dt = (row.absSeconds != null && t0 != null) ? row.absSeconds - t0 : null;
-        set('tif', dt == null ? '—' : dt < 0 ? 'pre-takeoff' : ('T+' + Math.floor(dt / 3600) + ':' + String(Math.floor((dt % 3600) / 60)).padStart(2, '0')));
+        set('tif', dt == null ? 'N/A' : dt < 0 ? 'pre-takeoff' : ('T+' + Math.floor(dt / 3600) + ':' + String(Math.floor((dt % 3600) / 60)).padStart(2, '0')));
         set('phase', qcFcPhase(i));
         const altM = row.gpsAlt != null ? row.gpsAlt : row.pAlt;
-        set('alt', altM == null ? '—' : Math.round(altM).toLocaleString() + ' m  ·  ' + Math.round(altM * 3.28084).toLocaleString() + ' ft');
-        set('hdg', (row.th == null ? '—' : Math.round(row.th) + '°') + '  /  ' + (row.gTrack == null ? '—' : Math.round(row.gTrack) + '°'));
-        set('tas', row.tas == null ? '—' : Math.round(row.tas) + ' kt');
-        set('wind', (row.windDir == null || row.windSpd == null) ? '—' : Math.round(row.windDir) + '° @ ' + Math.round(row.windSpd) + ' kt');
-        set('temp', row.tempr == null ? '—' : row.tempr.toFixed(1) + ' °C');
-        set('pos', (row.lat == null || row.lon == null) ? '—' : row.lat.toFixed(3) + ', ' + row.lon.toFixed(3));
+        set('alt', altM == null ? 'N/A' : Math.round(altM).toLocaleString() + ' m  ·  ' + Math.round(altM * 3.28084).toLocaleString() + ' ft');
+        set('hdg', (row.th == null ? 'N/A' : Math.round(row.th) + '°') + '  /  ' + (row.gTrack == null ? 'N/A' : Math.round(row.gTrack) + '°'));
+        set('tas', row.tas == null ? 'N/A' : Math.round(row.tas) + ' kt');
+        set('wind', (row.windDir == null || row.windSpd == null) ? 'N/A' : Math.round(row.windDir) + '° @ ' + Math.round(row.windSpd) + ' kt');
+        set('temp', row.tempr == null ? 'N/A' : row.tempr.toFixed(1) + ' °C');
+        set('pos', (row.lat == null || row.lon == null) ? 'N/A' : row.lat.toFixed(3) + ', ' + row.lon.toFixed(3));
     }
 
     // playhead before takeoff maps to row 0, after landing to the last row; in between it is the
@@ -469,8 +469,9 @@
     }
 
     // cross-flight difference-stats store (IndexedDB)
-    // one row per flight: mission id + every family's mean difference, keyed by airframe. replaces
-    // the script's N42/N43/N49_Stats.txt append-only files, queryable in-app and exportable as CSV.
+    // one row per flight: mission id + every family's mean difference, keyed by airframe. it holds
+    // what the script's N42/N43/N49_Stats.txt append-only files hold, queryable in-app and
+    // exportable as CSV.
     const QC_DB = 'aocQC', QC_STORE = 'qcFlights';
     function qcDBOpen() {
         return new Promise((resolve, reject) => {
@@ -525,7 +526,7 @@
                 '<div class="modal-card" style="max-height:80vh;max-width:520px">' +
                   '<button id="qcStatsPickerClose" class="qc-cmd-x" style="position:absolute;top:14px;right:14px" title="Close">✕</button>' +
                   '<h2 class="text-ink text-lg font-bold border-b border-hairline pb-2">Indiv. Plane Stats CSV</h2>' +
-                  '<div class="qc-picker-note">Every flight opened in this tool saves its stats row on this device automatically, so this list holds all flights of each plane, including flights from earlier sessions. Check the flights to include; one Stats file downloads per plane, in the script\'s exact format.</div>' +
+                  '<div class="qc-picker-note">Every flight opened in this tool saves its stats row on this device automatically, so this list includes all flights of each plane, including flights from earlier sessions. Check the flights to include; one Stats file downloads per plane, in the script\'s exact format.</div>' +
                   '<div id="qcStatsPickerBody" style="overflow-y:auto;min-height:0"></div>' +
                   '<div class="qc-picker-foot">' +
                     '<button id="qcStatsPickerAll" class="qc-ov-btn">All</button>' +
@@ -559,7 +560,7 @@
                 ? '<label class="qc-picker-row"><input type="checkbox" checked data-id="' + String(r.missionId).replace(/"/g, '&quot;') + '">' + r.missionId + '</label>'
                 : '<div class="qc-picker-row qc-picker-stale">' + r.missionId + ' (reopen this flight once to refresh its saved row)</div>').join('');
         });
-        document.getElementById('qcStatsPickerBody').innerHTML = html || '<div class="qc-empty">No flights saved yet. Load a flight and its row saves on its own.</div>';
+        document.getElementById('qcStatsPickerBody').innerHTML = html || '<div class="qc-empty">No flights saved yet. Load a flight and its row is saved automatically.</div>';
         qcStatsPicker.style.display = 'flex';
     }
 
@@ -637,7 +638,7 @@
                 '<button id="qcSpeedBtn" class="qc-ov-btn" title="Playback speed, click to cycle" style="min-width:44px">1x</button>' +
                     '<span id="qcTimeLabel" class="qc-time-label">--:--:--</span>' +
                   '</div>' +
-                  '<div class="qc-context-note">slide by clicking or dragging on any graph, or with the arrow keys (shift for 10 s steps). Playback stays between takeoff and landing</div>' +
+                  '<div class="qc-context-note">Slide by clicking or dragging on any graph, or with the arrow keys (Shift for 10 s steps). Playback stays between takeoff and landing.</div>' +
                 '</div>' +
                 '<div class="qc-report" id="qcReportPanel"></div>' +
               '</aside>' +
@@ -698,7 +699,7 @@
                     '<text x="178" y="76" text-anchor="middle">missing s</text>' +
                   '</svg>' +
                   '<ul>' +
-                    '<li><b>Gap markers:</b> the small triangle in the top strip marks a gap, and the faint yellow pillar under it spans the missing seconds. Click the triangle itself to jump the playhead there AND zoom into the gap. Clicking anywhere else just moves the playhead. Hover the pillar for the exact window and length.</li>' +
+                    '<li><b>Gap markers:</b> the small triangle in the top strip marks a gap, and the faint yellow pillar under it spans the missing seconds. Click the triangle itself to jump the playhead there and zoom into the gap. Clicking anywhere else just moves the playhead. Hover the pillar for the exact window and length.</li>' +
                     '<li><b>Lines:</b> dotted verticals are takeoff and landing, the solid white line is the playhead, and NO DATA appears in place when a family has nothing to plot.</li>' +
                     '<li><b>Hover:</b> the tooltip picks the point nearest the cursor in both axes, so aiming at a spike grabs the spike. Every other visible sensor at that second lists below it.</li>' +
                     '<li><b>Flight Track:</b> latitude and longitude share one map panel (longitude across, latitude up) with faint geography behind the tracks and takeoff, landing, and playhead dots. Click a track to jump the playhead there.</li>' +
@@ -708,9 +709,8 @@
                 '<div class="qc-help-card" id="qchs0">' +
                   '<h3>Load a mission</h3>' +
                   '<ul>' +
-                    '<li><b>Load a Flight:</b> drop a .nc flight-level file on the upload zone, or click it to browse. The whole tool runs on this computer, so nothing is sent anywhere and it works with no internet.</li>' +
-                    '<li><b>Loaded Flights:</b> every flight you load is kept on this computer and reopens with no re-parse, and the red cross removes one. The store keeps the 100 most recent.</li>' +
-                    '<li><b>Metrics Across Flights:</b> finds which stored flight recorded the highest or lowest value of any metric, with a comparison graph. Works offline.</li>' +
+                    '<li><b>Load a Flight:</b> drop a .nc flight-level file on the upload zone, or click it to browse. The whole tool runs on this computer: the flight data stays on it, and the tool works offline.</li>' +
+                    '<li><b>Loaded Flights:</b> every flight you load is kept on this computer and reopens instantly, and the red cross removes one. The 100 most recent flights are kept.</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -736,8 +736,8 @@
                   '<ul>' +
                     '<li>One checkbox per variable. Click to select or unselect it.</li>' +
                     '<li><b>Group chips:</b> a chip toggles its whole sensor group on or off, and several groups can be lit on one graph at the same time.</li>' +
-                    '<li><b>Standard deviation and coefficient of variation</b> for the selected sensors sit under each graph, with the worst moment named.</li>' +
-                    '<li><b>Ref linkage:</b> the pipe connector chains the ref to every sensor it rode, and the source in force at the playhead reads blue as you slide. A badge in the title lists each switch. Click a switch time to jump there.</li>' +
+                    '<li><b>Standard deviation and coefficient of variation</b> for the selected sensors are shown under each graph, with the worst moment named.</li>' +
+                    '<li><b>Ref linkage:</b> the pipe connector links the ref to every sensor it used, and the source in use at the playhead turns blue as you slide. A badge in the title lists each switch. Click a switch time to jump there.</li>' +
                   '</ul>' +
                 '</div>' +
 
@@ -745,7 +745,7 @@
                   '<h3>Tools and zoom</h3>' +
                   '<ul>' +
                     '<li><b>Slide</b> drags the playhead, <b>pan</b> moves the window (vertically too), <b>select zoom</b> drags a box. The wheel always zooms time.</li>' +
-                    '<li><b>Reset Zoom</b> floats on a zoomed graph. Double click does the same and hands the mouse back to the slide tool.</li>' +
+                    '<li><b>Reset Zoom</b> floats on a zoomed graph. Double click does the same and switches back to the slide tool.</li>' +
                     '<li>Each graph has <b>save as PNG</b> and <b>fullscreen</b> buttons at its top right. <b>Graph search</b> (far left of the status bar) jumps to any panel.</li>' +
                   '</ul>' +
                 '</div>' +
@@ -753,7 +753,7 @@
                 '<div class="qc-help-card" id="qchs5">' +
                   '<h3>Issues and pills</h3>' +
                   '<ul>' +
-                    '<li><b>Summary pills:</b> gaps, anomalous, No Gaps, and no data. No Gaps says only that the sensor recorded without gaps. Click one to list exactly those sensors and jump to their first issue.</li>' +
+                    '<li><b>Summary pills:</b> with gaps, anomalous, with no gaps, and no data. A with no gaps pill means only that the sensor recorded without gaps. Click one to list exactly those sensors and jump to their first issue.</li>' +
                     '<li><b>Chip strip:</b> Check chips lead, then gaps, no data, and early stop notes. Click any chip to jump the map and timeline there.</li>' +
                     '<li><b>+N more</b> expands in place, with the color coded flag counts in parentheses beside it.</li>' +
                   '</ul>' +
@@ -764,16 +764,16 @@
                   '<ul>' +
                     '<li><b>Max/Mean/Median</b> pops out under its button: takeoff, mid-flight, and landing max, mean, and median for any variable. View graph scrolls to its panel.</li>' +
                     '<li>The takeoff phase is the five minutes before takeoff, and landing covers the last 600 seconds of the flight.</li>' +
-                    '<li><b>Difference Between Sensors</b> opens the family difference graph: every in-group pair plots with its Max Diff listed. Cross group pairs sit on their own row, and any combination of pairs can be selected at once.</li>' +
+                    '<li><b>Difference Between Sensors</b> opens the family difference graph: every in-group pair plots with its Max Diff listed. Cross group pairs are on their own row, and any combination of pairs can be selected at once.</li>' +
                   '</ul>' +
                 '</div>' +
 
                 '<div class="qc-help-card" id="qchs7">' +
                   '<h3>Takeoff and landing</h3>' +
                   '<ul>' +
-                    '<li>Takeoff and landing are detected automatically from the blended INS-GPS altitude on the P-3s and the pure GPS altitude on the G-IV (a climb through field + 100 m that holds and keeps climbing, cross-checked against airspeed), with airspeed as the fallback.</li>' +
+                    '<li>Takeoff and landing are detected automatically from the blended INS-GPS altitude on the P-3s and the pure GPS altitude on the G-IV (a sustained climb through field elevation + 100 m, cross-checked against airspeed), with airspeed as the fallback.</li>' +
                     '<li><b>Manual pins:</b> the T/O and LND boxes next to the Loaded Flights picker take HHMMSS times. Editing a box highlights Apply Changes, and applying recomputes everything with the entered times. Clear both boxes and apply to return to automatic detection.</li>' +
-                    '<li>The takeoff and landing times sync with every export, so there won\'t be mismatches with user-inputted times.</li>' +
+                    '<li>Every export uses the same takeoff and landing times, including manually entered ones.</li>' +
                     '<li>Everything recorded before five minutes ahead of takeoff is trimmed away (bad data most of the time).</li>' +
                   '</ul>' +
                 '</div>' +
@@ -782,8 +782,8 @@
                   '<h3>Flight map</h3>' +
                   '<ul>' +
                     '<li><b>Flight Map</b> will open a sidebar with the 2D/3D tracker, and a live flight-conditions readout.</li>' +
-                    '<li>The 2D map will, by default, follow the aircraft. If the user pans away, Recenter on Aircraft will prompt.</li>' +
-                    '<li>If you slide through the time from any graph, the flight map will follow the same playhead (provided that graph is not slid to before takeoff/after landing).</li>' +
+                    '<li>The 2D map follows the aircraft by default. If you pan away, the Recenter on Aircraft button appears.</li>' +
+                    '<li>Sliding through time on any graph moves the flight map with the same playhead, between takeoff and landing.</li>' +
                   '</ul>' +
                   '<p style="font-size:12px;color:var(--text-muted);margin:8px 0 8px">Wind barbs on the 2D map are colored by wind speed (knots), across a 0 to 160 kt ramp.</p>' +
                   '<div class="wb-legend">' +
@@ -807,7 +807,7 @@
                     '<li><b>Error Summary (.pdf):</b> the qc_Error_Summary script form, prefilled by the tool (flight id, times, sensor designations) and editable before download. The PDF layout matches the script exactly.</li>' +
                     '<li><b>Flight Track Map (.pdf):</b> landscape PDF map of the flight track.</li>' +
                     '<li><b>Gap Report (.dat):</b> recorder gaps in the archive GapReport.dat wording.</li>' +
-                    '<li><b>Interactive Report (.html):</b> one self-contained file with every graph interactive, the gap markers, the track, and the summary. Send it to anyone, it opens with no flight load.</li>' +
+                    '<li><b>Interactive Report (.html):</b> one self-contained file with every graph interactive, the gap markers, the track, and the summary. Send it to anyone; it opens directly in any browser.</li>' +
                     '<li><b>Indiv. Sensor Stats CSV:</b> one row per sensor (presence, gaps, missing seconds, early stop) plus each pair max difference.</li>' +
                     '<li><b>Indiv. Plane Stats CSV:</b> pick which stored flights go into each plane .csv. Each value is the flight-average difference between a sensor pair (first sensor minus second, over takeoff to landing), and a value near zero means the two sensors agree. Columns are labeled and match the legacy script values.</li>' +
                     '<li><b>NC → TXT (.txt):</b> converts the loaded flight to a delimited text file. Every variable in the file is listed (not just the graphed set), and the parameters, delimiter, and time window are all pickable.</li>' +
@@ -881,7 +881,7 @@
         // opening the confirm bakes the draft into every send channel's target. the subject
         // names the tool, so reports are recognizable in the inbox.
         const qcReportDraft = () => {
-            const subj = 'AOCQualityControl - ' + ((document.getElementById('qcReportSubject').value || '').trim() || 'feedback');
+            const subj = 'AOCQualityControl: ' + ((document.getElementById('qcReportSubject').value || '').trim() || 'feedback');
             const id = (typeof flightMetaData !== 'undefined' && flightMetaData.id && flightMetaData.id !== 'Unknown') ? flightMetaData.id : 'none loaded';
             const meta = '\n\nMission: ' + id + ' · QC Tool';
             return { subj: subj, body: (document.getElementById('qcReportBody').value || '') + meta };
@@ -951,20 +951,20 @@
         const cover = document.getElementById('qcBootCover'); if (cover) setTimeout(() => cover.remove(), 80);
 
         // NC-to-TXT converter (js/27): appends its opener + the relocated .nc download link to the
-        // bottom of the Export menu. Must run before the export-menu wiring below, while the menu
+        // bottom of the Export menu. must run before the export-menu wiring below, while the menu
         // exists but its outside-click close handler hasn't been bound yet.
         if (typeof qcInitNcTxtConverter === 'function') qcInitNcTxtConverter();
 
-        // Offline version: the whole tool as one self-contained file (tools/build-standalone.py),
-        // published beside the site by the deploy. Keep one on a laptop and the tool still opens
-        // when Pages is down. It is a snapshot, so the caveat rides next to the button rather than
-        // letting anyone assume a saved copy keeps pace with the site. Absent inside the offline
+        // offline version: the whole tool as one self-contained file (tools/build-standalone.py),
+        // published beside the site by the deploy. keep one on a laptop and the tool still opens
+        // when Pages is down. it is a snapshot, so the caveat rides next to the button rather than
+        // letting anyone assume a saved copy keeps pace with the site. absent inside the offline
         // version itself, which is the download and cannot serve another.
         const offStrip = document.getElementById('qcOfflineStrip');
         if (offStrip && !window.AOC_EMBED) {
             offStrip.innerHTML =
                 '<a id="qcOfflineCopyBtn" class="qc-ov-btn" href="AOC-QC-Tool.html" download="AOC-QC-Tool.html"' +
-                  ' title="Download the whole tool as one file that opens offline, no server needed">Local Version (.html)</a>' +
+                  ' title="Download the whole tool as one file that opens offline, straight from disk">Local Version (.html)</a>' +
                 '<span class="qc-offline-note">Re-download this local version if updates are made to the tool.</span>';
         } else if (offStrip) {
             offStrip.remove();
