@@ -6,10 +6,6 @@ This is a browser-based quality-assessment tool for Aircraft Operations Center W
 
 The live site is hosted on GitHub Pages at https://diegoxb07.github.io/AOCQualityControl/. The offline version is also available from the site via the Local Version button.
 
-The source is in the GitHub repository at https://github.com/diegoxb07/AOCQualityControl.
-
-This tool reuses selected pieces of the AOC Mission Visualizer: the design, the NetCDF parser, and the 2D/3D map for context.
-
 ## Loading a mission
 
 Upload a `.nc` flight-level file on the **Load a Flight** section in the header!
