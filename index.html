@@ -105,8 +105,9 @@
                             </button>
                         </div>
                     </div>
-                    <!-- doubles as the store's status line (js/12b-mission-store.js setMissionStoreStatus) -->
-                    <span id="missionLoadStatus" class="qc-load-note">Load a previously loaded flight.</span>
+                    <!-- the store's status line (js/12b-mission-store.js setMissionStoreStatus): empty, and
+                         hidden, until the store reports opening, removing, or failing to open a flight -->
+                    <span id="missionLoadStatus" class="qc-load-note"></span>
                 </div>
             </div>
 
