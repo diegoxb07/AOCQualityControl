@@ -339,7 +339,7 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 .qc-load-drop { position: relative; display: flex; align-items: center; justify-content: center; height: 32px; padding: 0 12px; background: var(--panel-strip); border: 1px dashed var(--border-strong); border-radius: 3px; cursor: pointer; transition: border-color .12s, background .12s, color .12s; }
 .qc-load-drop:hover { border-color: var(--accent); background: var(--elevated); }
 .qc-load-drop input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-.qc-load-drop-txt { min-width: 0; font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qc-load-drop-txt { min-width: 0; font-size: 12px; font-weight: 400; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qc-load-drop:hover .qc-load-drop-txt { color: var(--text); }
 /* a file is loaded: solid edge and full-strength text, so "waiting" vs "loaded" reads at a glance */
 .qc-load-drop.is-loaded { border-style: solid; border-color: var(--border); }
@@ -347,20 +347,20 @@ html.qc-app-on, body.qc-app-on { overflow: hidden; }
 /* dragover, set by the drop wiring in js/07-ui-controls.js */
 .qc-load-drop.is-over { border-color: var(--accent); background: var(--elevated); }
 
-.qc-load-pick { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; height: 32px; padding: 0 9px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: border-color .12s, background .12s; }
+.qc-load-pick { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; height: 32px; padding: 0 9px; background: var(--panel-strip); border: 1px solid var(--border); border-radius: 3px; color: var(--text); font-family: inherit; font-size: 12px; font-weight: 400; cursor: pointer; transition: border-color .12s, background .12s; }
 .qc-load-pick:hover:not(:disabled) { border-color: var(--accent); background: var(--elevated); }
 /* nothing stored yet: plain and dimmed so the control reads as unavailable */
-.qc-load-pick:disabled { color: var(--text-faint); background: transparent; border-color: var(--border); font-weight: 500; cursor: not-allowed; }
+.qc-load-pick:disabled { color: var(--text-faint); background: transparent; border-color: var(--border); font-weight: 400; cursor: not-allowed; }
 .qc-load-pick:disabled .qc-load-pick-caret { opacity: 0.4; }
 .qc-load-pick-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qc-load-pick-caret { flex: none; font-size: 8px; opacity: 0.7; }
 /* manual takeoff/landing pins: inline, to the right of the loaded flights picker (#qcLoadedRow),
-   at the loading row's control height */
+   at the loading row's control height. the row's controls use regular weight text. */
 .qc-phase-override { display: flex; align-items: center; gap: 8px; }
 .qc-ov-input.qc-bad { border-color: var(--danger); }
-.load-section .qc-ov-field { font-size: 12px; font-weight: 600; color: var(--text-muted); gap: 6px; }
+.load-section .qc-ov-field { font-size: 12px; font-weight: 400; color: var(--text-muted); gap: 6px; }
 .load-section .qc-ov-input { width: 72px; height: 32px; font-size: 12px; }
-.load-section .qc-ov-btn { height: 32px; font-size: 12px; }
+.load-section .qc-ov-btn { height: 32px; font-size: 12px; font-weight: 400; }
 .qc-actionbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 7px 14px; border-bottom: 1px solid var(--border); background: color-mix(in oklab, var(--panel) 60%, var(--bg)); }
 .qc-ov-title { font-family: var(--font-ui); font-weight: 700; font-size: 12.5px; color: var(--accent); white-space: nowrap; }
 .qc-summary { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }

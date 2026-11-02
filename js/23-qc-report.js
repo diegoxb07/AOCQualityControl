@@ -957,7 +957,7 @@
         if (offStrip && !window.AOC_EMBED) {
             offStrip.innerHTML =
                 '<a id="qcOfflineCopyBtn" class="menu-item" href="AOC-QC-Tool.html" download="AOC-QC-Tool.html"' +
-                  ' title="Download the tool as one file that opens offline. Download it again after updates.">Download Latest Version (.html)</a>';
+                  ' title="Download the tool as one file that opens offline. Download it again after updates.">Download Local Version (.html)</a>';
         }
 
         // wire actions

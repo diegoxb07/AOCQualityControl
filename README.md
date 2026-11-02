@@ -4,7 +4,7 @@
 
 This is a browser-based quality-assessment tool for Aircraft Operations Center WP-3D and G-IV flight-level data. It loads any flight, compares the sensors against their counterparts and reference sensors, flags data gaps and any physically impossible values, and exports reports FDs and engineers need (Error Summary, Flight Track, NC to TXT, and more!).
 
-The live site is hosted on GitHub Pages at https://diegoxb07.github.io/AOCQualityControl/. The offline version is also available from the site via **Download Latest Version (.html)** in the menu bar; download it again after an update.
+The live site is hosted on GitHub Pages at https://diegoxb07.github.io/AOCQualityControl/. The offline version is also available from the site via **Download Local Version (.html)** in the menu bar; download it again after an update.
 
 ## Loading a mission
 
