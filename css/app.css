@@ -538,6 +538,9 @@ body.qc-skel-live .qc-skel-block, body.qc-skel-live .qc-skel-btn { animation: qc
 .qc-skel-card { display: flex; flex-direction: column; gap: 10px; }
 .qc-skel-ctitle { width: 180px; height: 13px; }
 .qc-skel-canvas { height: 30vh; }
+/* the idle note on the first skeleton graph: small, sentence case, plain muted text */
+.qc-skel-canvas-wrap { position: relative; }
+.qc-skel-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: var(--text-muted); pointer-events: none; }
 .qc-skel-famhead { width: 40%; min-width: 90px; height: 13px; margin: 10px 0 6px; }
 .qc-skel-row { display: flex; align-items: center; gap: 10px; padding: 5px 10px; }
 .qc-skel-rowname { flex: 1; max-width: 140px; height: 11px; }

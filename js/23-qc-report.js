@@ -133,11 +133,13 @@
     // get fully overwritten by qcRenderReport/qcRenderCharts once a flight loads, so there is never
     // a mix of skeleton and real rows to reconcile.
     function qcSkelChartsHTML() {
-        const card = '<div class="qc-chart-panel qc-skel-card">' +
+        // the first card carries a quiet "Waiting for upload..." note centered on its graph area. the
+        // note is a sibling laid over the gray block, so it keeps a steady color if the block pulses.
+        const card = note => '<div class="qc-chart-panel qc-skel-card">' +
             '<span class="qc-skel-block qc-skel-ctitle"></span>' +
-            '<div class="qc-skel-block qc-skel-canvas"></div>' +
+            '<div class="qc-skel-canvas-wrap"><div class="qc-skel-block qc-skel-canvas"></div>' + (note || '') + '</div>' +
           '</div>';
-        return card + card + card;
+        return card('<span class="qc-skel-wait">Waiting for upload...</span>') + card() + card();
     }
     function qcSkelReportHTML() {
         const row = '<div class="qc-skel-row"><span class="qc-skel-block qc-skel-rowname"></span><span class="qc-skel-block qc-skel-rowdetail"></span></div>';
