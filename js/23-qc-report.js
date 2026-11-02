@@ -113,14 +113,6 @@
         if (btn) { btn.classList.add('qc-ov-dirty'); btn.disabled = false; }
     }
 
-    // called by resetAppToDefault (js/19-bootstrap.js) so reset all clears the qc surfaces too:
-    // report, charts, status bar, and clock all return to their waiting state.
-    function qcResetToEmpty() {
-        qcRawData = null; qcResult = null; qcOverride = null;
-        if (typeof qcRawDataAll !== 'undefined') qcRawDataAll = null;   // drop the converter's every-var dataset too
-        qcRenderEmpty(); qcRefreshTimeline();
-    }
-
     // QC app is the primary, always-on view (not a dismissible overlay)
     // the report controls only exist once there is a flight: pre-flight there is nothing to
     // search, view on the map, summarize, or export. they stay VISIBLE but skeletonized (a flat
@@ -141,14 +133,11 @@
     // get fully overwritten by qcRenderReport/qcRenderCharts once a flight loads, so there is never
     // a mix of skeleton and real rows to reconcile.
     function qcSkelChartsHTML() {
-        // overlay: the big waiting text centers over the FIRST skeleton graph. it is a SIBLING of
-        // the pulsing block (absolutely positioned over it), never a child: a child would inherit
-        // the parent's opacity pulse and read as actively loading instead of idle-waiting.
-        const card = overlay => '<div class="qc-chart-panel qc-skel-card">' +
+        const card = '<div class="qc-chart-panel qc-skel-card">' +
             '<span class="qc-skel-block qc-skel-ctitle"></span>' +
-            '<div class="qc-skel-canvas-wrap"><div class="qc-skel-block qc-skel-canvas"></div>' + (overlay || '') + '</div>' +
+            '<div class="qc-skel-block qc-skel-canvas"></div>' +
           '</div>';
-        return card('<span class="qc-skel-wait">Upload flight file above to QC</span>') + card() + card();
+        return card + card + card;
     }
     function qcSkelReportHTML() {
         const row = '<div class="qc-skel-row"><span class="qc-skel-block qc-skel-rowname"></span><span class="qc-skel-block qc-skel-rowdetail"></span></div>';
@@ -585,23 +574,25 @@
         const app = document.createElement('div');
         app.id = 'qcApp'; app.className = 'qc-app';
         app.innerHTML =
+            // the title band, the menu bar (offline version on the left, help, report, and
+            // fullscreen on the right), and the Load Flight row the mission loader moves into
             '<header class="qc-app-head">' +
-              // the corner border wraps only the emblem + title (.qc-brand); the flight library
-              // sits below it in the same column, outside the cornered area
-              '<div class="qc-brand-block">' +
-                '<div class="qc-brand">' +
-                  '<img src="assets/noaa-emblem-72.png" alt="NOAA emblem" class="qc-brand-logo">' +
-                  '<div class="qc-vdiv"></div>' +
-                  '<div class="qc-brand-col">' +
-                    '<span class="qc-brand-txt">QC Tool<small>Aircraft Operations Center · Science Branch</small></span>' +
-                  '</div>' +
+              '<div class="site-header">' +
+                '<img src="assets/noaa-emblem-72.png" alt="NOAA emblem" class="site-logo">' +
+                '<div class="min-w-0">' +
+                  '<h1 class="site-title">QC Tool</h1>' +
+                  '<p class="site-sub">for Aircraft Operations Center\u2019s Science Branch</p>' +
                 '</div>' +
-                // offline version download, filled in by the wiring below; removed in the offline version
-                '<div class="qc-offline-copy" id="qcOfflineStrip"></div>' +
-                '<div class="qc-brand-actions" id="qcBrandActions"></div>' +
               '</div>' +
-              '<div class="qc-loader-slot" id="qcLoaderSlot"></div>' +
-              '<div class="qc-head-controls" id="qcHeadControls"></div>' +
+              '<nav class="menu-bar">' +
+                // offline version download, filled in by the wiring below; removed in the offline version
+                '<div class="menu-group" id="qcOfflineStrip"></div>' +
+                '<div id="qcHeadControls"></div>' +
+              '</nav>' +
+              '<div class="load-section">' +
+                '<div class="lf-label">Load<br>Flight</div>' +
+                '<div class="lf-body" id="qcLoaderSlot"></div>' +
+              '</div>' +
             '</header>' +
             '<div class="qc-actionbar">' +
               '<div class="qc-graph-search">' +
@@ -669,7 +660,7 @@
         sm.addEventListener('click', e => { if (e.target === sm) sm.style.display = 'none'; });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') sm.style.display = 'none'; });
 
-        // help modal: the qc manual, opened from the reused top-right help button
+        // help modal: the qc manual, opened from Help in the menu bar
         const hm = document.createElement('div');
         hm.id = 'qcHelpModal'; hm.className = 'modal-overlay';
         hm.innerHTML =
@@ -709,7 +700,7 @@
                 '<div class="qc-help-card" id="qchs0">' +
                   '<h3>Load a mission</h3>' +
                   '<ul>' +
-                    '<li><b>Load a Flight:</b> drop a .nc flight-level file on the upload zone, or click it to browse. The whole tool runs on this computer: the flight data stays on it, and the tool works offline.</li>' +
+                    '<li><b>Load Flight:</b> in that row at the top, drop a .nc flight-level file on the upload zone, or click it to browse. The whole tool runs on this computer: the flight data stays on it, and the tool works offline.</li>' +
                     '<li><b>Loaded Flights:</b> every flight you load is kept on this computer and reopens instantly, and the red cross removes one. The 100 most recent flights are kept.</li>' +
                   '</ul>' +
                 '</div>' +
@@ -908,7 +899,7 @@
         // relocate the reused visualizer subsystems into the QC app (moving a node keeps its wiring):
         //  - the mission loader console (upload + loaded-flights picker)
         //  - the 2D/3D map tracker panel (spatial context for the data)
-        //  - the top-right controls (theme / help / fullscreen)
+        //  - the top-right controls (help / report / fullscreen), the menu bar's right group
         qcRelocate('missionLoadConsole', 'qcLoaderSlot');
         qcRelocate('mapPanel', 'qcMapSlot');
         qcRelocate('topRightControls', 'qcHeadControls');
@@ -957,17 +948,14 @@
 
         // offline version: the whole tool as one self-contained file (tools/build-standalone.py),
         // published beside the site by the deploy. keep one on a laptop and the tool still opens
-        // when Pages is down. it is a snapshot, so the caveat rides next to the button rather than
-        // letting anyone assume a saved copy keeps pace with the site. absent inside the offline
-        // version itself, which is the download and cannot serve another.
+        // when Pages is down. it is a snapshot, so its tooltip is a reminder to download it again
+        // after an update. inside the offline version itself the group stays empty: that file is the
+        // download and cannot serve another.
         const offStrip = document.getElementById('qcOfflineStrip');
         if (offStrip && !window.AOC_EMBED) {
             offStrip.innerHTML =
-                '<a id="qcOfflineCopyBtn" class="qc-ov-btn" href="AOC-QC-Tool.html" download="AOC-QC-Tool.html"' +
-                  ' title="Download the whole tool as one file that opens offline, straight from disk">Local Version (.html)</a>' +
-                '<span class="qc-offline-note">Re-download this local version if updates are made to the tool.</span>';
-        } else if (offStrip) {
-            offStrip.remove();
+                '<a id="qcOfflineCopyBtn" class="menu-item" href="AOC-QC-Tool.html" download="AOC-QC-Tool.html"' +
+                  ' title="Download the tool as one file that opens offline. Download it again after updates.">Download Latest Version (.html)</a>';
         }
 
         // wire actions

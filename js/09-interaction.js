@@ -27,13 +27,6 @@
 
     // reset the 2D view = re-engage follow (zoom in and re-center on the aircraft).
     function resetMapView() { engageFollowAircraft(); }
-    // the tracker's ⟲ button resets whichever view is active: 2D pan/zoom, or the 3D orbit
-    // camera back to its home offset on the aircraft.
-    document.getElementById('resetMapZoomBtn').addEventListener('click', () => {
-        if (trackerModeSelect.value === '3d') { if (typeof reset3DView === 'function') reset3DView(); }
-        else resetMapView();
-    });
-
     // the recenter button only surfaces in 2D once the user has panned/zoomed off the aircraft.
     function updateFollowButton() {
         const btn = document.getElementById('recenterPlaneBtn');

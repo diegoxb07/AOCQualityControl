@@ -13,15 +13,15 @@ self.onmessage = (e) => {
         // processed. the main thread is free during this worker phase, so the spinner keeps animating.
         const onProgress = (p) => self.postMessage({ progress: p });
         const tsv = e.data.nc ? ncArrayBufferToTsv(e.data.nc, onProgress) : e.data.tsv;
-        const result = parseFlightTextToRows(tsv);
+        const result = parseFlightTextToRows(tsv, onProgress);
         // the QC raw dataset is a second, independent pass over the same tsv (no cleanup, catalog vars).
         // transfer its typed-array buffers back so the big Float32Arrays are not structure-cloned.
         try {
-            result.qc = parseFlightRawQC(tsv);
+            result.qc = parseFlightRawQC(tsv, undefined, onProgress);
             // wantAll: a THIRD pass keeping EVERY column (catalog superset), for the NC-to-TXT
             // converter, so it is asked for only when something needs it. memory-only on the page
             // (never stored), so no IndexedDB bloat.
-            if (e.data.wantAll) { try { result.qcAll = parseFlightRawQC(tsv, '*'); } catch (allErr) { result.qcAll = null; } }
+            if (e.data.wantAll) { try { result.qcAll = parseFlightRawQC(tsv, '*', (p) => onProgress(Object.assign({}, p, { phase: 'qcAll' }))); } catch (allErr) { result.qcAll = null; } }
             const transfers = [];
             const collect = (qc) => {
                 if (!qc) return;

@@ -19,8 +19,8 @@
     // convert a NetCDF ArrayBuffer into the tab-separated text parseFlightTextToRows consumes: tsv is
     // the parser's internal format, so an uploaded .nc goes through here first.
     // shared by the .nc upload path and the parse worker.
-    // onProgress (optional): called with { phase, ... } as decoding advances, so the loader overlay
-    // can show which variable is being processed. no-op for main thread callers.
+    // onProgress (optional): called with { phase, index, total } as decoding and row building advance,
+    // so the loader overlay can show how far along the load is.
     function ncArrayBufferToTsv(data, onProgress) {
         const report = (typeof onProgress === 'function') ? onProgress : function () {};
         const nc = new netcdfjs(data);
@@ -62,9 +62,9 @@
             varsData['time'] = timeArr;
         }
 
-        report({ phase: 'rows', numRows: numRows });
+        report({ phase: 'rows', numRows: numRows, index: 0, total: numRows });
         let tsvStr = finalVarNames.join('\t') + '\n';
-        for (let i = 0; i < numRows; i++) { let row = []; for (let j = 0; j < finalVarNames.length; j++) { let val = varsData[finalVarNames[j]][i]; row.push(val !== undefined && val !== null ? val : ''); } tsvStr += row.join('\t') + '\n'; }
+        for (let i = 0; i < numRows; i++) { if (i && i % 2000 === 0) report({ phase: 'rows', numRows: numRows, index: i, total: numRows }); let row = []; for (let j = 0; j < finalVarNames.length; j++) { let val = varsData[finalVarNames[j]][i]; row.push(val !== undefined && val !== null ? val : ''); } tsvStr += row.join('\t') + '\n'; }
         return tsvStr;
     }
 
@@ -75,7 +75,10 @@
     // returns { rows, stats }. `stats` is the honesty ledger: every row the cleaner drops and every
     // value the parser derives (rather than reads) is counted, so the UI can disclose exactly what
     // was done to the data instead of silently modifying the record.
-    function parseFlightTextToRows(rawText) {
+    function parseFlightTextToRows(rawText, onProgress) {
+        // onProgress (optional): { phase: 'parse', index, total } every 2000 lines across the time
+        // range scan and the row loop, and once more at the end
+        const report = (typeof onProgress === 'function') ? onProgress : function () {};
         const stats = {
             dataLines: 0, parsed: 0, rows: 0, timeSource: null,
             dropped: { shortLine: 0, noTime: 0, badPosition: 0, noSpeed: 0, error: 0, preTakeoff: 0, dupTime: 0, glitch: 0, gapReset: 0, belowMinAlt: 0 },
@@ -88,10 +91,12 @@
         const getVal = (row, key) => { let k = key.toLowerCase(); if (hMap[k] !== undefined && row[hMap[k]] !== undefined && row[hMap[k]].trim() !== '') { const val = parseFloat(row[hMap[k]]); if (isNaN(val) || val <= -990) return null; return val; } return null; };
 
         let timeMax = -1; const tIdx = hMap['time'];
-        if (tIdx !== undefined) { for (let i = 1; i < lines.length; i++) { const parts = lines[i].replace(/\r/g, '').split('\t'); if (parts.length > tIdx) { const v = parseFloat(parts[tIdx]); if (!isNaN(v) && v > timeMax) timeMax = v; } } }
+        const lineCount = lines.length - 1, passTotal = (tIdx !== undefined ? 2 : 1) * lineCount;
+        if (tIdx !== undefined) { for (let i = 1; i < lines.length; i++) { if (i % 2000 === 0) report({ phase: 'parse', index: i, total: passTotal }); const parts = lines[i].replace(/\r/g, '').split('\t'); if (parts.length > tIdx) { const v = parseFloat(parts[tIdx]); if (!isNaN(v) && v > timeMax) timeMax = v; } } }
 
         let firstSec = -1; let tempParsedData = [];
         for (let i = 1; i < lines.length; i++) {
+            if (i % 2000 === 0) report({ phase: 'parse', index: passTotal - lineCount + i, total: passTotal });
             if (!lines[i] || !lines[i].trim()) continue;
             stats.dataLines++;
             const parts = lines[i].replace(/\r/g, '').split('\t');
@@ -147,6 +152,7 @@
                 });
             } catch (err) { stats.dropped.error++; continue; }
         }
+        report({ phase: 'parse', index: passTotal, total: passTotal });
 
         if (tempParsedData.length === 0) return { rows: [], stats };
         tempParsedData.sort((a,b) => a.absSeconds - b.absSeconds);
@@ -204,7 +210,10 @@
     // keepVars: a Set of variable names to keep, or the sentinel '*' to keep EVERY column in the file
     // (voltages, housekeeping, GPS status and all), used by the NC-to-TXT converter. omitted -> the
     // catalog allow-list, so the QC engine's normal parse still drops non-catalog channels.
-    function parseFlightRawQC(rawText, keepVars) {
+    function parseFlightRawQC(rawText, keepVars, onProgress) {
+        // onProgress (optional): { phase: 'qc', index, total } every 2000 lines across the time range
+        // scan, the row split, and the placement onto the 1-second axis, and once more at the end
+        const report = (typeof onProgress === 'function') ? onProgress : function () {};
         const keepAll = keepVars === '*';
         const keep = keepAll ? null : (keepVars || (typeof qcCatalogVars === 'function' ? qcCatalogVars() : null));
         const lines = rawText.split('\n');
@@ -216,11 +225,15 @@
 
         // same time-max probe the cleaner uses, to pick the right epoch/HHMMSS interpretation
         let timeMax = -1; const tIdx = hMap['time'];
-        if (tIdx !== undefined) { for (let i = 1; i < lines.length; i++) { const parts = lines[i].replace(/\r/g, '').split('\t'); if (parts.length > tIdx) { const v = parseFloat(parts[tIdx]); if (!isNaN(v) && v > timeMax) timeMax = v; } } }
+        const lineCount = lines.length - 1, passTotal = (tIdx !== undefined ? 3 : 2) * lineCount;
+        let done = 0;
+        if (tIdx !== undefined) { for (let i = 1; i < lines.length; i++) { if (i % 2000 === 0) report({ phase: 'qc', index: i, total: passTotal }); const parts = lines[i].replace(/\r/g, '').split('\t'); if (parts.length > tIdx) { const v = parseFloat(parts[tIdx]); if (!isNaN(v) && v > timeMax) timeMax = v; } } }
 
         // first pass: split every row and derive its absolute second (same logic as the cleaner)
+        if (tIdx !== undefined) done = lineCount;
         let firstSec = -1; const parsed = [];
         for (let i = 1; i < lines.length; i++) {
+            if (i % 2000 === 0) report({ phase: 'qc', index: done + i, total: passTotal });
             if (!lines[i] || !lines[i].trim()) continue;
             const parts = lines[i].replace(/\r/g, '').split('\t');
             if (parts.length < 2) continue;
@@ -261,7 +274,10 @@
         });
 
         // place each raw sample on its nearest second. last write wins on a duplicate timestamp.
+        done += lineCount;
+        let placed = 0;
         for (const p of parsed) {
+            if (++placed % 2000 === 0) report({ phase: 'qc', index: done + placed, total: passTotal });
             const slot = Math.round(p.absSec - t0);
             if (slot < 0 || slot >= n) continue;
             for (const c of cols) {
@@ -274,6 +290,7 @@
             }
         }
         out.timeAxis = axis; out.t0 = t0; out.t1 = t1;
+        report({ phase: 'qc', index: passTotal, total: passTotal });
         return out;
     }
 

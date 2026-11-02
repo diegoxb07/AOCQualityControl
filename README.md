@@ -4,11 +4,11 @@
 
 This is a browser-based quality-assessment tool for Aircraft Operations Center WP-3D and G-IV flight-level data. It loads any flight, compares the sensors against their counterparts and reference sensors, flags data gaps and any physically impossible values, and exports reports FDs and engineers need (Error Summary, Flight Track, NC to TXT, and more!).
 
-The live site is hosted on GitHub Pages at https://diegoxb07.github.io/AOCQualityControl/. The offline version is also available from the site via the Local Version button.
+The live site is hosted on GitHub Pages at https://diegoxb07.github.io/AOCQualityControl/. The offline version is also available from the site via **Download Latest Version (.html)** in the menu bar; download it again after an update.
 
 ## Loading a mission
 
-Upload a `.nc` flight-level file on the **Load a Flight** section in the header!
+Upload a `.nc` flight-level file in the **Load Flight** row at the top!
 
 Every flight you load is saved on this device and reopens from the **Loaded Flights** list instantly, newest first, including after a reload. You can click the red cross on a row to remove that flight (the 100 most recent flights are kept).
 
@@ -20,7 +20,7 @@ Takeoff is designated as the first climb from taxi elevation + 100 m and seen to
 
 Everything recorded more than five minutes before takeoff is trimmed away and never reaches any of the graphs, gaps, or anything else. The kept five minutes are used for the takeoff phase of the phase stats.
 
-To override the automatically set T/O and Landing times, type `HHMMSS` in the **T/O** and **LND** boxes in the header and press **Apply Changes**; the whole report (trim, phases, stats, references, graphs) recomputes. Clearing both boxes and applying returns to automatic detection.
+To override the automatically set T/O and Landing times, type `HHMMSS` in the **T/O** and **LND** boxes in the **Load Flight** row and press **Apply Changes**; the whole report (trim, phases, stats, references, graphs) recomputes. Clearing both boxes and applying returns to automatic detection.
 
 ## Reading a graph
 
@@ -89,4 +89,4 @@ QC-specific files:
 | `js/25-qc-error-summary.js` | The Error Summary PDF and its prefill logic. |
 | `data/airports.json` | Large/medium airports worldwide (OurAirports, public domain), for ground-location lookup. |
 
-The remaining `js/` files are the reused visualizer subsystems: parser, 2D/3D map, playback engine, on-device mission store, layout, theming. The visualizer's shell stays in the DOM underneath the QC app so its wiring keeps working; the map panel, the flight loader, and the top-right controls are relocated into the QC layout.
+The remaining `js/` files are the reused visualizer subsystems: parser, 2D/3D map, playback engine, on-device mission store, layout. The visualizer's shell stays in the DOM underneath the QC app so its wiring keeps working; the map panel, the flight loader, and the Help, Report a Problem, and Fullscreen buttons are moved into the QC layout.

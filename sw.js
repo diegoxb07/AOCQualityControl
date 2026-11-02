@@ -55,6 +55,7 @@ const PRECACHE = [
     'fonts/IBMPlexMono-500.woff2',
     'fonts/IBMPlexMono-600.woff2',
     'fonts/Manrope-400.woff2',
+    'fonts/NunitoSans-latin.woff2',
 
     'assets/noaa-bird.svg',
     'assets/noaa-emblem-64.png',

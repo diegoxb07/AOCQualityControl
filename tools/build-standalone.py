@@ -37,6 +37,7 @@ BIN_ASSETS = [
 FONTS = [
     'fonts/Manrope-400.woff2',
     'fonts/IBMPlexMono-400.woff2', 'fonts/IBMPlexMono-500.woff2', 'fonts/IBMPlexMono-600.woff2',
+    'fonts/NunitoSans-latin.woff2',
 ]
 # the parse worker's importScripts targets, concatenated ahead of it into one blob-able bundle
 WORKER = 'js/parse-worker.js'
@@ -236,8 +237,14 @@ def build():
 })();
 """
 
+    # a stylesheet's font urls become data: URIs from the embedded fonts, since a page opened from
+    # disk cannot load the font files beside it
     def inline_css(rel):
-        return scrub_script_close(read_text(rel))
+        css = read_text(rel)
+        css = re.sub(r'''url\(\s*['"]?(?:\.\./)?(fonts/[A-Za-z0-9._-]+)['"]?\s*\)''',
+                     lambda m: 'url("data:font/woff2;base64,%s")' % bin_payload[m.group(1)] if m.group(1) in bin_payload else m.group(0),
+                     css)
+        return scrub_script_close(css)
 
     head_css = '\n'.join('<style>\n%s\n</style>' % inline_css(c) for c in css_files)
     all_js = '\n'.join('<script>\n%s\n</script>' % scrub_script_close(read_text(j)) for j in js_files)

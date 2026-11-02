@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>AOC QC Tool</title>
     <meta name="description" content="AOC quality-control tool for hurricane-hunter flight-level data: gaps, sensor agreement, and reports.">
-    <meta name="theme-color" content="#1c1c1c">
+    <meta name="theme-color" content="#161616">
     <link rel="icon" href="assets/noaa-emblem-64.png" type="image/png">
 
     <!-- stamp the saved tracker mode onto <html> before the body paints, so the 2D-only map
@@ -24,12 +24,7 @@
         try {
             var p = JSON.parse(localStorage.getItem('aocVizPrefs') || '{}');
             if (p.trackerModeSelect === '3d') document.documentElement.classList.add('pref-tracker-3d');
-            // A saved theme is a manual pick from the toggle and always wins. without one the app
-            // follows the computer's own light/dark setting (and keeps following it live, see the
-            // themeToggle block in js/19-bootstrap.js).
-            document.documentElement.dataset.theme = (p.theme === 'light' || p.theme === 'dark') ? p.theme
-                : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-        } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+        } catch (e) {}
     </script>
 
     <!-- everything below is served from this repo: the whole app (fonts, basemap, parser) runs
@@ -53,38 +48,25 @@
     <div id="qcBootCover" style="position:fixed;inset:0;background:var(--bg);z-index:10060;"></div>
 
 <div id="loadingOverlay" class="fixed inset-0 bg-[color-mix(in_oklab,var(--bg)_85%,transparent)] z-[10000] hidden flex-col items-center justify-center backdrop-blur-md">
-    <div id="loadingSpinner" class="relative w-14 h-14 mb-5">
-        <div id="loadingRing" class="absolute inset-0 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-        <svg id="loadingCheck" class="absolute inset-0 w-full h-full" viewBox="0 0 52 52" fill="none" stroke="#10b981" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M14 27 l7 7 l16 -17" /></svg>
+    <div id="loadingSpinner" class="relative mb-5">
+        <div id="loadingRing" class="absolute inset-0 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
     </div>
-    <h2 class="text-ink text-xl md:text-2xl font-bold">Loading flight data...</h2>
+    <h2 class="text-ink loading-title font-bold">LOADING FLIGHT DATA</h2>
     <p id="loadingOverlaySubtext" class="text-accent text-sm mt-2 opacity-80">Pulling variables...</p>
-    <div id="loadingProgressWrap" class="hidden w-72 max-w-[80vw] mt-4">
-        <div class="h-2 bg-panel-strip rounded overflow-hidden"><div id="loadingProgressBar" class="h-full bg-accent transition-all duration-150" style="width:0%"></div></div>
-        <div class="flex justify-between text-[11px] text-muted font-mono mt-1.5">
+    <div id="loadingProgressWrap" class="hidden mt-4">
+        <div class="flex text-[11px] text-muted mt-1.5">
             <span id="loadingProgressPct">0%</span>
             <span id="loadingProgressSpeed"></span>
         </div>
     </div>
 </div>
 
-<div id="topRightControls" class="fixed top-4 right-4 z-[9999] flex flex-col items-end gap-2">
-    <div class="flex items-center gap-2">
-        <!-- the QC app builds the help modal and binds this button in js/23-qc-report.js -->
-        <button id="helpBtn" type="button" title="Help and keyboard shortcuts" aria-label="Help and keyboard shortcuts" class="flex items-center justify-center bg-panel-strip border border-hairline hover:bg-elevated rounded shadow-lg transition-colors" style="width:34px;height:30px;">
-            <span aria-hidden="true" style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:2px solid var(--accent);border-radius:50%;color:var(--accent);font-size:12px;font-weight:700;line-height:1;">?</span>
-        </button>
-        <button id="reportProblemBtn" type="button" title="Report a problem or ask a question" aria-label="Report a problem or ask a question" class="flex items-center justify-center bg-panel-strip border border-hairline hover:bg-elevated rounded shadow-lg transition-colors" style="width:34px;height:30px;">
-            <span aria-hidden="true" style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;border:2px solid var(--warn);border-radius:50%;color:var(--warn);font-size:12px;font-weight:700;line-height:1;">!</span>
-        </button>
-        <button id="resetAppBtn" title="Clear the loaded flight and reset the view" class="px-3 py-1.5 bg-panel-strip text-muted border border-hairline hover:bg-elevated hover:text-ink rounded text-xs font-semibold shadow-lg transition-colors whitespace-nowrap">↺ Reset All</button>
-        <button id="fullscreenBtn" class="px-3 py-1.5 bg-accent text-accent-ink text-xs font-semibold rounded border border-accent hover:bg-accent transition-colors shadow-lg">⛶ Fullscreen</button>
-    </div>
-    <button id="themeToggleBtn" type="button" role="switch" aria-checked="false" title="Switch between light and dark mode" aria-label="Switch between light and dark mode" class="theme-switch shadow-lg">
-        <span class="ts-ico ts-moon" aria-hidden="true">&#9790;</span>
-        <span class="ts-ico ts-sun" aria-hidden="true">&#9728;</span>
-        <span class="ts-knob" aria-hidden="true"></span>
-    </button>
+<!-- the menu bar's right group: js/23-qc-report.js moves it into the QC header and binds Help and
+     Report a Problem to the QC modals -->
+<div id="topRightControls" class="menu-group">
+    <button id="helpBtn" type="button" title="Help and keyboard shortcuts" class="menu-item">Help</button>
+    <button id="reportProblemBtn" type="button" title="Report a problem or ask a question" class="menu-item">Report a Problem</button>
+    <button id="fullscreenBtn" type="button" class="menu-item">⛶ Fullscreen</button>
 </div>
 
 <section class="p-4 md:p-6 max-w-[1600px] mx-auto space-y-4" id="mainContainer">
@@ -101,25 +83,19 @@
 
     <div class="bg-[color-mix(in_oklab,var(--bg)_55%,transparent)] border border-hairline rounded p-5 relative">
         <div class="flex flex-col gap-4">
-            <!-- mission loading: upload on the left, reopen-from-this-computer on the right.
-                 both columns read label / note / control. the upload target is the primary action
-                 so it runs taller; the reopen picker stays at the QC header's own 26px control
-                 scale. styles live in css/app.css (.qc-load*). -->
+            <!-- mission loading, moved into the QC header's Load Flight row by js/23-qc-report.js:
+                 the upload target, then the reopen picker with the takeoff and landing pins, each
+                 with its note under it. the styles are in css/app.css (.qc-load*). -->
             <div id="missionLoadConsole" class="qc-load">
                 <div class="qc-load-col qc-load-col-file">
-                    <span class="qc-load-lbl">Load a Flight</span>
-                    <span class="qc-load-note">Accepts only <b>.nc</b> files from SEB Archive</span>
                     <div id="dataDropZone" class="qc-load-drop" title="Drop a .nc flight-level file, or click to browse">
                         <input type="file" id="fileInput" accept=".nc" />
                         <span id="dataDropLabel" class="qc-load-drop-txt">Choose a file, or drag one here</span>
                     </div>
+                    <span class="qc-load-note">Accepts only <b>.nc</b> files from SEB Archive</span>
                 </div>
 
                 <div class="qc-load-col qc-load-col-saved">
-                    <!-- kept as an invisible spacer so the note/dropdown below sit at the same height as the file column's label -->
-                    <span class="qc-load-lbl" aria-hidden="true" style="visibility:hidden">Loaded Flights</span>
-                    <!-- doubles as the store's status line (js/12b-mission-store.js setMissionStoreStatus) -->
-                    <span id="missionLoadStatus" class="qc-load-note">Reopen a flight you have already loaded.</span>
                     <!-- the manual T/O/LND pins (js/23-qc-report.js) are appended here, to the right of the picker -->
                     <div id="qcLoadedRow" class="flex items-center gap-3">
                         <div class="relative qc-load-pick-wrap">
@@ -129,6 +105,8 @@
                             </button>
                         </div>
                     </div>
+                    <!-- doubles as the store's status line (js/12b-mission-store.js setMissionStoreStatus) -->
+                    <span id="missionLoadStatus" class="qc-load-note">Load a previously loaded flight.</span>
                 </div>
             </div>
 
@@ -157,7 +135,6 @@
             <div class="flex flex-col flex-none">
                 <div class="flex items-center gap-2">
                     <span class="panel-subhead">Flight-Level Data Player</span>
-                    <button id="resetMapZoomBtn" title="Reset the tracker view" class="px-2 py-0.5 bg-panel-strip text-muted rounded border border-hairline hover:bg-elevated hover:text-ink transition-colors text-[10px] font-semibold normal-case tracking-normal whitespace-nowrap leading-tight">&#10226; Reset Zoom</button>
                 </div>
                 <span id="missionSubline" class="hidden normal-case tracking-normal text-[9px] font-semibold text-accent leading-tight"></span>
             </div>
@@ -184,7 +161,6 @@
 </section>
 
 <div id="toastNotification" class="toast-notification">
-    <div class="font-bold mb-1 text-accent text-sm">Attention</div>
     <div id="toastMessage"></div>
 </div>
 
