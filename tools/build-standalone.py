@@ -260,6 +260,8 @@ def build():
 
     # inline every stylesheet and script
     out = re.sub(r'\s*<link[^>]+rel="stylesheet"[^>]*>', '', out)
+    # the font preload points at a file beside the page; the inlined css carries the font itself
+    out = re.sub(r'\s*<link[^>]+rel="preload"[^>]*>', '', out)
     out = re.sub(r'\s*<script[^>]+src="[^"]+"[^>]*></script>', '', out)
     out = out.replace('</head>', head_css + '\n</head>', 1)
     out = out.replace('</body>', all_js + '\n</body>', 1)
