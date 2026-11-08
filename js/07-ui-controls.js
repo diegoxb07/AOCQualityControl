@@ -152,6 +152,9 @@
         if (threeDInitialized) return;
         const w = threeDContainer.clientWidth || canvas.width, h = threeDContainer.clientHeight || canvas.height, aspect = w / (h || 1);
         scene3D = new THREE.Scene(); scene3D.background = new THREE.Color(scene3DBgColor());
+        // haze toward the horizon in the background colour, for depth; animate3D sets its range from
+        // the camera distance each frame
+        scene3D.fog = new THREE.Fog(scene3DBgColor(), 60, 260);
         // near clip is tiny so the camera can dolly right up to the aircraft (scaled 0.06, so it is
         // small in world units and a larger near plane clips it away before you get close); the huge
         // near/far span rides a logarithmic depth buffer to stay z-fight-free.
@@ -239,6 +242,36 @@
                     } else cl.sprite.visible = false;
                 }
             }
+            // city names lie flat on the ground near the plane (the major cities out to a wider reach),
+            // faded at the edge of that reach and turned about the vertical so they read upright
+            if (_cityLabels.length && camera3D && planeGroup3D) {
+                const in3dC = !trackerModeSelect || trackerModeSelect.value === '3d';
+                const px = planeGroup3D.position.x, pz = planeGroup3D.position.z;
+                for (let i = 0; i < _cityLabels.length; i++) {
+                    const cl = _cityLabels[i];
+                    const R1 = cl.big ? 90 : 45, R0 = R1 * 0.7;   // world units, 20 per degree
+                    const dist = Math.hypot(cl.at.x - px, cl.at.z - pz);
+                    if (!in3dC || !filteredData.length || dist >= R1) { cl.mesh.visible = false; continue; }
+                    cl.mesh.visible = true;
+                    cl.mesh.rotation.y = Math.atan2(camera3D.position.x - cl.at.x, camera3D.position.z - cl.at.z);
+                    cl.mat.opacity = dist <= R0 ? 1 : (R1 - dist) / (R1 - R0);
+                }
+            }
+            // the haze stays clear out to a few camera distances from the view's center, so the
+            // ground near the aircraft is crisp at any zoom and only the far ground fades
+            if (scene3D.fog && camera3D && controls3D) {
+                const cd = camera3D.position.distanceTo(controls3D.target) || 1;
+                scene3D.fog.near = Math.max(60, cd * 2.5);
+                scene3D.fog.far = Math.max(260, cd * 9);
+            }
+            // hill shading strength (terrainShadeK, js/07c-terrain.js) from the camera's angle above the
+            // horizon: none at 35 degrees and steeper, easing in to full at 10 degrees and lower
+            if (typeof terrainShadeK !== 'undefined' && camera3D && controls3D) {
+                const dx = camera3D.position.x - controls3D.target.x, dz = camera3D.position.z - controls3D.target.z;
+                const elev = Math.atan2(camera3D.position.y - controls3D.target.y, Math.hypot(dx, dz)) * 180 / Math.PI;
+                const t = Math.max(0, Math.min(1, (35 - elev) / 25));
+                terrainShadeK.value = t * t * (3 - 2 * t);
+            }
             renderer3D.render(scene3D, camera3D);
         }
         animate3D(); threeDInitialized = true;
@@ -250,6 +283,7 @@
     let realScale3D = false;
     let _borderLines = [];      // { line, mat, box, base } coastline/border lines, faded by distance to the plane
     let _countryLabels = [];    // { sprite, mat, aspect, pts, isUSA } country name labels shown near visible coastlines
+    let _cityLabels = [];       // { mesh, mat, at, big } city names lying flat on the ground, shown near the plane
     let _stateLabels = [];      // { mesh, mat, rings, bbox } flat US state names, lying on the basemap
     let _stateLabelIdx = -1;    // index into _stateLabels of the state under the plane, -1 = none
     // how far offshore a state still names the ground beneath (these flights sit over water most of a
@@ -385,6 +419,36 @@
         return { mesh, mat };
     }
 
+    // a city name lying flat on the 3D ground: a small dot on the city with the name beside it in muted
+    // slate, at a fixed size on the ground (CITY_LABEL_H world units tall, about 2.8 km), so it reads as
+    // part of the map, flat under the track. built flat with the dot at the mesh's origin;
+    // animate3D only turns it about the vertical so the text reads upright from the camera.
+    const CITY_LABEL_H = 0.5;
+    function cityLabelMesh(name) {
+        const h = 48, fs = 30, dotX = 10, textX = 24;
+        const font = '600 ' + fs + "px 'Nunito Sans', sans-serif";
+        const cv = document.createElement('canvas');
+        let c = cv.getContext('2d');
+        c.font = font;
+        const w = Math.ceil(c.measureText(name).width) + textX + 8;
+        cv.width = w; cv.height = h;
+        c = cv.getContext('2d');
+        c.font = font; c.textBaseline = 'middle'; c.lineJoin = 'round';
+        c.beginPath(); c.arc(dotX, h / 2, 5, 0, 2 * Math.PI); c.fillStyle = 'rgba(71,85,105,0.85)'; c.fill();
+        c.lineWidth = 5; c.strokeStyle = 'rgba(255,255,255,0.6)'; c.strokeText(name, textX, h / 2);
+        c.fillStyle = 'rgba(51,65,85,0.85)'; c.fillText(name, textX, h / 2);
+        const tex = new THREE.CanvasTexture(cv);
+        tex.anisotropy = (renderer3D && renderer3D.capabilities) ? renderer3D.capabilities.getMaxAnisotropy() : 1;
+        tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter;
+        const W = CITY_LABEL_H * w / h;
+        const geo = new THREE.PlaneGeometry(W, CITY_LABEL_H);
+        geo.translate(W / 2 - dotX / w * W, 0, 0);   // the dot, not the label's middle, at the origin
+        geo.rotateX(-Math.PI / 2);                    // flat on the ground, text running east, top to the north
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        const mesh = new THREE.Mesh(geo, mat); mesh.renderOrder = 1; mesh.visible = false;
+        return { mesh, mat };
+    }
+
     // degrees from (lat, lon) to a [minLon, minLat, maxLon, maxLat] box, 0 anywhere inside it.
     function bboxDistDeg(b, lat, lon) {
         const dx = Math.max(b[0] - lon, 0, lon - b[2]);
@@ -424,6 +488,8 @@
         _countryLabels = [];
         _stateLabels.forEach(sl => { if (sl.mesh.parent) sl.mesh.parent.remove(sl.mesh); sl.mesh.geometry.dispose(); if (sl.mat.map) sl.mat.map.dispose(); sl.mat.dispose(); });
         _stateLabels = []; _stateLabelIdx = -1;
+        _cityLabels.forEach(cl => { if (cl.mesh.parent) cl.mesh.parent.remove(cl.mesh); cl.mesh.geometry.dispose(); if (cl.mat.map) cl.mat.map.dispose(); cl.mat.dispose(); });
+        _cityLabels = [];
         const light3d = document.documentElement.dataset.theme === 'light';
         if (scene3D) scene3D.background = new THREE.Color(scene3DBgColor());
         const landMat = new THREE.MeshBasicMaterial({ color: light3d ? 0xe4ebdd : 0x0d4a22, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
@@ -501,8 +567,20 @@
                 }
             }
         });
-        // elevation-shaded terrain surface from the bundled ETOPO grid, so land and sea floor sit at
-        // real height. null until the grid loads, while the flat coastline map above renders.
+        // city names (data/cities.json) inside the terrain's box, each on the drawn ground; animate3D
+        // shows the ones near the plane
+        const cityBox = typeof terrainExtent === 'function' ? terrainExtent() : null;
+        if (scene3D && typeof cities !== 'undefined') cities.forEach(cty => {
+            if (cityBox && (cty.lon < cityBox.lon0 || cty.lon > cityBox.lon1 || cty.lat < cityBox.lat0 || cty.lat > cityBox.lat1)) return;
+            const lbl = cityLabelMesh(cty.name);
+            lbl.at = get3DCoord(cty.lon, cty.lat, borderAlt([cty.lon, cty.lat]) + 60);
+            lbl.big = cty.big;
+            lbl.mesh.position.copy(lbl.at);
+            scene3D.add(lbl.mesh); _cityLabels.push(lbl);
+        });
+        // relief-shaded terrain surface from the bundled ETOPO grid (js/07c-terrain.js), so land and
+        // sea floor are drawn at real height. null until the grid loads, while the flat coastline map
+        // above renders.
         if (typeof buildTerrainMesh3D === 'function') { const terrainMesh = buildTerrainMesh3D(); if (terrainMesh) threeMapGroup.add(terrainMesh); }
         if(filteredData.length > 0) {
             // one vertex per 1 Hz sample, joined straight. no smoothing and no interpolation: the

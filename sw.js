@@ -63,6 +63,7 @@ const PRECACHE = [
     'assets/noaa-emblem.png',
 
     'data/airports.json',
+    'data/cities.json',
     'data/etopo-heightmap.png',
     'data/ne_50m_admin_0_countries.geojson',
     'data/ne_50m_lakes.geojson',

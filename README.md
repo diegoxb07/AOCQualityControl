@@ -68,7 +68,7 @@ The Error Summary modal prefills the flight id, takeoff/landing times, flight di
 
 ## Code architecture
 
-All the scripts are in `index.html' which makes it one global scope in which load order matters. There is no build step, no dependencies; all libraries, fonts, basemap, and the airport table ship in the repo.
+All the scripts are in `index.html' which makes it one global scope in which load order matters. There is no build step, no dependencies; all libraries, fonts, basemap, and the airport and city tables ship in the repo.
 
 `sw.js` precaches every asset (page, css/js, libs, fonts, basemap data) on the first visit and serves it cache-first from then on. The deploy workflow stamps `CACHE_VERSION` in `sw.js` with the commit SHA, using the same `sed` process that stamps the `?v=` tokens, so every deploy installs a fresh cache. Each file is revalidated against the server and is never trusted to the HTTP cache. The previous cache is dropped when the new one activates, and cached files are matched while ignoring the query string.
 

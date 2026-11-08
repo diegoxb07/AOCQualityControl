@@ -23,6 +23,7 @@ DIST = os.path.join(ROOT, 'dist')
 # text assets the app reads at runtime through fetch()
 TEXT_ASSETS = [
     'data/airports.json',
+    'data/cities.json',
     'data/us-states.json',
     'data/ne_50m_admin_0_countries.geojson',
     'data/ne_50m_lakes.geojson',

@@ -23,6 +23,9 @@
     // airfields for the 2D basemap: { code, name, lat, lon, big, mil }, filled by loadAirports()
     // (js/19-bootstrap.js) from data/airports.json. empty until it lands, and stays empty if it fails.
     let airports = [];
+    // city names for the 3D basemap: { name, lat, lon, big }, filled by loadCities()
+    // (js/19-bootstrap.js) from data/cities.json. empty until it lands, and stays empty if it fails.
+    let cities = [];
     let flightMetaData = { id: 'Unknown', date: 'Unknown', aircraft: 'Unknown' };
 
 

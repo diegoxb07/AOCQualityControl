@@ -51,6 +51,19 @@
             .catch(() => {});
     }
 
+    // city names for the 3D basemap, as [name, lat, lon, tier] (tier 1 = major). local-only like the
+    // airfields: a failed fetch just leaves the names off.
+    function loadCities() {
+        fetch('data/cities.json' + (typeof assetVer === 'function' ? assetVer() : ''))
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(rows => {
+                if (!Array.isArray(rows)) return;
+                cities = rows.map(c => ({ name: c[0], lat: c[1], lon: c[2], big: c[3] === 1 }));
+                if (filteredData.length > 0 && trackerModeSelect.value === '3d') build3DScene();
+            })
+            .catch(() => {});
+    }
+
     // data/ ships with the app, so the basemap is local-only and works offline.
     const fetchGeo = (localPath) =>
         fetch(localPath).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
@@ -73,6 +86,7 @@
         buildQcRegionLabels();
         bgNeedsUpdate = true; if (filteredData.length > 0 && trackerModeSelect.value === '2d') renderMapEngineFrame(currentIdx, filteredData[currentIdx]);
         loadAirports();
+        loadCities();
     }).catch(e => {});
 
     // one region label per labelable landmass for the QC flight map: the US state name (us-states),
